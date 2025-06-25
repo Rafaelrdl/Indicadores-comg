@@ -20,7 +20,7 @@ bash setup.sh
 2. Inicie a interface Streamlit:
 
 ```bash
-streamlit run presentation/streamlit_app.py
+PYTHONPATH=$(pwd) streamlit run presentation/streamlit_app.py
 ```
 
 ## Testes e qualidade de código
