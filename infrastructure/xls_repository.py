@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-import pandas as pd
+import os
 from pathlib import Path
 from typing import List
+
+import pandas as pd
 
 from domain.entities import OrderService
 
@@ -26,7 +28,9 @@ class OrderServiceXLSRepository:
         Returns:
             Lista de :class:`OrderService` carregadas do arquivo.
         """
-        df = pd.read_excel(self._file_path, engine="openpyxl")
+        ext = os.path.splitext(self._file_path)[1].lower()
+        engine = "xlrd" if ext == ".xls" else "openpyxl"
+        df = pd.read_excel(self._file_path, engine=engine)
         df = df.where(pd.notnull(df), None)
         orders = []
         for row in df.to_dict(orient="records"):

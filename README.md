@@ -14,12 +14,18 @@ pip install -r requirements.txt
 
 ## Execução da aplicação
 
-1. Coloque o arquivo `ordens_servico.xls` em uma pasta `data/` na raiz do projeto. O formato esperado pode ser visto em `tests/fixtures/sample_orders.xls`.
+1. Coloque o arquivo `ordens_servico.xls` ou `ordens_servico.xlsx` em uma pasta `data/` na raiz do projeto. O formato esperado pode ser visto em `tests/fixtures/sample_orders.xls`.
 2. Execute:
 
 ```bash
 pip install -r requirements.txt
 streamlit run presentation/streamlit_app.py
+```
+
+Se utilizar um arquivo `.xls`, instale também a dependência opcional `xlrd`:
+
+```bash
+pip install xlrd
 ```
 
 ## Testes e qualidade de código
