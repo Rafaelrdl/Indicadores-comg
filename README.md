@@ -1,2 +1,15 @@
-# Indicadores-comg
-Script para automatizar a geração dos indicadores de manutenção do Centro Oftamologico de Minas Gerais
+# Indicadores COMG
+
+Aplicação para cálculo de indicadores de manutenção.
+
+## Instalação
+
+```bash
+bash setup.sh
+```
+
+## Execução
+
+```bash
+streamlit run presentation/streamlit_app.py
+```
