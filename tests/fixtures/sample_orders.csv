@@ -1,0 +1,5 @@
+TIPO SERVIÇO,ESTADO,QUADRO DE TRABALHO,PRIORIDADE,Estado tempo atendimento,Estado tempo fechamento
+Manutenção Corretiva,Fechada,Engenharia Clínica,Emergente,Regular,Regular
+Manutenção Corretiva,Aberta,Engenharia Clínica,Urgente,Pendente,Pendente
+Manutenção Preventiva,Fechada,Engenharia Clínica,Urgente,Regular,Regular
+Manutenção Preventiva,Aberta,Engenharia Clínica,Pouco urgente,Pendente,Pendente
