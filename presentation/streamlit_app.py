@@ -16,20 +16,20 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
 from application.metrics import count_orders, orders_by_priority, percentage
-from infrastructure.csv_repository import OrderServiceCSVRepository
+from infrastructure.xls_repository import OrderServiceXLSRepository
 from domain.entities import OrderService
 
 
-DATA_FILE = Path("data/ordens_servico.csv")
+DATA_FILE = Path("data/ordens_servico.xls")
 
 
 def load_orders() -> List[OrderService]:
-    """Load orders from the CSV file configured in ``DATA_FILE``.
+    """Load orders from the XLS file configured in ``DATA_FILE``.
 
     Returns:
         Lista de :class:`OrderService` carregadas do disco.
     """
-    repo = OrderServiceCSVRepository(DATA_FILE)
+    repo = OrderServiceXLSRepository(DATA_FILE)
     return repo.load()
 
 

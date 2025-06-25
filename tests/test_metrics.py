@@ -5,11 +5,11 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from application.metrics import count_orders, percentage
 from domain.entities import OrderService
-from infrastructure.csv_repository import OrderServiceCSVRepository
+from infrastructure.xls_repository import OrderServiceXLSRepository
 
 
 def load_sample() -> list[OrderService]:
-    repo = OrderServiceCSVRepository(Path("tests/fixtures/sample_orders.csv"))
+    repo = OrderServiceXLSRepository(Path("tests/fixtures/sample_orders.xls"))
     return repo.load()
 
 
