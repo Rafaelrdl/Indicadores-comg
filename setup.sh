@@ -3,7 +3,7 @@ set -euo pipefail
 
 echo "Instalando dependências..."
 python -m pip install --upgrade pip
-pip install pandas streamlit
+pip install -r requirements.txt
 
 echo "Configurando PYTHONPATH..."
 export PYTHONPATH="$PYTHONPATH:$(pwd)"
