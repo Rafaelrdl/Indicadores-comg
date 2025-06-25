@@ -14,11 +14,17 @@ DATA_FILE = Path("data/ordens_servico.csv")
 
 
 def load_orders() -> List[OrderService]:
+    """Load orders from the CSV file configured in ``DATA_FILE``.
+
+    Returns:
+        Lista de :class:`OrderService` carregadas do disco.
+    """
     repo = OrderServiceCSVRepository(DATA_FILE)
     return repo.load()
 
 
 def main() -> None:
+    """Run Streamlit UI."""
     st.title("Indicadores de Manutenção")
     orders = load_orders()
 
