@@ -16,7 +16,7 @@ bash setup.sh
 
 ## Execução da aplicação
 
-1. Coloque o arquivo `ordens_servico.csv` em uma pasta `data/` na raiz do projeto. O formato esperado pode ser visto em `tests/fixtures/sample_orders.csv`.
+1. Coloque o arquivo `ordens_servico.xls` em uma pasta `data/` na raiz do projeto. O formato esperado pode ser visto em `tests/fixtures/sample_orders.xls`.
 2. Inicie a interface Streamlit:
 
 ```bash
