@@ -8,21 +8,18 @@ Projeto para cálculo e visualização de indicadores de manutenção.
 
 ## Instalação
 
-Clone o repositório e execute:
-
 ```bash
-bash setup.sh
+pip install -r requirements.txt
 ```
-
-Este script instalará as dependências listadas em ``requirements.txt``.
 
 ## Execução da aplicação
 
-1. Coloque o arquivo `ordens_servico.xlsx` em uma pasta `data/` na raiz do projeto. O formato esperado pode ser visto em `tests/fixtures/sample_orders.xlsx`.
-2. Inicie a interface Streamlit:
+1. Coloque o arquivo `ordens_servico.xls` em uma pasta `data/` na raiz do projeto. O formato esperado pode ser visto em `tests/fixtures/sample_orders.xls`.
+2. Execute:
 
 ```bash
-PYTHONPATH=$(pwd) streamlit run presentation/streamlit_app.py
+pip install -r requirements.txt
+streamlit run presentation/streamlit_app.py
 ```
 
 ## Testes e qualidade de código
@@ -32,4 +29,3 @@ ruff check .
 ruff format .
 pytest -q
 ```
-
