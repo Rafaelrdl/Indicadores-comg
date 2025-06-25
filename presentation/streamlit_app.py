@@ -1,9 +1,19 @@
 """Streamlit application to visualize maintenance indicators."""
+# ruff: noqa: E402
+
+from __future__ import annotations
 
 from pathlib import Path
 from typing import List
 
 import streamlit as st
+
+# Ensure the repository root is in ``sys.path`` when running via ``streamlit``
+import sys
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
 
 from application.metrics import count_orders, orders_by_priority, percentage
 from infrastructure.csv_repository import OrderServiceCSVRepository
