@@ -15,7 +15,7 @@ load_dotenv()
 # URL base da API
 BASE_URL = os.getenv("BASE_URL")
 # Prefixo usado por todos os endpoints de dados
-API_PREFIX = os.getenv("ARKMEDS_API_PREFIX", "/api/v2").rstrip("/")
+API_PREFIX = os.getenv("ARKMEDS_API_PREFIX", "/api/v5").rstrip("/")
 # Credenciais padrão podem ser definidas via variáveis de ambiente
 EMAIL = os.getenv("ARKMEDS_EMAIL")
 PASSWORD = os.getenv("ARKMEDS_PASSWORD")
@@ -96,11 +96,16 @@ def get_assets(**params: Any) -> Any:
     return _request("GET", "assets/", params=params)
 
 
-def get_workorders(status: Optional[str] = None, **params: Any) -> Any:
-    """Retrieve work orders, optionally filtering by status."""
-    if status is not None:
-        params["status"] = status
-    return _request("GET", "workorders/", params=params)
+def get_ordens_servico(page: int | None = None, page_size: int = 30) -> Any:
+    """Retrieve ordens de serviço from the API."""
+    params = (
+        {"page": page, "page_size": page_size} if page else {"page_size": page_size}
+    )
+    return _request("GET", "ordem_servico/", params=params)
+
+
+# Mantém alias para retrocompatibilidade
+get_workorders = get_ordens_servico
 
 
 def get_tickets(status: Optional[str] = None, **params: Any) -> Any:
