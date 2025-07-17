@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # URL base da API
-BASE_URL = os.getenv("BASE_URL", "https://api-os.arkmeds.com")
+BASE_URL = os.getenv("BASE_URL")
 # Credenciais padrão podem ser definidas via variáveis de ambiente
 EMAIL = os.getenv("ARKMEDS_EMAIL")
 PASSWORD = os.getenv("ARKMEDS_PASSWORD")
