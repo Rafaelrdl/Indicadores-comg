@@ -4,6 +4,9 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from application.metrics import count_orders, percentage
+import pytest
+
+pytest.importorskip("pandas")
 from domain.entities import OrderService
 from infrastructure.xls_repository import OrderServiceXLSRepository
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import time
 from typing import Any, Dict, Optional
+from urllib.parse import urljoin
 
 import requests
 from dotenv import load_dotenv
@@ -30,14 +31,40 @@ _TS = 0.0
 TTL = 3600  # 1 hour
 
 
+# All known API routes grouped by version
+ROUTES = {
+    # ------------- v5 -------------
+    "ordem_servico": "/api/v5/ordem_servico/",
+    "chamado": "/api/v5/chamado/",
+    "oficina": "/api/v5/oficina/",
+    "company": "/api/v5/company/",
+    "company_detail": "/api/v5/company/{id}",
+    "company_equipaments": "/api/v5/company/equipaments/",
+    "equipament_detail": "/api/v5/equipament/{id}",
+    # ------------- v4 -------------
+    "servico_orcamento": "/api/v4/servico_orcamento/",
+    # ------------- v3 -------------
+    "estado_ordem_servico": "/api/v3/estado_ordem_servico/",
+    "origem_problema": "/api/v3/origem_problema/",
+    "problema_relatado": "/api/v3/problema_relatado/",
+    "tipo_servico": "/api/v3/tipo_servico/",
+    # ------------- v2 -------------
+    "part_type": "/api/v2/part_type/",
+    "part": "/api/v2/part/",
+    "part_item": "/api/v2/part_item/",
+    "company_create": "/api/v2/company/",
+}
+
+
+def _endpoint(key: str, **fmt: Any) -> str:
+    """Return a formatted API path for the given key."""
+    path = ROUTES[key]  # may raise ``KeyError`` if missing
+    return path.format(**fmt) if fmt else path
+
+
 def _url(path: str) -> str:
-    """Concatena BASE_URL, prefixo e rota, evitando barras duplicadas."""
-    if path.startswith("/"):
-        path = path[1:]
-    base = BASE_URL.rstrip("/")
-    if base.endswith(API_PREFIX):
-        return f"{base}/{path}"
-    return f"{base}{API_PREFIX}/{path}"
+    """Join ``BASE_URL`` and ``path`` ensuring a valid URL."""
+    return urljoin(BASE_URL or "", path.lstrip("/"))
 
 
 def set_credentials(email: str, password: str) -> None:
@@ -96,16 +123,31 @@ def get_assets(**params: Any) -> Any:
     return _request("GET", "assets/", params=params)
 
 
-def get_ordens_servico(page: int | None = None, page_size: int = 30) -> Any:
+def list_ordens_servico(page: int | None = None, page_size: int = 30) -> Any:
     """Retrieve ordens de serviço from the API."""
     params = (
         {"page": page, "page_size": page_size} if page else {"page_size": page_size}
     )
-    return _request("GET", "ordem_servico/", params=params)
+    return _request("GET", _endpoint("ordem_servico"), params=params)
+
+
+def get_ordem_servico(id: int) -> Any:
+    """Retrieve a single ordem de serviço by id."""
+    return _request("GET", _endpoint("ordem_servico") + f"{id}")
+
+
+def list_companies() -> Any:
+    """List registered companies."""
+    return _request("GET", _endpoint("company"))
+
+
+def create_company(payload: Dict[str, Any]) -> Any:
+    """Create a company using API v2."""
+    return _request("POST", _endpoint("company_create"), json=payload)
 
 
 # Mantém alias para retrocompatibilidade
-get_workorders = get_ordens_servico
+get_workorders = list_ordens_servico
 
 
 def get_tickets(status: Optional[str] = None, **params: Any) -> Any:

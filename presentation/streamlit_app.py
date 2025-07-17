@@ -64,7 +64,7 @@ def ensure_login() -> bool:
 def load_orders(api_prefix: str = arkmeds_client.API_PREFIX) -> List[OrderService]:
     """Fetch ordens de serviço from Arkmeds API."""
     # Consulta a API e converte cada item para a entidade ``OrderService``
-    data = arkmeds_client.get_ordens_servico()
+    data = arkmeds_client.list_ordens_servico()
     orders: List[OrderService] = []
     for item in data:
         orders.append(
