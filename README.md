@@ -43,9 +43,27 @@ pip install -r requirements.txt
 
 ## Endpoints principais
 
-- Ordens de Serviço: `/api/v5/ordem_servico/`
-- Chamados: `/api/v5/chamado/`
-- Peças: `/api/v2/part/`
+| Rota | Versão |
+|------|--------|
+| `/api/v5/ordem_servico/` | v5 |
+| `/api/v5/chamado/` | v5 |
+| `/api/v5/oficina/` | v5 |
+| `/api/v5/company/` | v5 |
+| `/api/v5/company/{id}` | v5 |
+| `/api/v5/company/equipaments/` | v5 |
+| `/api/v5/equipament/{id}` | v5 |
+| `/api/v4/servico_orcamento/` | v4 |
+| `/api/v3/estado_ordem_servico/` | v3 |
+| `/api/v3/origem_problema/` | v3 |
+| `/api/v3/problema_relatado/` | v3 |
+| `/api/v3/tipo_servico/` | v3 |
+| `/api/v2/part_type/` | v2 |
+| `/api/v2/part/` | v2 |
+| `/api/v2/part_item/` | v2 |
+| `/api/v2/company/` | v2 |
+
+Novas rotas podem ser incluídas editando o dicionário ``ROUTES`` em
+`infrastructure/arkmeds_client.py`.
 
 Caso sua instância utilize outra versão, ajuste a variável ``ARKMEDS_API_PREFIX``.
 
