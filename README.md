@@ -24,11 +24,15 @@ pip install -r requirements.txt
    ARKMEDS_PASSWORD=<sua-senha>
    # Opcional: informe um token obtido previamente
    ARKMEDS_TOKEN=<seu-token>
-   BASE_URL=https://api-os.arkmeds.com
+   BASE_URL=https://<slug>.arkmeds.com
+   # Opcional quando ``BASE_URL`` não inclui o prefixo
+   ARKMEDS_API_PREFIX=/api/v2
    ```
 
-   Para apontar para ambientes de staging ou produção, altere o valor de
-   `BASE_URL` conforme necessário.
+   Você pode definir ``BASE_URL`` de duas formas:
+
+   1. ``BASE_URL=https://<slug>.arkmeds.com/api/v2``
+   2. ``BASE_URL=https://<slug>.arkmeds.com`` e ``ARKMEDS_API_PREFIX=/api/v2``
 
 2. Inicie a aplicação via Streamlit:
 
