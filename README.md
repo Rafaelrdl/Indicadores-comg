@@ -14,19 +14,24 @@ pip install -r requirements.txt
 
 ## Execução da aplicação
 
-1. Coloque o arquivo `ordens_servico.xls` ou `ordens_servico.xlsx` em uma pasta `data/` na raiz do projeto. O formato esperado pode ser visto em `tests/fixtures/sample_orders.xls`.
+1. Defina as variáveis de ambiente da API Arkmeds (pode ser em um arquivo `.env`
+   ou em `.streamlit/secrets.toml`):
+
+   ```bash
+   ARKMEDS_EMAIL=<seu-email>
+   ARKMEDS_PASSWORD=<sua-senha>
+   BASE_URL=https://api-os.arkmeds.com
+   ```
+
+   Para apontar para ambientes de staging ou produção, altere o valor de
+   `BASE_URL` conforme necessário.
+
 2. Execute:
 
-```bash
-pip install -r requirements.txt
-streamlit run presentation/streamlit_app.py
-```
-
-Se utilizar um arquivo `.xls`, instale também a dependência opcional `xlrd`:
-
-```bash
-pip install xlrd
-```
+   ```bash
+   pip install -r requirements.txt
+   streamlit run presentation/streamlit_app.py
+   ```
 
 ## Testes e qualidade de código
 

@@ -16,26 +16,60 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
 from application.metrics import count_orders, orders_by_priority, percentage
-from infrastructure.xls_repository import OrderServiceXLSRepository
+from infrastructure import arkmeds_client
 from domain.entities import OrderService
 
 
-DATA_FILE = Path("data/ordens_servico.xls")
+def ensure_login() -> bool:
+    """Ask for Arkmeds credentials if not provided via ``st.secrets``."""
+    if "ARKMEDS_EMAIL" in st.secrets:
+        arkmeds_client.set_credentials(
+            st.secrets["ARKMEDS_EMAIL"],
+            st.secrets.get("ARKMEDS_PASSWORD", ""),
+        )
+        return True
+
+    email = st.text_input("Email")
+    password = st.text_input("Senha", type="password")
+    if st.button("Entrar"):
+        arkmeds_client.set_credentials(email, password)
+        try:
+            arkmeds_client.get_token(force=True)
+            st.session_state["ark_logged"] = True
+        except Exception:
+            st.error("Erro de autenticação")
+
+    return st.session_state.get("ark_logged", False)
 
 
+@st.cache_data(ttl=600)
 def load_orders() -> List[OrderService]:
-    """Load orders from the XLS file configured in ``DATA_FILE``.
-
-    Returns:
-        Lista de :class:`OrderService` carregadas do disco.
-    """
-    repo = OrderServiceXLSRepository(DATA_FILE)
-    return repo.load()
+    """Fetch work orders from Arkmeds API."""
+    data = arkmeds_client.get_workorders()
+    orders: List[OrderService] = []
+    for item in data:
+        orders.append(
+            OrderService(
+                tipo_servico=item.get("tipo_servico") or item.get("service_type", ""),
+                estado=item.get("estado") or item.get("status", ""),
+                quadro_trabalho=item.get("quadro_trabalho")
+                or item.get("department", ""),
+                prioridade=item.get("prioridade") or item.get("priority", ""),
+                estado_tempo_atendimento=item.get("estado_tempo_atendimento")
+                or item.get("time_to_attend_status"),
+                estado_tempo_fechamento=item.get("estado_tempo_fechamento")
+                or item.get("time_to_close_status"),
+            )
+        )
+    return orders
 
 
 def main() -> None:
     """Run Streamlit UI."""
     st.title("Indicadores de Manutenção")
+    if not ensure_login():
+        st.stop()
+
     orders = load_orders()
 
     total_corretivas = count_orders(orders, tipo_servico="Manutenção Corretiva")
