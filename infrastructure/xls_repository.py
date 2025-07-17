@@ -29,11 +29,16 @@ class OrderServiceXLSRepository:
             Lista de :class:`OrderService` carregadas do arquivo.
         """
         ext = os.path.splitext(self._file_path)[1].lower()
+        # Seleciona o engine apropriado conforme a extensão do arquivo
         engine = "xlrd" if ext == ".xls" else "openpyxl"
+        # Carrega a planilha para um DataFrame
         df = pd.read_excel(self._file_path, engine=engine)
+        # Substitui valores NaN por ``None`` para facilitar o uso posterior
         df = df.where(pd.notnull(df), None)
         orders = []
+        # Cada linha do DataFrame é convertida para um dicionário
         for row in df.to_dict(orient="records"):
+            # Constrói a entidade ``OrderService`` a partir das colunas do Excel
             orders.append(
                 OrderService(
                     tipo_servico=row.get("TIPO SERVIÇO", ""),
