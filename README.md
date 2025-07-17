@@ -22,6 +22,8 @@ pip install -r requirements.txt
    ```bash
    ARKMEDS_EMAIL=<seu-email>
    ARKMEDS_PASSWORD=<sua-senha>
+   # Opcional: informe um token obtido previamente
+   ARKMEDS_TOKEN=<seu-token>
    BASE_URL=https://api-os.arkmeds.com
    ```
 

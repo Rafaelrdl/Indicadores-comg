@@ -17,6 +17,8 @@ BASE_URL = os.getenv("BASE_URL")
 # Credenciais padrão podem ser definidas via variáveis de ambiente
 EMAIL = os.getenv("ARKMEDS_EMAIL")
 PASSWORD = os.getenv("ARKMEDS_PASSWORD")
+# Token definido manualmente via variável de ambiente ou ``set_token``
+_TOKEN_OVERRIDE: Optional[str] = os.getenv("ARKMEDS_TOKEN")
 
 # Token obtido após a autenticação; guardado em memória
 _TOKEN: Optional[str] = None
@@ -35,9 +37,17 @@ def set_credentials(email: str, password: str) -> None:
     _TS = 0.0
 
 
+def set_token(token: str) -> None:
+    """Configure a fixed authentication token."""
+    global _TOKEN_OVERRIDE
+    _TOKEN_OVERRIDE = token
+
+
 def get_token(force: bool = False) -> str:
     """Return a valid token, refreshing if necessary."""
     global _TOKEN, _TS
+    if _TOKEN_OVERRIDE:
+        return _TOKEN_OVERRIDE
     if not force and _TOKEN and time.time() - _TS < TTL:
         return _TOKEN
     if not EMAIL or not PASSWORD:
