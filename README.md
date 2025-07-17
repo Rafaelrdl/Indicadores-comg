@@ -26,19 +26,28 @@ pip install -r requirements.txt
    ARKMEDS_TOKEN=<seu-token>
    BASE_URL=https://<slug>.arkmeds.com
    # Opcional quando ``BASE_URL`` não inclui o prefixo
-   ARKMEDS_API_PREFIX=/api/v2
+   ARKMEDS_API_PREFIX=/api/v5   # deixe vazio se ``BASE_URL`` já inclui o prefixo
    ```
 
    Você pode definir ``BASE_URL`` de duas formas:
 
-   1. ``BASE_URL=https://<slug>.arkmeds.com/api/v2``
-   2. ``BASE_URL=https://<slug>.arkmeds.com`` e ``ARKMEDS_API_PREFIX=/api/v2``
+   1. ``BASE_URL=https://<slug>.arkmeds.com/api/v5``
+   2. ``BASE_URL=https://<slug>.arkmeds.com`` e ``ARKMEDS_API_PREFIX=/api/v5``
 
 2. Inicie a aplicação via Streamlit:
 
    ```bash
+
    streamlit run presentation/streamlit_app.py
    ```
+
+## Endpoints principais
+
+- Ordens de Serviço: `/api/v5/ordem_servico/`
+- Chamados: `/api/v5/chamado/`
+- Peças: `/api/v2/part/`
+
+Caso sua instância utilize outra versão, ajuste a variável ``ARKMEDS_API_PREFIX``.
 
 ## Testes e qualidade de código
 
