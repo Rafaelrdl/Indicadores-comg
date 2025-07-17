@@ -23,7 +23,10 @@ from domain.entities import OrderService
 
 def ensure_login() -> bool:
     """Ask for Arkmeds credentials if not provided via ``st.secrets``."""
-    # Quando executado no Streamlit Cloud, as credenciais podem vir de ``st.secrets``
+    # Quando executado no Streamlit Cloud, as credenciais ou o token podem vir de ``st.secrets``
+    if "ARKMEDS_TOKEN" in st.secrets:
+        arkmeds_client.set_token(st.secrets["ARKMEDS_TOKEN"])
+        return True
     if "ARKMEDS_EMAIL" in st.secrets:
         arkmeds_client.set_credentials(
             st.secrets["ARKMEDS_EMAIL"],
@@ -31,16 +34,21 @@ def ensure_login() -> bool:
         )
         return True
 
+    token = st.text_input("Token", type="password")
     email = st.text_input("Email")
     password = st.text_input("Senha", type="password")
     # Autentica o usuário manualmente
     if st.button("Entrar"):
-        arkmeds_client.set_credentials(email, password)
-        try:
-            arkmeds_client.get_token(force=True)
+        if token:
+            arkmeds_client.set_token(token)
             st.session_state["ark_logged"] = True
-        except Exception:
-            st.error("Erro de autenticação")
+        else:
+            arkmeds_client.set_credentials(email, password)
+            try:
+                arkmeds_client.get_token(force=True)
+                st.session_state["ark_logged"] = True
+            except Exception:
+                st.error("Erro de autenticação")
 
     return st.session_state.get("ark_logged", False)
 
