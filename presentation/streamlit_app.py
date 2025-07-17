@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import List
+import os
 
 import streamlit as st
 
@@ -22,35 +23,41 @@ from domain.entities import OrderService
 
 
 def ensure_login() -> bool:
-    """Ask for Arkmeds credentials if not provided via ``st.secrets``."""
-    # Quando executado no Streamlit Cloud, as credenciais ou o token podem vir de ``st.secrets``
-    if "ARKMEDS_TOKEN" in st.secrets:
-        arkmeds_client.set_token(st.secrets["ARKMEDS_TOKEN"])
-        return True
-    if "ARKMEDS_EMAIL" in st.secrets:
-        arkmeds_client.set_credentials(
-            st.secrets["ARKMEDS_EMAIL"],
-            st.secrets.get("ARKMEDS_PASSWORD", ""),
-        )
-        return True
+    """Retrieve credentials from secrets/env and present login UI if needed."""
+    try:
+        secrets = st.secrets
+    except FileNotFoundError:
+        secrets = {}
 
-    token = st.text_input("Token", type="password")
-    email = st.text_input("Email")
-    password = st.text_input("Senha", type="password")
-    # Autentica o usuário manualmente
-    if st.button("Entrar"):
-        if token:
-            arkmeds_client.set_token(token)
-            st.session_state["ark_logged"] = True
-        else:
-            arkmeds_client.set_credentials(email, password)
+    token = secrets.get("ARKMEDS_TOKEN") or os.getenv("ARKMEDS_TOKEN")
+    email = secrets.get("ARKMEDS_EMAIL") or os.getenv("ARKMEDS_EMAIL")
+    password = secrets.get("ARKMEDS_PASSWORD") or os.getenv("ARKMEDS_PASSWORD")
+
+    if token:
+        arkmeds_client.set_token(token)
+    elif email:
+        arkmeds_client.set_credentials(email, password or "")
+    else:
+        token = st.text_input("Token", type="password")
+        email = st.text_input("Email")
+        password = st.text_input("Senha", type="password")
+        if st.button("Entrar"):
+            if token:
+                arkmeds_client.set_token(token)
+            else:
+                arkmeds_client.set_credentials(email, password)
             try:
                 arkmeds_client.get_token(force=True)
                 st.session_state["ark_logged"] = True
             except Exception:
                 st.error("Erro de autenticação")
+        return st.session_state.get("ark_logged", False)
 
-    return st.session_state.get("ark_logged", False)
+    try:
+        arkmeds_client.get_token(force=True)
+    except Exception:
+        return False
+    return True
 
 
 @st.cache_data(ttl=600)
