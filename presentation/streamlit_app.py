@@ -11,6 +11,7 @@ import streamlit as st
 # Ensure the repository root is in ``sys.path`` when running via ``streamlit``
 import sys
 
+# Permite executar o app diretamente via ``streamlit run``
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
@@ -22,6 +23,7 @@ from domain.entities import OrderService
 
 def ensure_login() -> bool:
     """Ask for Arkmeds credentials if not provided via ``st.secrets``."""
+    # Quando executado no Streamlit Cloud, as credenciais podem vir de ``st.secrets``
     if "ARKMEDS_EMAIL" in st.secrets:
         arkmeds_client.set_credentials(
             st.secrets["ARKMEDS_EMAIL"],
@@ -31,6 +33,7 @@ def ensure_login() -> bool:
 
     email = st.text_input("Email")
     password = st.text_input("Senha", type="password")
+    # Autentica o usuário manualmente
     if st.button("Entrar"):
         arkmeds_client.set_credentials(email, password)
         try:
@@ -45,6 +48,7 @@ def ensure_login() -> bool:
 @st.cache_data(ttl=600)
 def load_orders() -> List[OrderService]:
     """Fetch work orders from Arkmeds API."""
+    # Consulta a API e converte cada item para a entidade ``OrderService``
     data = arkmeds_client.get_workorders()
     orders: List[OrderService] = []
     for item in data:
@@ -70,8 +74,10 @@ def main() -> None:
     if not ensure_login():
         st.stop()
 
+    # Obtém as ordens da API
     orders = load_orders()
 
+    # Calcula indicadores de corretivas
     total_corretivas = count_orders(orders, tipo_servico="Manutenção Corretiva")
     total_corretivas_fechadas = count_orders(
         orders, tipo_servico="Manutenção Corretiva", estado="Fechada"
@@ -83,6 +89,7 @@ def main() -> None:
     st.metric("Fechadas", total_corretivas_fechadas)
     st.metric("% Fechadas", f"{percentual_corretivas:.2f}%")
 
+    # Calcula indicadores de preventivas
     total_preventivas = count_orders(orders, tipo_servico="Manutenção Preventiva")
     total_preventivas_fechadas = count_orders(
         orders, tipo_servico="Manutenção Preventiva", estado="Fechada"
@@ -95,6 +102,7 @@ def main() -> None:
     st.metric("% Fechadas", f"{percentual_preventivas:.2f}%")
 
     st.header("Prioridades")
+    # Agrupa ordens pela prioridade definida
     priorities = orders_by_priority(orders)
     st.bar_chart(priorities)
 

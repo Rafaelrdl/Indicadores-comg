@@ -19,6 +19,7 @@ def count_orders(orders: Iterable[OrderService], **filters: str) -> int:
     return sum(
         1
         for o in orders
+        # ``all`` garante que todos os filtros sejam satisfeitos
         if all(getattr(o, field) == value for field, value in filters.items())
     )
 
@@ -33,6 +34,7 @@ def percentage(part: int, whole: int) -> float:
     Returns:
         Percentual correspondente ou ``0.0`` quando ``whole`` é ``0``.
     """
+    # Evita divisão por zero quando ``whole`` é zero
     return 0.0 if whole == 0 else (part / whole) * 100
 
 
@@ -45,4 +47,5 @@ def orders_by_priority(orders: Iterable[OrderService]) -> Counter:
     Returns:
         ``Counter`` com a quantidade de ordens por prioridade.
     """
+    # ``Counter`` facilita a contagem de itens repetidos em uma única etapa
     return Counter(o.prioridade for o in orders)

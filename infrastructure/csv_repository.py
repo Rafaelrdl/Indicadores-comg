@@ -25,6 +25,7 @@ class OrderServiceCSVRepository:
             Lista de :class:`OrderService` carregadas do CSV.
         """
         orders: List[OrderService] = []
+        # Leitura do CSV utilizando ``DictReader`` para mapear colunas
         with self._file_path.open(newline="", encoding="utf-8") as fp:
             reader = csv.DictReader(fp)
             for row in reader:
