@@ -27,12 +27,25 @@ pip install -r requirements.txt
    BASE_URL=https://<slug>.arkmeds.com
    # Opcional quando ``BASE_URL`` não inclui o prefixo
    ARKMEDS_API_PREFIX=/api/v5   # deixe vazio se ``BASE_URL`` já inclui o prefixo
+   # Prefixo do cabeçalho de autenticação (padrão JWT)
+   # ARKMEDS_AUTH_PREFIX=JWT
    ```
 
    Você pode definir ``BASE_URL`` de duas formas:
 
    1. ``BASE_URL=https://<slug>.arkmeds.com/api/v5``
    2. ``BASE_URL=https://<slug>.arkmeds.com`` e ``ARKMEDS_API_PREFIX=/api/v5``
+
+### Autenticação
+
+A Arkmeds utiliza JSON Web Token (JWT). O cabeçalho deve conter:
+
+```
+Authorization: JWT <token>
+```
+
+Caso sua instância utilize outro prefixo, defina ``ARKMEDS_AUTH_PREFIX`` nas
+variáveis de ambiente ou em ``.streamlit/secrets.toml``.
 
 2. Inicie a aplicação via Streamlit:
 
