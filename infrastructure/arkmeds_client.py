@@ -127,12 +127,10 @@ def get_assets(**params: Any) -> Any:
     return _request("GET", "assets/", params=params)
 
 
-def list_ordens_servico(page: int | None = None, page_size: int = 30) -> Any:
-    """Retrieve ordens de serviço from the API."""
-    params = (
-        {"page": page, "page_size": page_size} if page else {"page_size": page_size}
-    )
-    return _request("GET", _endpoint("ordem_servico"), params=params)
+def list_ordens_servico(page:int|None=None, page_size:int=30) -> list[dict]:
+    params = {"page": page, "page_size": page_size} if page else {"page_size": page_size}
+    data = _request("GET", _endpoint("ordem_servico"), params=params)
+    return data.get("results", data)   # se não for paginado, devolve direto
 
 
 def get_ordem_servico(id: int) -> Any:
