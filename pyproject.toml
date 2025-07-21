@@ -1,3 +1,0 @@
-[tool.ruff]
-extend-exclude = ["*.ipynb"]
-line-length = 88
