@@ -47,11 +47,15 @@ Authorization: JWT <token>
 Caso sua instância utilize outro prefixo, defina ``ARKMEDS_AUTH_PREFIX`` nas
 variáveis de ambiente ou em ``.streamlit/secrets.toml``.
 
-2. Inicie a aplicação via Streamlit:
+2. Inicie a aplicação via Streamlit. É possível rodar a página principal ou a
+   página de métricas:
 
    ```bash
-
+   # Página principal
    streamlit run presentation/streamlit_app.py
+
+   # Página focada em métricas
+   streamlit run pages/02_os_metrics.py
    ```
 
 ## Endpoints principais
