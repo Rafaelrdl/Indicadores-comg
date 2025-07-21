@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+.Python
+env/
+venv/
+ENV/
+venv.bak/
+# Poetry
+poetry.lock
+.venv/
+
+# MacOS
+.DS_Store
+
+# Linux
+*~
+
+# secrets
+.streamlit/secrets.toml
+
+# IDE
+.idea/
+.vscode/
