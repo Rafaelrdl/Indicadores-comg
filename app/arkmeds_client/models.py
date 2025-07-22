@@ -64,6 +64,7 @@ class OS(ArkBase):
     responsavel: User | None = None
     created_at: datetime = Field(alias="data_criacao")
     closed_at: datetime | None = Field(default=None, alias="data_fechamento")
+    equipment_id: int | None = Field(default=None, alias="equipamento_id")
 
     @field_validator("created_at", "closed_at", mode="before")
     @classmethod

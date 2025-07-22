@@ -81,3 +81,17 @@ client = ArkmedsClient(auth)
 metrics = await compute_metrics(client, dt_ini=date(2025, 1, 1), dt_fim=date(2025, 1, 31))
 print(metrics)
 ```
+
+## KPIs de Equipamentos
+
+```python
+from app.services.equip_metrics import compute_metrics
+from app.arkmeds_client.auth import ArkmedsAuth
+from app.arkmeds_client.client import ArkmedsClient
+from datetime import date
+
+auth = ArkmedsAuth.from_secrets()
+client = ArkmedsClient(auth)
+metrics = await compute_metrics(client, dt_ini=date(2025, 1, 1), dt_fim=date(2025, 1, 31))
+print(metrics)
+```
