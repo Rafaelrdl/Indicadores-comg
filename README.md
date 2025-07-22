@@ -109,3 +109,11 @@ client = ArkmedsClient(auth)
 metrics = await compute_metrics(client, dt_ini=date(2025, 1, 1), dt_fim=date(2025, 1, 31))
 print(metrics)
 ```
+
+## Filtros Globais
+
+Componente reutilizável para seleção de datas e opções na sidebar. O estado é
+preservado em `st.session_state["filters"]` e um contador `filtros_version`
+permite detectar mudanças.
+
+![Filtros](docs/filtros.gif)
