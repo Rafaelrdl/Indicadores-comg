@@ -7,7 +7,7 @@ Projeto para centralizar indicadores da plataforma Arkmeds utilizando Streamlit 
 - Python 3.12+
 - [Poetry](https://python-poetry.org/docs/#installation)
 
-## Como Rodar Localmente
+## Rodando o App
 ```bash
 poetry install
 poetry run streamlit run app/main.py
