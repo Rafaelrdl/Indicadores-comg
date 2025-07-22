@@ -28,3 +28,6 @@ poetry.lock
 # IDE
 .idea/
 .vscode/
+
+scripts/*.pyc
+scripts/*.log
