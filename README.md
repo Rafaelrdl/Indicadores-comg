@@ -30,6 +30,16 @@ app/
 2. Preencha as variáveis com suas credenciais reais.
 3. Opcionalmente deixe `token` vazio para que o login seja feito automaticamente.
 
+## Autenticação
+Utilize o `ArkmedsAuth` para obter um JWT de forma transparente.
+
+```python
+from arkmeds_client.auth import ArkmedsAuth
+
+auth = ArkmedsAuth.from_secrets()
+token = await auth.get_token()
+```
+
 ## Contribuindo
 1. Instale os hooks do pre-commit dentro do ambiente do Poetry:
    ```bash
