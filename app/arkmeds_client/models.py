@@ -24,6 +24,7 @@ class ArkBase(BaseModel):
 class OSEstado(Enum):
     ABERTA = 1
     FECHADA = 4
+    CANCELADA = 5
 
 
 class TipoOS(ArkBase):
