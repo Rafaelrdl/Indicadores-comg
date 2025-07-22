@@ -23,7 +23,12 @@ app/
 ```
 
 ## Configuração de secrets
-Copie `secrets.toml.example` para `.streamlit/secrets.toml` e preencha os campos necessários.
+1. Copie o arquivo de exemplo:
+   ```bash
+   cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+   ```
+2. Preencha as variáveis com suas credenciais reais.
+3. Opcionalmente deixe `token` vazio para que o login seja feito automaticamente.
 
 ## Contribuindo
 1. Instale os hooks do pre-commit dentro do ambiente do Poetry:
