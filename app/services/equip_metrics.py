@@ -49,8 +49,7 @@ async def _async_compute(
     manutencao_ids = {
         os_obj.equipment_id
         for os_obj in os_corr
-        if os_obj.equipment_id is not None
-        and os_obj.estado.id != OSEstado.FECHADA.value
+        if os_obj.equipment_id is not None and os_obj.estado.id != OSEstado.FECHADA.value
     }
     em_manutencao = len(manutencao_ids)
 
@@ -72,9 +71,7 @@ async def _async_compute(
             continue
         items.sort(key=lambda o: o.created_at)
         for i in range(1, len(items)):
-            intervals.append(
-                (items[i].created_at - items[i - 1].created_at).total_seconds()
-            )
+            intervals.append((items[i].created_at - items[i - 1].created_at).total_seconds())
     mtbf_h = mean(intervals) / 3600 if intervals else 0.0
 
     return EquipMetrics(
@@ -98,9 +95,7 @@ def _cached_compute(
     _client: ArkmedsClient,
 ) -> EquipMetrics:
     filters = dict(frozen_filters)
-    return asyncio.run(
-        _async_compute(_client, dt_ini=dt_ini, dt_fim=dt_fim, filters=filters)
-    )
+    return asyncio.run(_async_compute(_client, dt_ini=dt_ini, dt_fim=dt_fim, filters=filters))
 
 
 async def compute_metrics(

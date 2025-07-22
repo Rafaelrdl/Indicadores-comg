@@ -85,4 +85,3 @@ class ArkmedsClient:
     async def list_users(self, **filters: Any) -> List[User]:
         data = await self._get_all_pages("/api/v3/users/", filters)
         return [User.model_validate(item) for item in data]
-

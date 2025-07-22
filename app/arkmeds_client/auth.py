@@ -65,7 +65,7 @@ class ArkmedsAuth:
             except httpx.RequestError as exc:
                 if attempt == self.max_tries - 1:
                     raise ArkmedsAuthError("Connection error") from exc
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
         raise ArkmedsAuthError("Unable to authenticate")
 
     async def refresh(self) -> None:
