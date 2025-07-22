@@ -142,3 +142,11 @@ Ranking de desempenho por responsável, com indicadores de pendências,
 concluídas, SLA médio e tempo de fechamento.
 
 ![Técnicos](docs/tech_page.png)
+
+## Docker Multi-Arch
+
+Para gerar a imagem para arm64 e amd64 utilize:
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t rafael/arkmeds-dashboard:latest .
+```
+
