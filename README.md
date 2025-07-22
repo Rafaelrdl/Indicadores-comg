@@ -24,3 +24,14 @@ app/
 
 ## Configuração de secrets
 Copie `secrets.toml.example` para `.streamlit/secrets.toml` e preencha os campos necessários.
+
+## Contribuindo
+1. Instale os hooks do pre-commit dentro do ambiente do Poetry:
+   ```bash
+   poetry shell
+   pre-commit install
+   ```
+2. Para atualizar as versões dos hooks:
+   ```bash
+   pre-commit autoupdate
+   ```
