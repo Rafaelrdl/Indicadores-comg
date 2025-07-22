@@ -123,3 +123,9 @@ permite detectar mudanças.
 Screenshot demonstrando os indicadores e a tabela filtrada.
 
 ![Ordens de Serviço](docs/os_page.png)
+
+## Página de Equipamentos
+
+Visão geral do parque de equipamentos e métricas de manutenção.
+
+![Equipamentos](docs/equip_page.png)
