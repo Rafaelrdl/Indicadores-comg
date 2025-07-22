@@ -117,3 +117,9 @@ preservado em `st.session_state["filters"]` e um contador `filtros_version`
 permite detectar mudanças.
 
 ![Filtros](docs/filtros.gif)
+
+## Página de Ordens de Serviço
+
+Screenshot demonstrando os indicadores e a tabela filtrada.
+
+![Ordens de Serviço](docs/os_page.png)

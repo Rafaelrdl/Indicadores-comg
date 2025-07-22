@@ -4,6 +4,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 
 import httpx
+import streamlit as st
 from aiolimiter import AsyncLimiter
 
 from .auth import ArkmedsAuth
@@ -18,6 +19,16 @@ from .models import (
 
 
 class ArkmedsClient:
+    @classmethod
+    def from_session(cls) -> "ArkmedsClient":
+        client = st.session_state.get("_arkmeds_client")
+        if isinstance(client, cls):
+            return client
+        auth = ArkmedsAuth.from_secrets()
+        client = cls(auth)
+        st.session_state["_arkmeds_client"] = client
+        return client
+
     def __init__(
         self,
         auth: ArkmedsAuth,
