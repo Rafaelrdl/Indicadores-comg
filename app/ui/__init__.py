@@ -3,6 +3,7 @@ from datetime import date
 import streamlit as st
 
 from .css import inject_global_css
+from .utils import safe_label
 
 PAGES = {
     "\ud83c\udfe0 Indicadores": "ui/home.py",
@@ -27,5 +28,5 @@ def register_pages() -> None:
 
     st.sidebar.title("Menu")
     for title, path in PAGES.items():
-        st.sidebar.page_link(path, label=title)
+        st.sidebar.page_link(path, label=safe_label(title))
 
