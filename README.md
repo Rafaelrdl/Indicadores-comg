@@ -1,5 +1,8 @@
 # Dashboard Arkmeds
 
+![CI](https://github.com/<OWNER>/<REPO>/actions/workflows/ci.yml/badge.svg)
+![CD](https://github.com/<OWNER>/<REPO>/actions/workflows/cd.yml/badge.svg)
+
 ## Visão Geral
 Projeto para centralizar indicadores da plataforma Arkmeds utilizando Streamlit multipage.
 
