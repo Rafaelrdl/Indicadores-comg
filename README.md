@@ -129,3 +129,10 @@ Screenshot demonstrando os indicadores e a tabela filtrada.
 Visão geral do parque de equipamentos e métricas de manutenção.
 
 ![Equipamentos](docs/equip_page.png)
+
+## Página de Técnicos
+
+Ranking de desempenho por responsável, com indicadores de pendências,
+concluídas, SLA médio e tempo de fechamento.
+
+![Técnicos](docs/tech_page.png)
