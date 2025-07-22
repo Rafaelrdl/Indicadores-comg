@@ -25,8 +25,13 @@ Reúne ordens de serviço, equipamentos e produtividade em uma interface simples
 cp .env.example .env
 cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 
-# instalar dependências e subir o app
+# instalar dependências e subir o app (Linux/macOS)
 make install && make run
+
+# no Windows use
+./make.bat install && ./make.bat run
+# ou via PowerShell
+./scripts/run.ps1 -Install
 ```
 
 ## Scripts Uteis

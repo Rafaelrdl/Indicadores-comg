@@ -31,3 +31,5 @@ poetry.lock
 
 scripts/*.pyc
 scripts/*.log
+*.bat~
+*.ps1~
