@@ -118,6 +118,12 @@ permite detectar mudanças.
 
 ![Filtros](docs/filtros.gif)
 
+## Página Inicial
+
+Visão consolidada dos principais indicadores do mês.
+
+![Home](docs/home_page.png)
+
 ## Página de Ordens de Serviço
 
 Screenshot demonstrando os indicadores e a tabela filtrada.

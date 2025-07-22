@@ -1,12 +1,81 @@
+import asyncio
+
+import pandas as pd
+import plotly.express as px
 import streamlit as st
 
-from app.arkmeds_client.auth import ArkmedsAuth
 from app.arkmeds_client.client import ArkmedsClient
+from app.config.os_types import TIPO_CORRETIVA
+from app.services.equip_metrics import compute_metrics as compute_equip_metrics
+from app.services.os_metrics import compute_metrics as compute_os_metrics
 
-from .filters import render_filters, show_active_filters
+from .filters import show_active_filters
 
-client = ArkmedsClient(ArkmedsAuth.from_secrets())
-render_filters(client)
-show_active_filters(client)
+filters = st.session_state["filters"]
+version = st.session_state.get("filtros_version", 0)
 
-st.header("\ud83d\udcca Indicadores \u2013 Em constru\u00e7\u00e3o")
+
+@st.cache_data(ttl=900, experimental_allow_widgets=True)
+async def fetch_all(v: int):
+    client = ArkmedsClient.from_session()
+    osm = await compute_os_metrics(client, **filters)
+    eqm = await compute_equip_metrics(client, **filters)
+    corr_hist = await client.os_monthly_history(tipo_id=TIPO_CORRETIVA, months=12)
+    return osm, eqm, corr_hist
+
+
+with st.spinner("Carregando indicadores…"):
+    osm, eqm, corr_hist = asyncio.run(fetch_all(version))
+
+show_active_filters(ArkmedsClient.from_session())
+
+if osm and eqm:
+    corr_total = osm.corretivas_predial + osm.corretivas_engenharia
+    prev_total = osm.preventivas_predial + osm.preventivas_infra
+    pct_manut = round(eqm.em_manutencao / eqm.ativos * 100, 1) if eqm.ativos else 0.0
+
+    items = [
+        ("🔧 Corretivas (M)", corr_total),
+        ("🛠️ Preventivas (M)", prev_total),
+        ("🔍 Busca Ativa (M)", osm.busca_ativa),
+        ("📦 Backlog Atual", osm.backlog),
+        ("⏱️ MTTR Global (h)", eqm.mttr_h),
+        ("🔄 MTBF Global (h)", eqm.mtbf_h),
+        ("⏱️ SLA Global %", osm.sla_pct),
+        ("🚧 Equip. em Manut. %", pct_manut),
+    ]
+    for i in range(0, len(items), 4):
+        cols = st.columns(4)
+        for col, (label, value) in zip(cols, items[i : i + 4]):
+            col.metric(label, value)
+else:
+    st.warning("Métrica em implementação")
+
+hist_df = pd.DataFrame(corr_hist)
+if not hist_df.empty:
+    fig = px.line(
+        hist_df,
+        x="mes",
+        y=["abertas", "fechadas"],
+        markers=True,
+        labels={"value": "OS", "mes": "Mês", "variable": ""},
+        title="Corretivas Abertas x Fechadas (últimos 12 meses)",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.info("Curva de tendência em construção")
+
+st.info("Heat-map SLA em construção")
+
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    if st.button("Ver OS 📝"):
+        st.switch_page("ui/os.py")
+with col2:
+    if st.button("Equipamentos ⚙️"):
+        st.switch_page("ui/equip.py")
+with col3:
+    if st.button("Técnicos 👷"):
+        st.switch_page("ui/tech.py")
+with col4:
+    st.button("Relatórios 📑", disabled=True)
