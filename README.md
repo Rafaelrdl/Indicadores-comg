@@ -45,6 +45,18 @@ make install && make run
 - `make compose` – docker compose up --build
 - `make ci` – executa lint e testes
 
+## Problemas comuns
+
+Em algumas versões antigas do Windows a renderização de emojis pode disparar
+`UnicodeEncodeError` ao iniciar o Streamlit. O dashboard tenta detectar esse
+cenário e remove os ícones automaticamente. Se preferir desativar os emojis em
+qualquer plataforma, ajuste o arquivo `.streamlit/secrets.toml`:
+
+```toml
+[app]
+allow_emoji = false
+```
+
 ## Contribuindo
 
 1. Crie uma branch a partir de `main`.
