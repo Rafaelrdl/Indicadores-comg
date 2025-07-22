@@ -23,7 +23,7 @@ poetry.lock
 *~
 
 # secrets
-.streamlit/secrets.toml
+/.streamlit/secrets.toml
 
 # IDE
 .idea/
