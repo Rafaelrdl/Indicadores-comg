@@ -7,7 +7,7 @@ from httpx import MockTransport
 
 from app.arkmeds_client.auth import ArkmedsAuth
 from app.arkmeds_client.client import ArkmedsClient
-from app.arkmeds_client.models import TokenData
+from app.arkmeds_client.models import OSEstado, OS, TokenData, TipoOS, EstadoOS, User
 
 
 class DummyAuth(ArkmedsAuth):
@@ -41,31 +41,51 @@ def make_client(responses):
 
 
 def test_paginated_success():
+    os_payload = {
+        "id": 1,
+        "tipo_ordem_servico": {"id": 1, "descricao": "P"},
+        "estado": {"id": 1, "descricao": "A"},
+        "data_criacao": "01/01/25 - 00:00",
+    }
     responses = {
         "/api/v3/ordem_servico/": Response(
             200,
             json={
                 "count": 3,
                 "next": "https://api.test/api/v3/ordem_servico/?page=2",
-                "results": [{"id": 1}],
+                "results": [os_payload],
             },
         ),
         "/api/v3/ordem_servico/?page=2": Response(
             200,
-            json={"count": 3, "next": None, "results": [{"id": 2}, {"id": 3}]},
+            json={
+                "count": 3,
+                "next": None,
+                "results": [
+                    {**os_payload, "id": 2},
+                    {**os_payload, "id": 3},
+                ],
+            },
         ),
     }
     client = make_client(responses)
     data = asyncio.run(client.list_os())
     assert len(data) == 3
+    assert isinstance(data[0], OS)
 
 
 def test_401_refresh_once():
+    os_payload = {
+        "id": 1,
+        "tipo_ordem_servico": {"id": 1, "descricao": "P"},
+        "estado": {"id": 1, "descricao": "A"},
+        "data_criacao": "01/01/25 - 00:00",
+    }
     responses = {
         "/api/v3/ordem_servico/": Response(401),
         "retry": Response(
             200,
-            json={"count": 1, "next": None, "results": [{"id": 1}]},
+            json={"count": 1, "next": None, "results": [os_payload]},
         ),
     }
 
@@ -82,10 +102,18 @@ def test_401_refresh_once():
     client._client = httpx.AsyncClient(base_url=auth.base_url, transport=transport)
     data = asyncio.run(client.list_os())
     assert len(data) == 1
+    assert isinstance(data[0], OS)
 
 
 def test_retry_5xx():
     calls = []
+
+    os_payload = {
+        "id": 1,
+        "tipo_ordem_servico": {"id": 1, "descricao": "P"},
+        "estado": {"id": 1, "descricao": "A"},
+        "data_criacao": "01/01/25 - 00:00",
+    }
 
     async def handler(request: Request) -> Response:
         calls.append(1)
@@ -93,7 +121,7 @@ def test_retry_5xx():
             return Response(500)
         return Response(
             200,
-            json={"count": 1, "next": None, "results": [{"id": 1}]},
+            json={"count": 1, "next": None, "results": [os_payload]},
         )
 
     transport = MockTransport(handler)
@@ -103,6 +131,7 @@ def test_retry_5xx():
     data = asyncio.run(client.list_os())
     assert len(data) == 1
     assert len(calls) == 3
+    assert isinstance(data[0], OS)
 
 
 def test_filters_in_query():

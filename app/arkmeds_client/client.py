@@ -7,7 +7,7 @@ import httpx
 from aiolimiter import AsyncLimiter
 
 from .auth import ArkmedsAuth
-from .models import PaginatedResponse
+from .models import OS, Equipment, PaginatedResponse, User
 
 
 class ArkmedsClient:
@@ -74,12 +74,15 @@ class ArkmedsClient:
             params = None
         return results
 
-    async def list_os(self, **filters: Any) -> List[dict]:
-        return await self._get_all_pages("/api/v3/ordem_servico/", filters)
+    async def list_os(self, **filters: Any) -> List[OS]:
+        data = await self._get_all_pages("/api/v3/ordem_servico/", filters)
+        return [OS.model_validate(item) for item in data]
 
-    async def list_equipment(self, **filters: Any) -> List[dict]:
-        return await self._get_all_pages("/api/v3/equipamento/", filters)
+    async def list_equipment(self, **filters: Any) -> List[Equipment]:
+        data = await self._get_all_pages("/api/v3/equipamento/", filters)
+        return [Equipment.model_validate(item) for item in data]
 
-    async def list_users(self, **filters: Any) -> List[dict]:
-        return await self._get_all_pages("/api/v3/users/", filters)
+    async def list_users(self, **filters: Any) -> List[User]:
+        data = await self._get_all_pages("/api/v3/users/", filters)
+        return [User.model_validate(item) for item in data]
 

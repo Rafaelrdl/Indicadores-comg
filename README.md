@@ -45,10 +45,16 @@ token = await auth.get_token()
 ```python
 from arkmeds_client.auth import ArkmedsAuth
 from arkmeds_client.client import ArkmedsClient
+from arkmeds_client.models import OS
 
 auth = ArkmedsAuth.from_secrets()
 client = ArkmedsClient(auth)
 os = await client.list_os(data_criacao__gte="2025-06-01")
+```
+
+```python
+raw = await client.list_os()[0]
+os_obj: OS = OS.model_validate(raw)
 ```
 
 ## Contribuindo
