@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 from typing import Any, Dict, List, Optional
 
 import httpx
 import streamlit as st
 from aiolimiter import AsyncLimiter
+from dateutil.relativedelta import relativedelta
 
 from .auth import ArkmedsAuth
 from .models import (
@@ -111,3 +113,15 @@ class ArkmedsClient:
     async def list_estados(self, **filters: Any) -> List[EstadoOS]:
         data = await self._get_all_pages("/api/v3/estado_os/", filters)
         return [EstadoOS.model_validate(item) for item in data]
+
+    async def os_monthly_history(self, *, tipo_id: int, months: int = 12) -> List[Dict[str, Any]]:
+        """Return open/closed counts per month.
+
+        Placeholder implementation that returns empty values for each month.
+        """
+        today = date.today().replace(day=1)
+        hist = []
+        for i in range(months - 1, -1, -1):
+            month = today - relativedelta(months=i)
+            hist.append({"mes": month.strftime("%Y-%m"), "abertas": 0, "fechadas": 0})
+        return hist
