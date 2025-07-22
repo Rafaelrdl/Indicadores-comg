@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  dashboard:
+    build: .
+    container_name: arkmeds_dashboard
+    ports:
+      - "8501:8501"
+    env_file: .env
+    volumes:
+      - ./data:/app/.data
+    restart: unless-stopped
+    # reverse proxy (future)
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.dashboard.rule=Host(`arkmeds.local`)"
