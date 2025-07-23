@@ -57,6 +57,7 @@ cenário e remove os ícones automaticamente. Se preferir desativar os emojis em
 qualquer plataforma defina a variável de ambiente `ALLOW_EMOJI=0` (no
 PowerShell: `setx ALLOW_EMOJI 0`).
 Defina `setx ALLOW_EMOJI 0` para forçar remoção de emoji em qualquer SO.
+Se ainda ver erro `UnicodeEncodeError`, defina `setx ALLOW_EMOJI 0` e reinicie terminal.
 
 ## Contribuindo
 
