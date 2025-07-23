@@ -1,5 +1,6 @@
 [tool.poetry]
-package-mode = false
+package-mode = true
+packages = [ { include = "app" } ]
 
 [project]
 name = "indicadores-comg"

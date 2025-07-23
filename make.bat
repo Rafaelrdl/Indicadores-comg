@@ -3,7 +3,7 @@ setlocal EnableDelayedExpansion
 REM Porta padrão pode ser sobreposta com PORT=xxxx
 if "%PORT%"=="" set PORT=8501
 REM ---- TARGETS -------------------------------------------------
-if "%1"=="install" (poetry install --with dev --no-root & goto :eof)
+if "%1"=="install" (poetry install --with dev --no-root && poetry run pip install -e . & goto :eof)
 if "%1"=="run" (poetry run streamlit run app/main.py --server.port !PORT! & goto :eof)
 if "%1"=="lint" (poetry run ruff check . & goto :eof)
 if "%1"=="format" (poetry run ruff format . & goto :eof)

@@ -16,7 +16,7 @@ jobs:
       - name: Install deps
         run: |
           pip install --upgrade pip poetry
-          poetry install --with dev --no-root
+          make install
       - name: Ruff Lint
         run: poetry run ruff check .
       - name: Pytest
@@ -38,7 +38,7 @@ jobs:
       - name: Install deps
         run: |
           pip install --upgrade pip poetry
-          poetry install --with dev --no-root
+          make install
       - name: Ruff Lint
         run: poetry run ruff check .
       - name: Pytest
