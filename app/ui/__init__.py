@@ -29,4 +29,6 @@ def register_pages() -> None:
 
     st.sidebar.title("Menu")
     for title, path in PAGES.items():
-        st.sidebar.page_link(path, label=safe_label(title))
+        label = safe_label(title)
+        path = safe_label(path)
+        st.sidebar.page_link(path, label=label)

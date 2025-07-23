@@ -60,6 +60,15 @@ ambiente `ALLOW_EMOJI=0` (no Windows execute `setx ALLOW_EMOJI 0`).
 Se ainda ver o erro, force a remoção de emojis reiniciando o terminal após
 definir `ALLOW_EMOJI=0`.
 
+## Emoji opt-in
+
+Para ativar os emojis mesmo em plataformas que podem falhar:
+
+```powershell
+$env:ALLOW_EMOJI=1
+streamlit run app/main.py --allow-unsafe-emoji
+```
+
 ## Contribuindo
 
 1. Crie uma branch a partir de `main`.
