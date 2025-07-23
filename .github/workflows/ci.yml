@@ -27,3 +27,19 @@ jobs:
         with:
           name: coverage-html
           path: htmlcov
+
+  windows-lint-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          pip install --upgrade pip poetry
+          poetry install --with dev --no-root
+      - name: CI via PowerShell
+        shell: pwsh
+        run: ./make.ps1 -Target ci
+      
