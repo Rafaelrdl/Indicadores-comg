@@ -8,11 +8,10 @@ from typing import Any, Dict, Tuple
 
 import httpx
 import streamlit as st
+from arkmeds_client.auth import ArkmedsAuthError
+from arkmeds_client.client import ArkmedsClient
+from arkmeds_client.models import OSEstado
 from pydantic import BaseModel
-
-from app.arkmeds_client.auth import ArkmedsAuthError
-from app.arkmeds_client.client import ArkmedsClient
-from app.arkmeds_client.models import OSEstado
 
 SLA_HOURS = int(os.getenv("OS_SLA_HOURS", 72))
 
