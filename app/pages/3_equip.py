@@ -6,10 +6,10 @@ from statistics import mean
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from arkmeds_client.client import ArkmedsClient
+from arkmeds_client.models import OS
 from dateutil.relativedelta import relativedelta
 
-from app.arkmeds_client.client import ArkmedsClient
-from app.arkmeds_client.models import OS
 from app.config.os_types import TIPO_CORRETIVA
 from app.services.equip_metrics import compute_metrics
 from app.ui.filters import show_active_filters

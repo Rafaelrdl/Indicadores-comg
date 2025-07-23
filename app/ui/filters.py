@@ -6,9 +6,8 @@ from datetime import date
 from typing import List
 
 import streamlit as st
-
-from app.arkmeds_client.client import ArkmedsClient
-from app.arkmeds_client.models import EstadoOS, TipoOS, User
+from arkmeds_client.client import ArkmedsClient
+from arkmeds_client.models import EstadoOS, TipoOS, User
 
 
 @st.cache_data(ttl=86400)

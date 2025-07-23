@@ -2,8 +2,8 @@ import asyncio
 
 import pandas as pd
 import streamlit as st
+from arkmeds_client.client import ArkmedsClient
 
-from app.arkmeds_client.client import ArkmedsClient
 from app.services.os_metrics import compute_metrics
 from app.ui.filters import show_active_filters
 
