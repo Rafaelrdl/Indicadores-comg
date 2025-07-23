@@ -12,8 +12,9 @@ from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import OS
 from app.config.os_types import TIPO_CORRETIVA
 from app.services.equip_metrics import compute_metrics
+from app.ui.filters import show_active_filters
 
-from .filters import show_active_filters
+st.set_page_config(page_title="Equipamentos", page_icon="🛠️")
 
 filters = st.session_state["filters"]
 version = st.session_state.get("filtros_version", 0)
@@ -135,9 +136,7 @@ def _table_data() -> pd.DataFrame:
             if len(items) > 1:
                 items.sort(key=lambda o: o.created_at)
                 intervals = [
-                    (
-                        items[i].created_at - items[i - 1].created_at
-                    ).total_seconds()
+                    (items[i].created_at - items[i - 1].created_at).total_seconds()
                     for i in range(1, len(items))
                 ]
                 mtbf_local.append(round(mean(intervals) / 3600, 2))

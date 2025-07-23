@@ -2,16 +2,7 @@ from datetime import date
 
 import streamlit as st
 
-from ui.utils import safe_label
-
 from .css import inject_global_css
-
-PAGES = {
-    "\ud83c\udfe0 Indicadores": "ui/home.py",
-    "\ud83d\udccb Ordens de Servi\u00e7o": "ui/os.py",
-    "\ud83d\udd28 Equipamentos": "ui/equip.py",
-    "\ud83d\udc77 T\u00e9cnicos": "ui/tech.py",
-}
 
 
 def register_pages() -> None:
@@ -26,9 +17,3 @@ def register_pages() -> None:
             "responsavel_id": None,
         }
         st.session_state["filtros_version"] = 0
-
-    st.sidebar.title("Menu")
-    for title, path in PAGES.items():
-        label = safe_label(title)
-        path = safe_label(path)
-        st.sidebar.page_link(path, label=label)

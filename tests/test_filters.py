@@ -17,6 +17,11 @@ class DummyClient:
 
 
 def test_render_filters_persists(monkeypatch):
+    class DummyState(dict):
+        def clear(self):
+            dict.clear(self)
+
+    monkeypatch.setattr(st, "session_state", DummyState(), raising=False)
     st.session_state.clear()
     client = DummyClient()
 
