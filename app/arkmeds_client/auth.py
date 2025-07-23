@@ -17,6 +17,8 @@ class ArkmedsAuthError(Exception):
 
 class ArkmedsAuth:
     def __init__(self, email: str, password: str, base_url: str, max_tries: int = 3) -> None:
+        if not base_url.startswith(("http://", "https://")):
+            raise ValueError("base_url must start with 'http://' or 'https://'")
         self.email = email
         self.password = password
         self.base_url = base_url.rstrip("/")
