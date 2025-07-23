@@ -54,11 +54,11 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 Em algumas versões antigas do Windows a renderização de emojis pode disparar
 `UnicodeEncodeError` ao iniciar o Streamlit. O dashboard tenta detectar esse
-cenário e remove os ícones automaticamente. Se preferir desativar os emojis em
-qualquer plataforma defina a variável de ambiente `ALLOW_EMOJI=0` (no
-PowerShell: `setx ALLOW_EMOJI 0`).
-Defina `setx ALLOW_EMOJI 0` para forçar remoção de emoji em qualquer SO.
-Se ainda ver erro `UnicodeEncodeError`, defina `setx ALLOW_EMOJI 0` e reinicie terminal.
+cenário e remove os ícones automaticamente.
+Se preferir desativar os emojis em qualquer plataforma defina a variável de
+ambiente `ALLOW_EMOJI=0` (no Windows execute `setx ALLOW_EMOJI 0`).
+Se ainda ver o erro, force a remoção de emojis reiniciando o terminal após
+definir `ALLOW_EMOJI=0`.
 
 ## Contribuindo
 
