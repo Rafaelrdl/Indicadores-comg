@@ -8,7 +8,7 @@ import pytest
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, ROOT)
 
-with open(os.path.join(ROOT, "app", "ui", "equip.py")) as f:
+with open(os.path.join(ROOT, "app", "ui", "equip.py"), encoding="utf-8") as f:
     src = f.read()
 start = src.index("def _build_history_df")
 end = src.index("@st.cache_data")
