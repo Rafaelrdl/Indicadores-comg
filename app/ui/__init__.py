@@ -2,6 +2,8 @@ from datetime import date
 
 import streamlit as st
 
+from ui.utils import safe_label
+
 from .css import inject_global_css
 
 PAGES = {
@@ -27,4 +29,4 @@ def register_pages() -> None:
 
     st.sidebar.title("Menu")
     for title, path in PAGES.items():
-        st.sidebar.page_link(path, label=title)
+        st.sidebar.page_link(path, label=safe_label(title))
