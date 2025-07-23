@@ -45,7 +45,7 @@ class ArkmedsAuth:
         for attempt in range(self.max_tries):
             try:
                 resp = await client.post(
-                    "/api/v3/auth/login/",
+                    "/rest-auth/token-auth/",
                     json={"email": self.email, "password": self.password},
                     timeout=10,
                 )
@@ -54,13 +54,11 @@ class ArkmedsAuth:
                 resp.raise_for_status()
                 data = resp.json()
                 token = data.get("token") or data.get("access")
-                exp_raw = data.get("exp") or data.get("expires_in") or data.get("expires")
-                if token is None or exp_raw is None:
+                # O endpoint /rest-auth/token-auth/ retorna apenas o token JWT, sem expiração explícita
+                if token is None:
                     raise ArkmedsAuthError("Malformed login response")
-                if isinstance(exp_raw, (int, float)):
-                    exp = datetime.fromtimestamp(exp_raw, tz=timezone.utc)
-                else:
-                    exp = parser.isoparse(str(exp_raw))
+                # Define expiração padrão de 1 hora se não vier no payload
+                exp = datetime.now(timezone.utc) + timedelta(hours=1)
                 self._token = TokenData(token=token, exp=exp)
                 st.session_state["arkmeds_token"] = token
                 return self._token
