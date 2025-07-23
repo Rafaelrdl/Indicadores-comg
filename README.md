@@ -38,8 +38,6 @@ make install && make run
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-As páginas do dashboard ficam em `app/pages/`. A sidebar usa o posicionamento
-padrão à esquerda, sem CSS customizado.
 
 ## Scripts Uteis
 
