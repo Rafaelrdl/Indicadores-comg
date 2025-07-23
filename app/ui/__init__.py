@@ -3,7 +3,7 @@ from datetime import date
 import streamlit as st
 
 from .css import inject_global_css
-from .utils import safe_label
+from ui.utils import safe_label
 
 PAGES = {
     "\ud83c\udfe0 Indicadores": "ui/home.py",

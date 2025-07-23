@@ -9,4 +9,3 @@ def test_safe_label_windows(monkeypatch):
     mod = importlib.import_module("app.ui.utils")
     importlib.reload(mod)
     assert mod.safe_label("🏠 Home") == " Home"
-
