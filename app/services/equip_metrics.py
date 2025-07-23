@@ -12,6 +12,7 @@ import streamlit as st
 from arkmeds_client.auth import ArkmedsAuthError
 from arkmeds_client.client import ArkmedsClient
 from arkmeds_client.models import OSEstado
+from ui.utils import run_async_safe
 
 from app.config.os_types import TIPO_CORRETIVA
 
@@ -139,7 +140,7 @@ def _cached_compute(
     redundant computations.
     """
     filters = dict(frozen_filters)
-    return asyncio.run(_async_compute_metrics(_client, start_date, end_date, filters))
+    return run_async_safe(_async_compute_metrics(_client, start_date, end_date, filters))
 
 
 async def _async_compute_metrics(

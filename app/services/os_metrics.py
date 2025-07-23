@@ -11,6 +11,7 @@ import streamlit as st
 from arkmeds_client.auth import ArkmedsAuthError
 from arkmeds_client.client import ArkmedsClient
 from arkmeds_client.models import OSEstado, OrdemServico
+from ui.utils import run_async_safe
 
 from app.config.os_types import (
     AREA_ENG_CLIN,
@@ -287,7 +288,7 @@ def _cached_compute(
     """
     try:
         filters = dict(frozen_filters)
-        return asyncio.run(
+        return run_async_safe(
             _async_compute_metrics(_client, start_date, end_date, filters)
         )
     except Exception as exc:

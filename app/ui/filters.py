@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import time
 from datetime import date
 from typing import List
@@ -8,21 +7,22 @@ from typing import List
 import streamlit as st
 from arkmeds_client.client import ArkmedsClient
 from arkmeds_client.models import EstadoOS, TipoOS, User
+from .utils import run_async_safe
 
 
 @st.cache_data(ttl=86400)
 def _get_tipos(_client: ArkmedsClient) -> List[TipoOS]:
-    return asyncio.run(_client.list_tipos())
+    return run_async_safe(_client.list_tipos())
 
 
 @st.cache_data(ttl=86400)
 def _get_estados(_client: ArkmedsClient) -> List[EstadoOS]:
-    return asyncio.run(_client.list_estados())
+    return run_async_safe(_client.list_estados())
 
 
 @st.cache_data(ttl=86400)
 def _get_users(_client: ArkmedsClient) -> List[User]:
-    return asyncio.run(_client.list_users(perfil="responsavel_tecnico"))
+    return run_async_safe(_client.list_users(perfil="responsavel_tecnico"))
 
 
 def render_filters(client: ArkmedsClient) -> dict:

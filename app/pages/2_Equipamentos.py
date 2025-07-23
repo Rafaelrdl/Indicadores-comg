@@ -14,7 +14,7 @@ from services.equip_metrics import compute_metrics
 
 from ui.filters import show_active_filters
 
-st.set_page_config(page_title="Equipamentos", page_icon="🛠️")
+st.set_page_config(page_title="Equipamentos", page_icon="🛠️", layout="wide")
 
 filters = st.session_state["filters"]
 version = st.session_state.get("filtros_version", 0)
