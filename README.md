@@ -24,6 +24,10 @@ Reúne ordens de serviço, equipamentos e produtividade em uma interface simples
 # configure variáveis locais
 cp .env.example .env
 cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+# edite a base_url incluindo o protocolo
+# Exemplo:
+# [arkmeds]
+# base_url = "https://comg.arkmeds.com"
 
 # instalar dependências e subir o app (Linux/macOS)
 make install && make run
