@@ -1,36 +1,16 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
 from typing import Any, Dict, List, Optional
 
 import httpx
-import streamlit as st
 from aiolimiter import AsyncLimiter
-from dateutil.relativedelta import relativedelta
 
 from .auth import ArkmedsAuth
-from .models import (
-    OS,
-    Equipment,
-    EstadoOS,
-    PaginatedResponse,
-    TipoOS,
-    User,
-)
+from .models import OS, Equipment, PaginatedResponse, User
 
 
 class ArkmedsClient:
-    @classmethod
-    def from_session(cls) -> "ArkmedsClient":
-        client = st.session_state.get("_arkmeds_client")
-        if isinstance(client, cls):
-            return client
-        auth = ArkmedsAuth.from_secrets()
-        client = cls(auth)
-        st.session_state["_arkmeds_client"] = client
-        return client
-
     def __init__(
         self,
         auth: ArkmedsAuth,
@@ -105,23 +85,3 @@ class ArkmedsClient:
     async def list_users(self, **filters: Any) -> List[User]:
         data = await self._get_all_pages("/api/v3/users/", filters)
         return [User.model_validate(item) for item in data]
-
-    async def list_tipos(self, **filters: Any) -> List[TipoOS]:
-        data = await self._get_all_pages("/api/v3/tipo_ordem_servico/", filters)
-        return [TipoOS.model_validate(item) for item in data]
-
-    async def list_estados(self, **filters: Any) -> List[EstadoOS]:
-        data = await self._get_all_pages("/api/v3/estado_os/", filters)
-        return [EstadoOS.model_validate(item) for item in data]
-
-    async def os_monthly_history(self, *, tipo_id: int, months: int = 12) -> List[Dict[str, Any]]:
-        """Return open/closed counts per month.
-
-        Placeholder implementation that returns empty values for each month.
-        """
-        today = date.today().replace(day=1)
-        hist = []
-        for i in range(months - 1, -1, -1):
-            month = today - relativedelta(months=i)
-            hist.append({"mes": month.strftime("%Y-%m"), "abertas": 0, "fechadas": 0})
-        return hist
