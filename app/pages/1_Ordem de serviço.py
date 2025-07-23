@@ -12,44 +12,56 @@ st.set_page_config(page_title="Ordens de Serviço", page_icon="📑", layout="wi
 filters = st.session_state["filters"]
 version = st.session_state.get("filtros_version", 0)
 
-@st.cache_data(ttl=900, experimental_allow_widgets=True)
-async def get_data(v: int):
-    client = ArkmedsClient.from_session()
-    metrics = await compute_metrics(client, **filters)
-    dt_ini = filters.get("dt_ini")
-    dt_fim = filters.get("dt_fim")
-    extra = {k: v for k, v in filters.items() if k not in {"dt_ini", "dt_fim"}}
-    os_raw = await client.list_os(
-        data_criacao__gte=dt_ini,
-        data_criacao__lte=dt_fim,
-        **extra,
-    )
-    return metrics, os_raw
+@st.cache_data(ttl=900)
+def get_data(v: int):
+    """Wrapper síncrono para executar e cachear os resultados da função assíncrona."""
+
+    async def _get_data_async():
+        """Função assíncrona que busca os dados."""
+        client = ArkmedsClient.from_session()
+        
+        # Extrair datas e outros filtros
+        dt_ini = filters.get("dt_ini")
+        dt_fim = filters.get("dt_fim")
+        extra = {k: v for k, v in filters.items() if k not in {"dt_ini", "dt_fim"}}
+        
+        # Chamar compute_metrics com os parâmetros corretos
+        metrics_task = compute_metrics(client, start_date=dt_ini, end_date=dt_fim, **extra)
+        
+        os_raw_task = client.list_os(
+            data_criacao__gte=dt_ini,
+            data_criacao__lte=dt_fim,
+            **extra,
+        )
+        metrics, os_raw = await asyncio.gather(metrics_task, os_raw_task)
+        return metrics, os_raw
+
+    return asyncio.run(_get_data_async())
+
 
 with st.spinner("Calculando KPIs…"):
-    metrics, os_raw = asyncio.run(get_data(version))
+    metrics, os_raw = get_data(version)
 
 show_active_filters(ArkmedsClient.from_session())
 
 cols = st.columns(3)
-cols[0].metric("🛠️ Corretiva Predial", metrics.corretivas_predial)
-cols[1].metric("⚙️ Corretiva Eng.Cli.", metrics.corretivas_engenharia)
-cols[2].metric("🔧 Preventiva Predial", metrics.preventivas_predial)
+cols[0].metric("🛠️ Corretiva Predial", metrics.corrective_building)
+cols[1].metric("⚙️ Corretiva Eng.Cli.", metrics.corrective_engineering)
+cols[2].metric("🔧 Preventiva Predial", metrics.preventive_building)
 cols = st.columns(3)
-cols[0].metric("🛠️ Preventiva Infra", metrics.preventivas_infra)
-cols[1].metric("🔍 Busca Ativa", metrics.busca_ativa)
+cols[0].metric("🛠️ Preventiva Infra", metrics.preventive_infra)
+cols[1].metric("🔍 Busca Ativa", metrics.active_search)
 cols[2].metric("📦 Backlog", metrics.backlog)
 cols = st.columns(3)
-cols[0].metric("⏱️ SLA %", metrics.sla_pct)
+cols[0].metric("⏱️ SLA %", metrics.sla_percentage)
 
 abertas_total = metrics.backlog
 fechadas_total = (
-    metrics.corretivas_predial
-    + metrics.corretivas_engenharia
-    + metrics.preventivas_predial
-    + metrics.preventivas_infra
-    + metrics.busca_ativa
-    - metrics.backlog
+    metrics.corrective_building
+    + metrics.corrective_engineering
+    + metrics.preventive_building
+    + metrics.preventive_infra
+    + metrics.active_search
 )
 st.bar_chart({"Abertas": [abertas_total], "Fechadas": [fechadas_total]})
 

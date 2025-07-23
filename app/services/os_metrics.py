@@ -10,7 +10,7 @@ import httpx
 import streamlit as st
 from arkmeds_client.auth import ArkmedsAuthError
 from arkmeds_client.client import ArkmedsClient
-from arkmeds_client.models import OSEstado, OrdemServico
+from arkmeds_client.models import OSEstado, OS
 from ui.utils import run_async_safe
 
 from app.config.os_types import (
@@ -22,7 +22,7 @@ from app.config.os_types import (
 )
 
 # Type aliases
-ServiceOrderData = dict[str, list[OrdemServico]]
+ServiceOrderData = dict[str, list[OS]]
 
 SLA_HOURS = int(os.getenv("OS_SLA_HOURS", 72))
 
@@ -92,7 +92,7 @@ async def fetch_orders(
     order_type: int,
     area_id: int | None = None,
     **extra: Any
-) -> list[OrdemServico]:
+) -> list[OS]:
     """Fetch orders from the API with the given filters.
     
     Args:
@@ -200,14 +200,14 @@ async def fetch_service_orders(
         
         # Map results to named fields with type safety
         return {
-            "corrective_building": cast(list[OrdemServico], results[0]),
-            "corrective_engineering": cast(list[OrdemServico], results[1]),
-            "preventive_building": cast(list[OrdemServico], results[2]),
-            "preventive_infra": cast(list[OrdemServico], results[3]),
-            "active_search": cast(list[OrdemServico], results[4]),
-            "open_orders": cast(list[OrdemServico], results[5]),
-            "closed_orders": cast(list[OrdemServico], results[6]),
-            "closed_in_period": cast(list[OrdemServico], results[7]),
+            "corrective_building": cast(list[OS], results[0]),
+            "corrective_engineering": cast(list[OS], results[1]),
+            "preventive_building": cast(list[OS], results[2]),
+            "preventive_infra": cast(list[OS], results[3]),
+            "active_search": cast(list[OS], results[4]),
+            "open_orders": cast(list[OS], results[5]),
+            "closed_orders": cast(list[OS], results[6]),
+            "closed_in_period": cast(list[OS], results[7]),
         }
         
     except (httpx.TimeoutException, ArkmedsAuthError) as exc:
@@ -220,7 +220,7 @@ async def fetch_service_orders(
         ) from exc
 
 
-def calculate_sla_metrics(closed_orders: list[OrdemServico]) -> float:
+def calculate_sla_metrics(closed_orders: list[OS]) -> float:
     """Calculate SLA compliance percentage based on closed orders.
     
     Args:

@@ -1,50 +1,127 @@
 # Copilot Instructions for AI Agents
 
-## Visão Geral do Projeto
-- Este é um dashboard multipágina em Streamlit para consolidar indicadores da plataforma Arkmeds.
-- O código está organizado em torno de serviços de métricas, clientes de API, componentes de UI e páginas Streamlit.
-- O fluxo principal: autenticação → coleta de dados via API Arkmeds → cálculo de métricas → exibição em páginas Streamlit.
+> **Repository:** [https://github.com/Rafaelrdl/Indicadores-comg](https://github.com/Rafaelrdl/Indicadores-comg)
+>
+> **Stack:** Python 3.12 · Streamlit ≥ 1.30 · Poetry · HTTPX · Pydantic v2 · Ruff · Pytest
 
-## Estrutura e Componentes-Chave
-- `app/` — código principal do dashboard.
-  - `main.py`: ponto de entrada, inicializa UI e configurações.
-  - `arkmeds_client/`: autenticação, cliente HTTP e modelos de dados (Pydantic) para integração com a API Arkmeds.
-  - `services/`: lógica de cálculo de métricas (KPIs) para OS, equipamentos e técnicos. Cada serviço é assíncrono e usa cache.
-  - `ui/`: componentes de UI (filtros, CSS, helpers) e inicialização de páginas.
-  - `pages/`: cada arquivo representa uma página do Streamlit (ex: `2_os.py`, `3_equip.py`).
-  - `config/`: constantes e mapeamentos de tipos/áreas usados nos serviços.
-- `tests/` — testes unitários para serviços, filtros e modelos. Use `make test` ou `poetry run pytest`.
+---
 
-## Fluxos de Desenvolvimento
-- **Instalação:**
-  - Linux/macOS: `make install && make run`
-  - Windows: `./make.bat install` e `./make.bat run PORT=8501` ou `./make.ps1 -Target install`
-- **Execução:**
-  - `make run` ou scripts em `scripts/` para rodar localmente.
-  - Docker: `make docker` (build) e `make compose` (compose up)
-- **Testes e Lint:**
-  - `make lint` (ruff), `make format` (ruff format), `make test` (pytest)
-- **CI/CD:**
-  - Workflows GitHub Actions em `.github/workflows/` para CI (lint, test, coverage) e CD (build/push Docker).
+## 1  Project Overview
 
-## Convenções Específicas
-- Páginas em `app/pages/` devem ser nomeadas com prefixo numérico ASCII (ex: `1_home.py`).
-- Filtros de data, tipo, estado e responsável são persistidos em `st.session_state['filters']`.
-- Serviços de métricas usam cache (`@st.cache_data`) e são assíncronos.
-- Modelos de dados (OS, Equipment, User) usam Pydantic e validadores customizados para datas.
-- Integração com a API Arkmeds é feita via `ArkmedsClient` e métodos como `list_os`, `list_equipment`.
-- Variáveis sensíveis/configurações em `.env` e `.streamlit/secrets.toml`.
+`Indicadores‑comg` is a **multi‑page Streamlit dashboard** that aggregates maintenance and biomedical engineering KPIs from the **Arkmeds** SaaS platform.
 
-## Exemplos de Padrões
-- Para adicionar um novo KPI, crie um serviço em `app/services/`, defina um modelo Pydantic e exponha via página Streamlit.
-- Para novos filtros, edite `app/ui/filters.py` e garanta persistência em `st.session_state`.
-- Para integração com novas rotas da API, adicione métodos em `arkmeds_client/client.py`.
+High‑level pipeline:
 
-## Referências Rápidas
-- Build local: `make install && make run`
-- Testes: `make test` ou `poetry run pytest`
-- Lint/format: `make lint` / `make format`
-- Docker: `make docker` / `make compose`
-- Configuração de secrets: `.streamlit/secrets.toml` e `.env`
+1. **Auth** → JWT login or token refresh (\[ArkmedsAuth]).
+2. **Data ingest** → async HTTPX client (\[ArkmedsClient]) fetches paginated JSON.
+3. **Domain layer** → metric services compute MTTR/MTBF, backlog, SLA etc. and cache results.
+4. **UI** → pages under `app/pages/` render KPIs, charts & tables; global filters live in the sidebar.
 
-Consulte `README.md` para detalhes de uso e exemplos de comandos.
+---
+
+## 2  Directory Map
+
+```
+app/
+├─ main.py              # Streamlit entry‑point
+│
+├─ arkmeds_client/      # API integration layer
+│  ├─ auth.py           # ArkmedsAuth (JWT login, cache)
+│  ├─ client.py         # ArkmedsClient (async CRUD helpers)
+│  └─ models.py         # Pydantic schemas (OS, Equipment, User…)
+│
+├─ services/            # Business logic / KPI calculators
+│  ├─ os_metrics.py     # Correctives / backlog / SLA
+│  ├─ equip_metrics.py  # MTTR / MTBF / park status
+│  └─ tech_metrics.py   # Technicians performance
+│
+├─ ui/                  # Reusable UI pieces
+│  ├─ __init__.py       # set_page_config + inject filters
+│  ├─ filters.py        # Sidebar widget & session_state
+│  └─ css.py            # (Optional) custom styles
+│
+├─ pages/               # **Streamlit multipage** (auto‑discovered)
+│  ├─ 1_home.py         # Executive overview
+│  ├─ 2_os.py           # Ordens de Serviço
+│  ├─ 3_equip.py        # Equipamentos
+│  └─ 4_tech.py         # Técnicos
+│
+├─ config/              # Constants & mapping tables
+│  └─ os_types.py       # ID maps: TIPO_CORRETIVA etc.
+└─ tests/               # Pytest suites
+```
+
+---
+
+## 3  Development Workflow
+
+| Task             | Linux/macOS                                  | Windows PowerShell                  |
+| ---------------- | -------------------------------------------- | ----------------------------------- |
+| **Install deps** | `make install`                               | `./make.ps1 -Target install`        |
+| **Run app**      | `make run`                                   | `./make.ps1 -Target run -Port 8501` |
+| **Lint**         | `make lint`                                  | idem                                |
+| **Tests**        | `make test`                                  | idem                                |
+| **Docker**       | `make docker` → build<br>`make compose` → up | n/a                                 |
+
+> **Editable install** – `make install` runs `pip install -e .` so `app` is importable everywhere.
+
+### Secrets & Env
+
+* `.streamlit/secrets.toml` → `[arkmeds] email, password, base_url="https://…", token`.
+  **‼️ base\_url must include `https://`**.
+* `.env` for extra flags (`STREAMLIT_SERVER_HEADLESS=1`, etc.).
+
+---
+
+## 4  Conventions & Patterns
+
+* **File names** in `app/pages/` start with an ASCII prefix (`1_`, `2_`, …) for menu order.
+* Use `st.session_state["filters"]` to persist **date‑range, tipo, estado, responsável**.
+* Metric services are **async** and wrapped with `@st.cache_data(ttl=900)`.
+* All Arkmeds endpoints live under `v3`; trailing slashes **omitted** (`/auth/login`, not `/auth/login/`).
+* Dates from API come as `"DD/MM/YY - HH:MM"`; validators parse to `datetime`.
+
+---
+
+## 5  Typical Extension Recipes
+
+### Add a New KPI
+
+1. Create a service in `app/services/` returning a Pydantic model.
+2. Cache the function.
+3. Render in a page → `st.metric`, plotly chart, or table.
+
+### Add a Sidebar Filter
+
+1. Edit `ui/filters.py` → add widget + write to `session_state`.
+2. Pass new filter down to service layer (`compute_metrics`).
+
+### New API Route
+
+1. Add async method in `arkmeds_client/client.py`.
+2. Update relevant service to consume it.
+3. Cover with tests in `tests/`.
+
+---
+
+## 6  Quick Reference Commands
+
+```bash
+# Setup & run (Linux/macOS)
+make install && make run
+
+# Windows PowerShell
+./make.ps1 -Target install
+./make.ps1 -Target run -Port 8501
+
+# Lint / format / test
+make lint    # Ruff static analysis
+make format  # Ruff formatter
+make test    # Pytest suite
+
+# Docker
+make docker   # Build image
+make compose  # docker‑compose up -d
+```
+
+For full details consult `README.md` and the inline docstrings.
