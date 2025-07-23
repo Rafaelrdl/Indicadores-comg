@@ -91,3 +91,49 @@ async def test_compute_metrics():
     assert metrics.busca_ativa == 4
     assert metrics.backlog == 4
     assert metrics.sla_pct == 50.0
+
+
+@pytest.mark.asyncio
+async def test_compute_metrics_with_estado_filter():
+    dt_ini = date(2025, 1, 1)
+    dt_fim = date(2025, 1, 31)
+
+    data = {
+        "cor_predial": [make_os(1, 2, 1, datetime(2025, 1, 5))],
+        "cor_eng": [make_os(2, 2, 1, datetime(2025, 1, 6))],
+        "prev_predial": [],
+        "prev_infra": [],
+        "busca": [],
+        "abertas": [make_os(3, 2, OSEstado.ABERTA.value, datetime(2025, 1, 7))],
+        "fechadas": [],
+        "fechadas_periodo": [],
+    }
+
+    client = DummyClient(data)
+
+    async def fake_list_os(**filters):
+        if filters.get("estado_ids") == [OSEstado.ABERTA.value]:
+            return data["abertas"]
+        if filters.get("data_fechamento__gte"):
+            return data["fechadas_periodo"]
+        if filters.get("estado_ids") == [OSEstado.FECHADA.value]:
+            return data["fechadas"]
+        if filters.get("tipo_id") == 2 and filters.get("area_id") == 10:
+            return data["cor_predial"]
+        if filters.get("tipo_id") == 2 and filters.get("area_id") == 11:
+            return data["cor_eng"]
+        if filters.get("tipo_id") == 1 and filters.get("area_id") == 10:
+            return data["prev_predial"]
+        if filters.get("tipo_id") == 1 and filters.get("area_id") == 11:
+            return data["prev_infra"]
+        if filters.get("tipo_id") == 6:
+            return data["busca"]
+        return []
+
+    client.list_os = fake_list_os  # type: ignore[assignment]
+
+    metrics = await compute_metrics(
+        client, dt_ini=dt_ini, dt_fim=dt_fim, estado_ids=[OSEstado.ABERTA.value]
+    )
+
+    assert metrics.backlog == 1

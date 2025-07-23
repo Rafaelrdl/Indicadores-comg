@@ -36,6 +36,30 @@ class EquipmentMetrics:
     mttr_hours: float
     mtbf_hours: float
 
+    # Compatibility aliases
+    @property
+    def ativos(self) -> int:
+        return self.active
+
+    @property
+    def desativados(self) -> int:
+        return self.inactive
+
+    @property
+    def em_manutencao(self) -> int:
+        return self.in_maintenance
+
+    @property
+    def mttr_h(self) -> float:
+        return self.mttr_hours
+
+    @property
+    def mtbf_h(self) -> float:
+        return self.mtbf_hours
+
+# Backwards compatibility alias
+EquipMetrics = EquipmentMetrics
+
 
 async def fetch_equipment_data(
     client: ArkmedsClient, 
@@ -170,10 +194,12 @@ async def _async_compute_metrics(
 
 
 async def compute_metrics(
-    client: ArkmedsClient, 
+    client: ArkmedsClient,
     *,
-    start_date: date, 
-    end_date: date, 
+    start_date: date | None = None,
+    end_date: date | None = None,
+    dt_ini: date | None = None,
+    dt_fim: date | None = None,
     **filters: Any
 ) -> EquipmentMetrics:
     """Public interface to compute equipment metrics.
@@ -190,11 +216,13 @@ async def compute_metrics(
     Returns:
         EquipmentMetrics object containing all computed metrics
     """
+    start_date = start_date or dt_ini
+    end_date = end_date or dt_fim
     frozen = tuple(sorted(filters.items()))
     return await asyncio.to_thread(
-        _cached_compute, 
-        start_date, 
-        end_date, 
-        frozen, 
+        _cached_compute,
+        start_date,
+        end_date,
+        frozen,
         client
     )
