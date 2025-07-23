@@ -6,10 +6,24 @@ from datetime import date
 from typing import List
 
 import streamlit as st
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import EstadoOS, TipoOS, User
 
+_FAKE_SESSION: dict = {}
+
+
+def _session() -> dict:
+    """Return Streamlit session state or a fallback dict when offline."""
+    ctx = get_script_run_ctx()
+    if ctx is None:
+        # not running via `streamlit run`, fallback to local dict
+        global _FAKE_SESSION
+        # replace Streamlit proxy with plain dict for test assertions
+        st.session_state = _FAKE_SESSION
+        return _FAKE_SESSION
+    return st.session_state
 
 @st.cache_data(ttl=86400)
 def _get_tipos(_client: ArkmedsClient) -> List[TipoOS]:
@@ -27,8 +41,9 @@ def _get_users(_client: ArkmedsClient) -> List[User]:
 
 
 def render_filters(client: ArkmedsClient) -> dict:
-    state = st.session_state.get("filters", {})
-    st.session_state.setdefault("filtros_version", 0)
+    sess = _session()
+    state = sess.get("filters", {})
+    sess.setdefault("filtros_version", 0)
 
     start = time.time()
     tipos = _get_tipos(client)
@@ -70,29 +85,30 @@ def render_filters(client: ArkmedsClient) -> dict:
     clear_clicked = st.sidebar.button("Limpar")
 
     if apply_clicked:
-        st.session_state["filters"] = {
+        sess["filters"] = {
             "dt_ini": dt_ini,
             "dt_fim": dt_fim,
             "tipo_id": tipo_id,
             "estado_ids": estado_ids,
             "responsavel_id": responsavel_id,
         }
-        st.session_state["filtros_version"] += 1
+        sess["filtros_version"] += 1
     elif clear_clicked:
-        st.session_state["filters"] = {
+        sess["filters"] = {
             "dt_ini": date.today().replace(day=1),
             "dt_fim": date.today(),
             "tipo_id": None,
             "estado_ids": [],
             "responsavel_id": None,
         }
-        st.session_state["filtros_version"] += 1
+        sess["filtros_version"] += 1
 
-    return st.session_state.get("filters", {})
+    return sess.get("filters", {})
 
 
 def show_active_filters(client: ArkmedsClient) -> None:
-    filters = st.session_state.get("filters")
+    sess = _session()
+    filters = sess.get("filters")
     if not filters:
         return
     parts = [
