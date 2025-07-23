@@ -6,7 +6,6 @@ from typing import Optional
 
 import httpx
 import streamlit as st
-from dateutil import parser
 
 from .models import TokenData
 
@@ -45,7 +44,7 @@ class ArkmedsAuth:
         for attempt in range(self.max_tries):
             try:
                 resp = await client.post(
-                    "/rest-auth/token-auth/",
+                    "/api/v3/auth/login",
                     json={"email": self.email, "password": self.password},
                     timeout=10,
                 )
@@ -54,7 +53,6 @@ class ArkmedsAuth:
                 resp.raise_for_status()
                 data = resp.json()
                 token = data.get("token") or data.get("access")
-                # O endpoint /rest-auth/token-auth/ retorna apenas o token JWT, sem expiração explícita
                 if token is None:
                     raise ArkmedsAuthError("Malformed login response")
                 # Define expiração padrão de 1 hora se não vier no payload
