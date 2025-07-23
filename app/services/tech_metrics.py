@@ -38,6 +38,34 @@ class TechnicianKPI:
     sla_percentage: float
     average_close_hours: float
 
+    # Compatibility alias
+    @property
+    def tecnico_id(self) -> int:
+        return self.technician_id
+
+    @property
+    def abertas(self) -> int:
+        return self.open_orders
+
+    @property
+    def concluidas(self) -> int:
+        return self.completed_orders
+
+    @property
+    def pendentes_total(self) -> int:
+        return self.total_pending
+
+    @property
+    def sla_pct(self) -> float:
+        return self.sla_percentage
+
+    @property
+    def avg_close_h(self) -> float:
+        return self.average_close_hours
+
+# Backwards compatibility alias
+TechKPI = TechnicianKPI
+
 
 async def fetch_technician_orders(
     client: ArkmedsClient,
@@ -199,8 +227,10 @@ async def _async_compute_metrics(
 async def compute_metrics(
     client: ArkmedsClient,
     *,
-    start_date: date,
-    end_date: date,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    dt_ini: date | None = None,
+    dt_fim: date | None = None,
     **filters: Any
 ) -> list[TechnicianKPI]:
     """Public interface to compute technician metrics.
@@ -217,6 +247,8 @@ async def compute_metrics(
     Returns:
         List of TechnicianKPI objects containing metrics for each technician
     """
+    start_date = start_date or dt_ini
+    end_date = end_date or dt_fim
     frozen = tuple(sorted(filters.items()))
     return await asyncio.to_thread(
         _cached_compute,

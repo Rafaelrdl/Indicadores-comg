@@ -63,6 +63,31 @@ class OSMetrics:
     backlog: int
     sla_percentage: float
 
+    # Compatibility aliases
+    @property
+    def corretivas_predial(self) -> int:
+        return self.corrective_building
+
+    @property
+    def corretivas_engenharia(self) -> int:
+        return self.corrective_engineering
+
+    @property
+    def preventivas_predial(self) -> int:
+        return self.preventive_building
+
+    @property
+    def preventivas_infra(self) -> int:
+        return self.preventive_infra
+
+    @property
+    def busca_ativa(self) -> int:
+        return self.active_search
+
+    @property
+    def sla_pct(self) -> float:
+        return self.sla_percentage
+
 
 def _validate_dates(start_date: date, end_date: date) -> None:
     """Validate date range parameters.
@@ -148,14 +173,19 @@ async def fetch_service_orders(
         ValidationError: If input parameters are invalid
     """
     _validate_dates(start_date, end_date)
-    
+
     try:
+        sanitized_filters = dict(filters)
+        extra_estado_ids = sanitized_filters.pop("estado_ids", None)
+
         # Prepare common parameters
         common_params = {
             "data_criacao__gte": start_date,
             "data_criacao__lte": end_date,
-            **filters,
+            **sanitized_filters,
         }
+        if extra_estado_ids is not None:
+            common_params["estado_ids"] = extra_estado_ids
         
         # Define all the queries to run in parallel
         queries = [
@@ -169,21 +199,21 @@ async def fetch_service_orders(
             
             # Active search orders
             fetch_orders(client, TIPO_BUSCA_ATIVA, **common_params),
-            
+
             # Open and closed orders for backlog calculation
             fetch_orders(
-                client, 
-                TIPO_CORRETIVA, 
+                client,
+                TIPO_CORRETIVA,
                 estado_ids=[OSEstado.ABERTA.value],
-                **filters  # Don't apply date filters for backlog
+                **sanitized_filters  # Don't apply date filters for backlog
             ),
             fetch_orders(
-                client, 
-                TIPO_CORRETIVA, 
+                client,
+                TIPO_CORRETIVA,
                 estado_ids=[OSEstado.FECHADA.value],
-                **filters  # Don't apply date filters for backlog
+                **sanitized_filters  # Don't apply date filters for backlog
             ),
-            
+
             # Orders closed in the period for SLA calculation
             fetch_orders(
                 client,
@@ -191,7 +221,7 @@ async def fetch_service_orders(
                 estado_ids=[OSEstado.FECHADA.value],
                 data_fechamento__gte=start_date,
                 data_fechamento__lte=end_date,
-                **filters
+                **sanitized_filters
             ),
         ]
         
@@ -352,10 +382,12 @@ async def _async_compute_metrics(
 
 
 async def compute_metrics(
-    client: ArkmedsClient, 
+    client: ArkmedsClient,
     *,
-    start_date: date, 
-    end_date: date, 
+    start_date: date | None = None,
+    end_date: date | None = None,
+    dt_ini: date | None = None,
+    dt_fim: date | None = None,
     **filters: Any
 ) -> OSMetrics:
     """Public interface to compute service order metrics.
@@ -391,6 +423,9 @@ async def compute_metrics(
         ValidationError: If input parameters are invalid
     """
     try:
+        start_date = start_date or dt_ini
+        end_date = end_date or dt_fim
+
         # Input validation
         _validate_dates(start_date, end_date)
         
