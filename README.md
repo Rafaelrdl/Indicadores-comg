@@ -32,7 +32,7 @@ make install && make run
 ./make.bat install
 ./make.bat run PORT=8501
 # ou em PowerShell puro
-./make.ps1 -Target install
+./make.ps1 -Target install   # instala dependências + package editável
 ./make.ps1 -Target run -Port 8501
 # se bloquear scripts, use
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
