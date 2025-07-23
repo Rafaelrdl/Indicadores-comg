@@ -28,6 +28,8 @@ cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 # Exemplo:
 # [arkmeds]
 # base_url = "https://comg.arkmeds.com"
+# O endpoint de login utilizado pela API 
+# "/api/v3/auth/login" não possui barra final.
 
 # instalar dependências e subir o app (Linux/macOS)
 make install && make run
