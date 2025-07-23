@@ -50,24 +50,12 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 - `make compose` – docker compose up --build
 - `make ci` – executa lint e testes
 
-## Problemas comuns
+## Boas práticas
 
-Em algumas versões antigas do Windows a renderização de emojis pode disparar
-`UnicodeEncodeError` ao iniciar o Streamlit. O dashboard tenta detectar esse
-cenário e remove os ícones automaticamente.
-Se preferir desativar os emojis em qualquer plataforma defina a variável de
-ambiente `ALLOW_EMOJI=0` (no Windows execute `setx ALLOW_EMOJI 0`).
-Se ainda ver o erro, force a remoção de emojis reiniciando o terminal após
-definir `ALLOW_EMOJI=0`.
-
-## Emoji opt-in
-
-Para ativar os emojis mesmo em plataformas que podem falhar:
-
-```powershell
-$env:ALLOW_EMOJI=1
-streamlit run app/main.py --allow-unsafe-emoji
-```
+Os nomes de arquivo em `app/pages/` devem usar apenas caracteres ASCII
+(por exemplo, `1_home.py`, `2_os.py`). Cada página define seu título e ícone
+com `st.set_page_config(page_icon="...")`. A sidebar é montada
+automaticamente pelo Streamlit.
 
 ## Contribuindo
 
