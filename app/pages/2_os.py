@@ -3,9 +3,9 @@ import asyncio
 import pandas as pd
 import streamlit as st
 from arkmeds_client.client import ArkmedsClient
+from services.os_metrics import compute_metrics
 
-from app.services.os_metrics import compute_metrics
-from app.ui.filters import show_active_filters
+from ui.filters import show_active_filters
 
 st.set_page_config(page_title="Ordens de Serviço", page_icon="📑")
 
