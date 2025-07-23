@@ -1,27 +1,15 @@
 @echo off
-setlocal
-
-if "%1"=="install" (
-    poetry install --with dev --no-root
-) else if "%1"=="run" (
-    if "%PORT%"=="" set PORT=8501
-    poetry run streamlit run app/main.py --server.port %PORT%
-) else if "%1"=="lint" (
-    poetry run ruff check .
-) else if "%1"=="format" (
-    poetry run ruff format .
-) else if "%1"=="test" (
-    poetry run pytest -q
-) else if "%1"=="docker" (
-    docker build -t arkmeds-dashboard .
-) else if "%1"=="compose" (
-    docker compose up --build
-) else if "%1"=="ci" (
-    call %0 lint
-    call %0 test
-) else (
-    echo Targets: install run lint format test docker compose ci
-    exit /b 1
-)
-
+setlocal EnableDelayedExpansion
+REM Porta padrão pode ser sobreposta com PORT=xxxx
+if "%PORT%"=="" set PORT=8501
+REM ---- TARGETS -------------------------------------------------
+if "%1"=="install" (poetry install --with dev --no-root & goto :eof)
+if "%1"=="run" (poetry run streamlit run app/main.py --server.port !PORT! & goto :eof)
+if "%1"=="lint" (poetry run ruff check . & goto :eof)
+if "%1"=="format" (poetry run ruff format . & goto :eof)
+if "%1"=="test" (poetry run pytest -q & goto :eof)
+if "%1"=="docker" (docker build -t arkmeds-dashboard . & goto :eof)
+if "%1"=="ci" (call %0 lint & call %0 test & goto :eof)
+REM Help
+echo Targets: install run lint format test docker ci
 endlocal

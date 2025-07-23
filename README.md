@@ -28,10 +28,14 @@ cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 # instalar dependências e subir o app (Linux/macOS)
 make install && make run
 
-# no Windows use
-./make.bat install && ./make.bat run
-# ou via PowerShell
-./scripts/run.ps1 -Install
+# no Windows (cmd ou PowerShell via Batch)
+./make.bat install
+./make.bat run PORT=8501
+# ou em PowerShell puro
+./make.ps1 -Target install
+./make.ps1 -Target run -Port 8501
+# se bloquear scripts, use
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
 ## Scripts Uteis
