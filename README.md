@@ -56,6 +56,7 @@ Em algumas versões antigas do Windows a renderização de emojis pode disparar
 cenário e remove os ícones automaticamente. Se preferir desativar os emojis em
 qualquer plataforma defina a variável de ambiente `ALLOW_EMOJI=0` (no
 PowerShell: `setx ALLOW_EMOJI 0`).
+Defina `setx ALLOW_EMOJI 0` para forçar remoção de emoji em qualquer SO.
 
 ## Contribuindo
 

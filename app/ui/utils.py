@@ -1,11 +1,15 @@
 import os
 import sys
-import unicodedata
 
-EMOJI_ALLOWED = False if os.name == "nt" and sys.maxunicode == 0xFFFF else True
+
+def _strip_surrogates(text: str) -> str:
+    """Remove qualquer UTF-16 surrogate pair individual ou já combinado."""
+    return "".join(c for c in text if ord(c) < 0x10000)
 
 
 def safe_label(label: str) -> str:
-    if EMOJI_ALLOWED and os.getenv("ALLOW_EMOJI", "1") == "1":
+    """Remove emojis/caracteres fora do BMP em ambientes que não suportam."""
+    allow = os.getenv("ALLOW_EMOJI", "1") == "1"
+    if allow and sys.maxunicode >= 0x10FFFF and os.name != "nt":
         return label
-    return "".join(c for c in label if unicodedata.category(c) != "So")
+    return _strip_surrogates(label)
