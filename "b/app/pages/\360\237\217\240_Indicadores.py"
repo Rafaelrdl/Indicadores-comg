@@ -70,12 +70,12 @@ st.info("Heat-map SLA em construção")
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     if st.button("Ver OS 📝"):
-        st.switch_page("ui/os.py")
+        st.switch_page("pages/📑_Ordens_de_Serviço.py")
 with col2:
     if st.button("Equipamentos ⚙️"):
-        st.switch_page("ui/equip.py")
+        st.switch_page("pages/🛠️_Equipamentos.py")
 with col3:
     if st.button("Técnicos 👷"):
-        st.switch_page("ui/tech.py")
+        st.switch_page("pages/👷_Técnicos.py")
 with col4:
     st.button("Relatórios 📑", disabled=True)
