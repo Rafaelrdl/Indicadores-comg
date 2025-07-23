@@ -15,14 +15,26 @@ class ArkmedsAuthError(Exception):
 
 
 class ArkmedsAuth:
-    def __init__(self, email: str, password: str, base_url: str, max_tries: int = 3) -> None:
+    def __init__(
+        self,
+        email: str,
+        password: str,
+        base_url: str,
+        token: str | None = None,
+        max_tries: int = 3,
+    ) -> None:
         if not base_url.startswith(("http://", "https://")):
             raise ValueError("base_url must start with 'http://' or 'https://'")
         self.email = email
         self.password = password
         self.base_url = base_url.rstrip("/")
         self.max_tries = max_tries
-        self._token: Optional[TokenData] = None
+        if token:
+            exp = datetime.now(timezone.utc) + timedelta(hours=1)
+            self._token = TokenData(token=token, exp=exp)
+            st.session_state["arkmeds_token"] = token
+        else:
+            self._token = None
         self._client: Optional[httpx.AsyncClient] = None
 
     @classmethod
@@ -32,6 +44,7 @@ class ArkmedsAuth:
             email=cfg.get("email", ""),
             password=cfg.get("password", ""),
             base_url=cfg.get("base_url", ""),
+            token=cfg.get("token"),
         )
 
     async def _get_client(self) -> httpx.AsyncClient:
