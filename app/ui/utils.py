@@ -1,18 +1,11 @@
+import os
 import sys
+import unicodedata
 
-import streamlit as st
-
-EMOJI_OK = (
-    sys.platform != "win32" or getattr(sys, "getwindowsversion", lambda: None)().build >= 9200
-    if hasattr(sys, "getwindowsversion")
-    else True
-)
+EMOJI_ALLOWED = False if os.name == "nt" and sys.maxunicode == 0xFFFF else True
 
 
 def safe_label(label: str) -> str:
-    allow = st.secrets.get("app", {}).get("allow_emoji", True)
-    if allow and EMOJI_OK:
+    if EMOJI_ALLOWED and os.getenv("ALLOW_EMOJI", "1") == "1":
         return label
-    return (
-        label.encode("utf-16", "surrogatepass").decode("utf-16").encode("ascii", "ignore").decode()
-    )
+    return "".join(c for c in label if unicodedata.category(c) != "So")
