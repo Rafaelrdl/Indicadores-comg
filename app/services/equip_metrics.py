@@ -12,7 +12,6 @@ import streamlit as st
 from arkmeds_client.auth import ArkmedsAuthError
 from arkmeds_client.client import ArkmedsClient
 from arkmeds_client.models import OSEstado
-from ui.utils import run_async_safe
 
 from app.config.os_types import TIPO_CORRETIVA
 
@@ -159,21 +158,21 @@ def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, float]:
 
 
 @st.cache_data(ttl=900)
-def _cached_compute(
+async def _cached_compute(
     start_date: date,
     end_date: date,
     frozen_filters: tuple[tuple[str, Any], ...],
     _client: ArkmedsClient,
 ) -> dict[str, Any]:
     """Cached computation of equipment metrics.
-    
+
     Returns a dict representation for better pickle compatibility.
-    
+
     This function is wrapped with Streamlit's cache decorator to avoid
     redundant computations.
     """
     filters = dict(frozen_filters)
-    metrics = run_async_safe(_async_compute_metrics(_client, start_date, end_date, filters))
+    metrics = await _async_compute_metrics(_client, start_date, end_date, filters)
     # Convert to dict for better pickle compatibility
     return {
         "active": metrics.active,
@@ -237,12 +236,11 @@ async def compute_metrics(
     end_date = end_date or dt_fim
     frozen = tuple(sorted(filters.items()))
     
-    metrics_dict = await asyncio.to_thread(
-        _cached_compute,
+    metrics_dict = await _cached_compute(
         start_date,
         end_date,
         frozen,
-        client
+        client,
     )
     
     # Convert dict back to EquipmentMetrics object

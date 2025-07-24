@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import os
 from collections import defaultdict
 from dataclasses import dataclass
@@ -12,7 +11,6 @@ import streamlit as st
 from arkmeds_client.auth import ArkmedsAuthError
 from arkmeds_client.client import ArkmedsClient
 from arkmeds_client.models import OSEstado
-from ui.utils import run_async_safe
 
 SLA_HOURS = int(os.getenv("OS_SLA_HOURS", 72))
 
@@ -179,7 +177,7 @@ def calculate_technician_kpis(
 
 
 @st.cache_data(ttl=900)
-def _cached_compute(
+async def _cached_compute(
     start_date: date,
     end_date: date,
     frozen_filters: tuple[tuple[str, Any], ...],
@@ -193,7 +191,7 @@ def _cached_compute(
     redundant computations.
     """
     filters = dict(frozen_filters)
-    metrics = run_async_safe(_async_compute_metrics(_client, start_date, end_date, filters))
+    metrics = await _async_compute_metrics(_client, start_date, end_date, filters)
     # Convert to list of dicts for better pickle compatibility
     return [
         {
@@ -265,12 +263,11 @@ async def compute_metrics(
     end_date = end_date or dt_fim
     frozen = tuple(sorted(filters.items()))
     
-    metrics_dicts = await asyncio.to_thread(
-        _cached_compute,
+    metrics_dicts = await _cached_compute(
         start_date,
         end_date,
         frozen,
-        client
+        client,
     )
     
     # Convert dicts back to TechnicianKPI objects
