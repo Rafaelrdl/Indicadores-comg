@@ -7,8 +7,8 @@ if str(ROOT) not in sys.path:
 
 import streamlit as st
 from arkmeds_client.client import ArkmedsClient
-from ui.filters import render_filters, show_active_filters
-from ui import register_pages  # noqa: E402
+from app.ui.filters import render_filters, show_active_filters
+from app.ui import register_pages  # noqa: E402
 
 # Configure the main page
 st.set_page_config(page_title="Tela Principal", page_icon="🏠", layout="wide")

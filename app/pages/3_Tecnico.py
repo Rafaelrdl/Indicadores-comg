@@ -1,7 +1,7 @@
 import streamlit as st
 from arkmeds_client.client import ArkmedsClient
 
-from ui.filters import render_filters, show_active_filters
+from app.ui.filters import render_filters, show_active_filters
 
 st.set_page_config(page_title="Técnicos", page_icon="👷", layout="wide")
 

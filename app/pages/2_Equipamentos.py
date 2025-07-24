@@ -11,9 +11,9 @@ from arkmeds_client.models import OS
 from config.os_types import TIPO_CORRETIVA
 from dateutil.relativedelta import relativedelta
 from services.equip_metrics import compute_metrics
-from ui.utils import run_async_safe
+from app.ui.utils import run_async_safe
 
-from ui.filters import show_active_filters
+from app.ui.filters import show_active_filters
 
 st.set_page_config(page_title="Equipamentos", page_icon="🛠️", layout="wide")
 
