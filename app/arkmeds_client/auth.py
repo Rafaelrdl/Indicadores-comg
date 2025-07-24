@@ -25,6 +25,7 @@ class ArkmedsAuth:
     # Ordered list of possible login endpoints. The first one that works will
     # be cached for subsequent logins.
     LOGIN_ENDPOINT_CANDIDATES = [
+        "/rest-auth/token-auth/",
         "/api/v3/auth/login",
         "/api/v3/login",
         "/api/auth/login",
@@ -119,9 +120,15 @@ class ArkmedsAuth:
         for endpoint in endpoints:
             for attempt in range(self.max_tries):
                 try:
+                    # Different endpoints may expect different payload formats
+                    if endpoint == "/rest-auth/token-auth/":
+                        payload = {"username": self.email, "password": self.password}
+                    else:
+                        payload = {"email": self.email, "password": self.password}
+                    
                     resp = await client.post(
                         endpoint,
-                        json={"email": self.email, "password": self.password},
+                        json=payload,
                         timeout=10,
                     )
 
