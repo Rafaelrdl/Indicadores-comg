@@ -15,6 +15,15 @@ class ArkmedsAuthError(Exception):
 
 
 class ArkmedsAuth:
+    """Handle authentication against the Arkmeds API."""
+
+    # Ordered list of possible login endpoints. The first one that works will
+    # be cached for subsequent logins.
+    LOGIN_ENDPOINT_CANDIDATES = [
+        "/api/v3/auth/login",
+        "/api/v3/login",
+        "/api/auth/login",
+    ]
     def __init__(
         self,
         email: str,
@@ -36,6 +45,7 @@ class ArkmedsAuth:
         else:
             self._token = None
         self._client: Optional[httpx.AsyncClient] = None
+        self._login_url: Optional[str] = None
 
     @classmethod
     def from_secrets(cls) -> "ArkmedsAuth":
@@ -53,30 +63,50 @@ class ArkmedsAuth:
         return self._client
 
     async def login(self) -> TokenData:
+        """Authenticate, trying fallback endpoints on 404."""
         client = await self._get_client()
-        for attempt in range(self.max_tries):
-            try:
-                resp = await client.post(
-                    "/api/v3/auth/login",
-                    json={"email": self.email, "password": self.password},
-                    timeout=10,
-                )
-                if resp.status_code == 401:
-                    raise ArkmedsAuthError("Invalid credentials")
-                resp.raise_for_status()
-                data = resp.json()
-                token = data.get("token") or data.get("access")
-                if token is None:
-                    raise ArkmedsAuthError("Malformed login response")
-                # Define expiração padrão de 1 hora se não vier no payload
-                exp = datetime.now(timezone.utc) + timedelta(hours=1)
-                self._token = TokenData(token=token, exp=exp)
-                st.session_state["arkmeds_token"] = token
-                return self._token
-            except httpx.RequestError as exc:
-                if attempt == self.max_tries - 1:
-                    raise ArkmedsAuthError("Connection error") from exc
-                await asyncio.sleep(2**attempt)
+        endpoints = (
+            [self._login_url] if self._login_url else self.LOGIN_ENDPOINT_CANDIDATES
+        )
+        last_404: Optional[httpx.Response] = None
+
+        for endpoint in endpoints:
+            for attempt in range(self.max_tries):
+                try:
+                    resp = await client.post(
+                        endpoint,
+                        json={"email": self.email, "password": self.password},
+                        timeout=10,
+                    )
+
+                    if resp.status_code == 401:
+                        raise ArkmedsAuthError("Invalid credentials")
+                    if resp.status_code == 404:
+                        last_404 = resp
+                        break
+
+                    resp.raise_for_status()
+                    data = resp.json()
+                    token = data.get("token") or data.get("access")
+                    if token is None:
+                        raise ArkmedsAuthError("Malformed login response")
+
+                    exp = datetime.now(timezone.utc) + timedelta(hours=1)
+                    self._token = TokenData(token=token, exp=exp)
+                    st.session_state["arkmeds_token"] = token
+                    self._login_url = endpoint
+                    return self._token
+
+                except httpx.RequestError as exc:
+                    if attempt == self.max_tries - 1:
+                        raise ArkmedsAuthError("Connection error") from exc
+                    await asyncio.sleep(2**attempt)
+
+            if self._token:
+                break
+
+        if last_404 is not None:
+            raise ArkmedsAuthError(f"{last_404.status_code} {last_404.text}")
         raise ArkmedsAuthError("Unable to authenticate")
 
     async def refresh(self) -> None:
