@@ -102,16 +102,24 @@ class ArkmedsClient:
                 url = data.next
                 params = None
         except Exception:
-            # Ensure client is closed on error
-            await self.close()
+            # Ensure client is closed on error, but ignore cleanup errors
+            try:
+                await self.close()
+            except (RuntimeError, Exception):
+                pass
             raise
         return results
 
     async def close(self) -> None:
         """Close the HTTP client connection."""
         if self._client:
-            await self._client.aclose()
-            self._client = None
+            try:
+                await self._client.aclose()
+            except (RuntimeError, Exception):
+                # Ignore errors during cleanup (like closed event loop)
+                pass
+            finally:
+                self._client = None
 
     async def list_os(self, **filters: Any) -> List[OS]:
         data = await self._get_all_pages("/api/v3/ordem_servico/", filters)

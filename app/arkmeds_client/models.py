@@ -47,7 +47,7 @@ class User(ArkBase):
 class Equipment(ArkBase):
     id: int
     nome: str
-    ativo: bool
+    ativo: bool | None = None
     data_aquisicao: datetime | None = Field(default=None, alias="data_aquisicao")
 
     @field_validator("data_aquisicao", mode="before")

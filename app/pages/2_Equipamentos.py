@@ -30,7 +30,7 @@ def _build_history_df(os_list: list[OS]) -> pd.DataFrame:
         month = os_obj.closed_at.replace(day=1, hour=0, minute=0, second=0, microsecond=0).date()
         delta_h = (os_obj.closed_at - os_obj.created_at).total_seconds() / 3600
         mttr_map[month].append(delta_h)
-        by_eq[os_obj.equipment_id].append(os_obj)
+        by_eq[os_obj.equipamento_id].append(os_obj)
 
     mtbf_map: dict[date, list[float]] = defaultdict(list)
     for items in by_eq.values():
@@ -88,16 +88,12 @@ with st.spinner("Carregando dados de equipamentos…"):
 show_active_filters(ArkmedsClient.from_session())
 
 pct_em_manut = round(metrics.em_manutencao / metrics.ativos * 100, 1) if metrics.ativos else 0
-idade_media = round(
-    mean(
-        [
-            (date.today() - eq.data_aquisicao.date()).days / 365
-            for eq in equip_list
-            if eq.data_aquisicao
-        ]
-    ),
-    1,
-) if equip_list else 0
+idades = [
+    (date.today() - eq.data_aquisicao.date()).days / 365
+    for eq in equip_list
+    if eq.data_aquisicao
+]
+idade_media = round(mean(idades), 1) if idades else 0
 
 cols = st.columns(4)
 cols[0].metric("🔋 Ativos", metrics.ativos)
@@ -130,8 +126,8 @@ def _table_data() -> pd.DataFrame:
     )
     by_eq: dict[int, list[OS]] = defaultdict(list)
     for os_obj in os_hist:
-        if os_obj.equipment_id is not None and os_obj.closed_at:
-            by_eq[os_obj.equipment_id].append(os_obj)
+        if os_obj.equipamento_id is not None and os_obj.closed_at:
+            by_eq[os_obj.equipamento_id].append(os_obj)
     mttr_local = []
     mtbf_local = []
     ultima_os = []
@@ -139,17 +135,12 @@ def _table_data() -> pd.DataFrame:
         items = by_eq.get(eq, [])
         if items:
             ultima_os.append(max(o.closed_at for o in items).date())
+            tempos_reparo = [
+                (o.closed_at - o.created_at).total_seconds()
+                for o in items
+            ]
             mttr_local.append(
-                round(
-                    mean(
-                        (
-                            (o.closed_at - o.created_at).total_seconds()
-                            for o in items
-                        )
-                    )
-                    / 3600,
-                    2,
-                )
+                round(mean(tempos_reparo) / 3600, 2) if tempos_reparo else 0.0
             )
             if len(items) > 1:
                 items.sort(key=lambda o: o.created_at)
@@ -157,7 +148,7 @@ def _table_data() -> pd.DataFrame:
                     (items[i].created_at - items[i - 1].created_at).total_seconds()
                     for i in range(1, len(items))
                 ]
-                mtbf_local.append(round(mean(intervals) / 3600, 2))
+                mtbf_local.append(round(mean(intervals) / 3600, 2) if intervals else 0.0)
             else:
                 mtbf_local.append(0.0)
         else:
