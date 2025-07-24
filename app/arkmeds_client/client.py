@@ -7,7 +7,7 @@ import httpx
 import streamlit as st
 from aiolimiter import AsyncLimiter
 
-from .auth import ArkmedsAuth
+from .auth import ArkmedsAuth, ArkmedsAuthError
 from .models import (
     OS,
     Equipment,
@@ -81,15 +81,25 @@ class ArkmedsClient:
             try:
                 async with limiter:
                     resp = await client.request(method, url, params=params)
+
                 if resp.status_code == 401 and attempt == 0:
                     await self.auth.login()
                     client.headers["Authorization"] = f"Bearer {await self.auth.get_token()}"
                     continue
+
+                if resp.status_code == 403:
+                    if attempt == 0:
+                        await self.auth.login()
+                        client.headers["Authorization"] = f"Bearer {await self.auth.get_token()}"
+                        continue
+                    raise ArkmedsAuthError(f"{resp.status_code} {resp.text}")
+
                 if resp.status_code >= 500 or resp.status_code == 429:
                     if attempt == self.max_retries - 1:
                         resp.raise_for_status()
                     await asyncio.sleep(2**attempt)
                     continue
+
                 resp.raise_for_status()
                 return resp
             except httpx.RequestError:

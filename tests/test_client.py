@@ -5,7 +5,8 @@ import httpx
 from httpx import Response, Request
 from httpx import MockTransport
 
-from app.arkmeds_client.auth import ArkmedsAuth
+import pytest
+from app.arkmeds_client.auth import ArkmedsAuth, ArkmedsAuthError
 from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import OSEstado, OS, TokenData, TipoOS, EstadoOS, User
 
@@ -144,3 +145,46 @@ def test_filters_in_query():
     client = ArkmedsClient(auth)
     client._client = httpx.AsyncClient(base_url=auth.base_url, transport=transport)
     asyncio.run(client.list_os(estado=4))
+
+
+def test_403_refresh_success():
+    os_payload = {
+        "id": 1,
+        "tipo_ordem_servico": {"id": 1, "descricao": "P"},
+        "estado": {"id": 1, "descricao": "A"},
+        "data_criacao": "01/01/25 - 00:00",
+    }
+    responses = {
+        "/api/v3/ordem_servico/": Response(403),
+        "retry": Response(
+            200,
+            json={"count": 1, "next": None, "results": [os_payload]},
+        ),
+    }
+
+    async def handler(request: Request) -> Response:
+        path = request.url.raw_path.decode()
+        if path == "/api/v3/ordem_servico/" and not getattr(handler, "called", False):
+            handler.called = True
+            return responses[path]
+        return responses["retry"]
+
+    transport = MockTransport(handler)
+    auth = DummyAuth()
+    client = ArkmedsClient(auth)
+    client._client = httpx.AsyncClient(base_url=auth.base_url, transport=transport)
+    data = asyncio.run(client.list_os())
+    assert len(data) == 1
+    assert isinstance(data[0], OS)
+
+
+def test_403_refresh_fail():
+    async def handler(request: Request) -> Response:
+        return Response(403, json={"detail": "token expired"})
+
+    transport = MockTransport(handler)
+    auth = DummyAuth()
+    client = ArkmedsClient(auth)
+    client._client = httpx.AsyncClient(base_url=auth.base_url, transport=transport)
+    with pytest.raises(ArkmedsAuthError):
+        asyncio.run(client.list_os())
