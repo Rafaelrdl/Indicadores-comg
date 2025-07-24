@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -15,7 +16,11 @@ class ArkmedsAuthError(Exception):
 
 
 class ArkmedsAuth:
-    """Handle authentication against the Arkmeds API."""
+    """Handle authentication against the Arkmeds API.
+
+    The login endpoint can be configured via ``login_path`` or the
+    ``ARKMEDS_LOGIN_PATH`` environment variable.
+    """
 
     # Ordered list of possible login endpoints. The first one that works will
     # be cached for subsequent logins.
@@ -24,6 +29,7 @@ class ArkmedsAuth:
         "/api/v3/login",
         "/api/auth/login",
     ]
+
     def __init__(
         self,
         email: str,
@@ -31,6 +37,7 @@ class ArkmedsAuth:
         base_url: str,
         token: str | None = None,
         max_tries: int = 3,
+        login_path: str | None = None,
     ) -> None:
         if not base_url.startswith(("http://", "https://")):
             raise ValueError("base_url must start with 'http://' or 'https://'")
@@ -45,7 +52,7 @@ class ArkmedsAuth:
         else:
             self._token = None
         self._client: Optional[httpx.AsyncClient] = None
-        self._login_url: Optional[str] = None
+        self._login_url: Optional[str] = login_path or os.environ.get("ARKMEDS_LOGIN_PATH")
 
     @classmethod
     def from_secrets(cls) -> "ArkmedsAuth":
@@ -62,12 +69,51 @@ class ArkmedsAuth:
             self._client = httpx.AsyncClient(base_url=self.base_url)
         return self._client
 
-    async def login(self) -> TokenData:
-        """Authenticate, trying fallback endpoints on 404."""
+    async def _discover_login_url(self) -> str:
+        """Try to find a valid login endpoint by probing common paths."""
+        if self._login_url:
+            return self._login_url
+
         client = await self._get_client()
-        endpoints = (
-            [self._login_url] if self._login_url else self.LOGIN_ENDPOINT_CANDIDATES
+
+        async def check(path: str) -> str | None:
+            for method in ("HEAD", "OPTIONS"):
+                try:
+                    resp = await client.request(method, path, timeout=0.2)
+                    if resp.status_code in (200, 204, 405):
+                        return path
+                except httpx.RequestError:
+                    pass
+            return None
+
+        tasks = [asyncio.create_task(check(p)) for p in self.LOGIN_ENDPOINT_CANDIDATES]
+
+        done, pending = await asyncio.wait(
+            tasks,
+            timeout=0.3,
+            return_when=asyncio.FIRST_COMPLETED,
         )
+        for t in pending:
+            t.cancel()
+
+        for t in done:
+            result = t.result()
+            if result:
+                self._login_url = result
+                return result
+
+        raise ArkmedsAuthError(
+            "Login endpoint not found. Tried: " + ", ".join(self.LOGIN_ENDPOINT_CANDIDATES)
+        )
+
+    async def login(self) -> TokenData:
+        """Authenticate against the Arkmeds API."""
+        client = await self._get_client()
+
+        if not self._login_url:
+            await self._discover_login_url()
+
+        endpoints = [self._login_url] if self._login_url else self.LOGIN_ENDPOINT_CANDIDATES
         last_404: Optional[httpx.Response] = None
 
         for endpoint in endpoints:
@@ -123,3 +169,8 @@ class ArkmedsAuth:
         await self.refresh()
         assert self._token  # for type checkers
         return self._token.token
+
+
+# Example:
+# auth = ArkmedsAuth(base_url, email="e", password="p", login_path="/api/auth/token/login")
+# await auth.login()
