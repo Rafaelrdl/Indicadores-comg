@@ -8,7 +8,6 @@ from statistics import mean
 from typing import Any
 
 import httpx
-import streamlit as st
 from arkmeds_client.auth import ArkmedsAuthError
 from arkmeds_client.client import ArkmedsClient
 from arkmeds_client.models import OSEstado
@@ -18,17 +17,20 @@ from app.config.os_types import TIPO_CORRETIVA
 
 class EquipmentMetricsError(Exception):
     """Base exception for equipment metrics related errors."""
+
     pass
 
 
 class DataFetchError(EquipmentMetricsError):
     """Raised when there's an error fetching data from the API."""
+
     pass
 
 
 @dataclass(frozen=True)
 class EquipmentMetrics:
     """Represents metrics for equipment analysis."""
+
     active: int
     inactive: int
     in_maintenance: int
@@ -56,33 +58,31 @@ class EquipmentMetrics:
     def mtbf_h(self) -> float:
         return self.mtbf_hours
 
+
 # Backwards compatibility alias
 EquipMetrics = EquipmentMetrics
 
 
 async def fetch_equipment_data(
-    client: ArkmedsClient, 
-    start_date: date, 
-    end_date: date, 
-    **filters: Any
+    client: ArkmedsClient, start_date: date, end_date: date, **filters: Any
 ) -> tuple[list, list]:
     """Fetch equipment and maintenance orders data concurrently.
-    
+
     Args:
         client: The Arkmeds API client
         start_date: Start date for the query
         end_date: End date for the query
         **filters: Additional filters for the query
-        
+
     Returns:
         Tuple containing (equipment_list, os_list)
-        
+
     Raises:
         DataFetchError: If there's an error fetching data from the API
     """
     try:
         equip_task = client.list_equipment()
-        
+
         # Prepare OS filters, ensuring we don't duplicate tipo_id
         os_filters = {
             "data_criacao__gte": start_date,
@@ -92,9 +92,9 @@ async def fetch_equipment_data(
         # Set default tipo_id only if not already specified
         if "tipo_id" not in os_filters:
             os_filters["tipo_id"] = TIPO_CORRETIVA
-            
+
         os_task = client.list_os(**os_filters)
-        
+
         return await asyncio.gather(equip_task, os_task)
     except (httpx.TimeoutException, ArkmedsAuthError) as exc:
         raise DataFetchError(f"Failed to fetch equipment data: {str(exc)}") from exc
@@ -102,10 +102,10 @@ async def fetch_equipment_data(
 
 def calculate_equipment_status(equipment_list: list) -> tuple[int, int]:
     """Calculate active and inactive equipment counts.
-    
+
     Args:
         equipment_list: List of equipment objects
-        
+
     Returns:
         Tuple of (active_count, inactive_count)
     """
@@ -115,19 +115,28 @@ def calculate_equipment_status(equipment_list: list) -> tuple[int, int]:
 
 def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, float]:
     """Calculate maintenance-related metrics.
-    
+
     Args:
         os_list: List of maintenance orders
-        
+
     Returns:
         Tuple of (in_maintenance_count, mttr_hours, mtbf_hours)
     """
+
     # Filter active maintenance orders
+    def _resolve_id(os_obj: Any) -> int | None:
+        if os_obj.equipamento_id is not None:
+            return os_obj.equipamento_id
+        if os_obj.equipamento and isinstance(os_obj.equipamento, dict):
+            return os_obj.equipamento.get("id")
+        return None
+
     in_maintenance = {
-        os_obj.equipamento_id
+        _resolve_id(os_obj)
         for os_obj in os_list
-        if os_obj.equipamento_id is not None 
-        and os_obj.estado and os_obj.estado.get('id') != OSEstado.FECHADA.value
+        if _resolve_id(os_obj) is not None
+        and os_obj.estado
+        and os_obj.estado.get("id") != OSEstado.FECHADA.value
     }
 
     # Calculate MTTR (Mean Time To Repair)
@@ -141,8 +150,9 @@ def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, float]:
     # Group by equipment and calculate MTBF
     by_equipment = defaultdict(list)
     for os_obj in os_list:
-        if os_obj.equipamento_id is not None and os_obj.data_fechamento:
-            by_equipment[os_obj.equipamento_id].append(os_obj)
+        equip_id = _resolve_id(os_obj)
+        if equip_id is not None and os_obj.data_fechamento:
+            by_equipment[equip_id].append(os_obj)
 
     intervals = []
     for items in by_equipment.values():
@@ -150,14 +160,13 @@ def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, float]:
             continue
         items.sort(key=lambda o: o.data_criacao)
         for i in range(1, len(items)):
-            intervals.append((items[i].data_criacao - items[i-1].data_criacao).total_seconds())
-    
+            intervals.append((items[i].data_criacao - items[i - 1].data_criacao).total_seconds())
+
     mtbf_h = mean(intervals) / 3600 if intervals else 0.0
 
     return len(in_maintenance), mttr_h, mtbf_h
 
 
-@st.cache_data(ttl=900)
 async def _cached_compute(
     start_date: date,
     end_date: date,
@@ -184,19 +193,14 @@ async def _cached_compute(
 
 
 async def _async_compute_metrics(
-    client: ArkmedsClient, 
-    start_date: date, 
-    end_date: date, 
-    filters: dict[str, Any]
+    client: ArkmedsClient, start_date: date, end_date: date, filters: dict[str, Any]
 ) -> EquipmentMetrics:
     """Compute all equipment metrics asynchronously.
-    
+
     This is the main function that orchestrates the metrics computation.
     """
-    equipment_list, os_list = await fetch_equipment_data(
-        client, start_date, end_date, **filters
-    )
-    
+    equipment_list, os_list = await fetch_equipment_data(client, start_date, end_date, **filters)
+
     active, inactive = calculate_equipment_status(equipment_list)
     in_maintenance, mttr_h, mtbf_h = calculate_maintenance_metrics(os_list)
 
@@ -216,32 +220,32 @@ async def compute_metrics(
     end_date: date | None = None,
     dt_ini: date | None = None,
     dt_fim: date | None = None,
-    **filters: Any
+    **filters: Any,
 ) -> EquipmentMetrics:
     """Public interface to compute equipment metrics.
-    
+
     This is the main function that should be called from other modules.
     It handles caching and runs the computation in a separate thread.
-    
+
     Args:
         client: The Arkmeds API client
         start_date: Start date for the metrics
         end_date: End date for the metrics
         **filters: Additional filters for the query
-        
+
     Returns:
         EquipmentMetrics object containing all computed metrics
     """
     start_date = start_date or dt_ini
     end_date = end_date or dt_fim
     frozen = tuple(sorted(filters.items()))
-    
+
     metrics_dict = await _cached_compute(
         start_date,
         end_date,
         frozen,
         client,
     )
-    
+
     # Convert dict back to EquipmentMetrics object
     return EquipmentMetrics(**metrics_dict)
