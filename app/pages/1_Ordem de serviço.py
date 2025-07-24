@@ -40,7 +40,7 @@ def get_data(v: int):
     return run_async_safe(_get_data_async())
 
 
-with st.spinner("Calculando KPIs…"):
+with st.spinner("Calculando KPIs…  Buscando Dados na API"):
     metrics, os_raw = get_data(version)
 
 show_active_filters(ArkmedsClient.from_session())

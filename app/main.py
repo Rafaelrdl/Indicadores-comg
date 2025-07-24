@@ -21,4 +21,4 @@ client = ArkmedsClient.from_session()
 render_filters(client)
 show_active_filters(client)
 
-st.header("📊 Indicadores – Em construção")
+st.header("📊 Indicadores")
