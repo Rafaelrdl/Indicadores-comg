@@ -62,7 +62,7 @@ class ArkmedsClient:
     async def _get_client(self) -> httpx.AsyncClient:
         if not self._client:
             token = await self.auth.get_token()
-            headers = {"Authorization": f"Bearer {token}"}
+            headers = {"Authorization": f"JWT {token}"}
             self._client = httpx.AsyncClient(
                 base_url=self.auth.base_url, 
                 timeout=self.timeout, 
@@ -84,13 +84,13 @@ class ArkmedsClient:
 
                 if resp.status_code == 401 and attempt == 0:
                     await self.auth.login()
-                    client.headers["Authorization"] = f"Bearer {await self.auth.get_token()}"
+                    client.headers["Authorization"] = f"JWT {await self.auth.get_token()}"
                     continue
 
                 if resp.status_code == 403:
                     if attempt == 0:
                         await self.auth.login()
-                        client.headers["Authorization"] = f"Bearer {await self.auth.get_token()}"
+                        client.headers["Authorization"] = f"JWT {await self.auth.get_token()}"
                         continue
                     raise ArkmedsAuthError(f"{resp.status_code} {resp.text}")
 
@@ -139,7 +139,7 @@ class ArkmedsClient:
         return [OS.model_validate(item) for item in data]
 
     async def list_equipment(self, **filters: Any) -> List[Equipment]:
-        data = await self._get_all_pages("/api/v3/equipamento/", filters)
+        data = await self._get_all_pages("/api/v5/company/equipaments/", filters)
         return [Equipment.model_validate(item) for item in data]
 
     async def list_users(self, **filters: Any) -> List[User]:

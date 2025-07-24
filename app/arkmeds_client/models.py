@@ -60,14 +60,27 @@ class Equipment(ArkBase):
 
 class OS(ArkBase):
     id: int
-    tipo: TipoOS = Field(alias="tipo_ordem_servico")
-    estado: EstadoOS = Field(alias="estado")
-    responsavel: User | None = None
-    created_at: datetime = Field(alias="data_criacao")
-    closed_at: datetime | None = Field(default=None, alias="data_fechamento")
-    equipment_id: int | None = Field(default=None, alias="equipamento_id")
+    numero: str | None = None
+    tipo_servico: int | None = Field(default=None, alias="tipo_servico")
+    estado: dict | None = None  # Estrutura: {"id": int, "descricao": str, "pode_visualizar": bool}
+    responsavel: int | None = None  # ID do responsável, não o objeto User completo
+    data_criacao: datetime = Field(alias="data_criacao")
+    data_fechamento: datetime | None = Field(default=None, alias="data_fechamento")
+    equipamento: dict | None = None  # Objeto equipamento completo
+    is_active: bool | None = None
+    observacoes: str | None = None
+    solicitante: dict | None = None
+    origem: int | None = None
+    descricao_servico: str | None = None
 
-    @field_validator("created_at", "closed_at", mode="before")
+    @property
+    def equipamento_id(self) -> int | None:
+        """Retorna o ID do equipamento a partir do objeto equipamento."""
+        if self.equipamento and isinstance(self.equipamento, dict):
+            return self.equipamento.get('id')
+        return None
+
+    @field_validator("data_criacao", "data_fechamento", mode="before")
     @classmethod
     def _parse_dt(cls, v: str | datetime | None) -> datetime | None:
         if v is None or isinstance(v, datetime):

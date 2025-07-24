@@ -11,6 +11,7 @@ from arkmeds_client.models import OS
 from config.os_types import TIPO_CORRETIVA
 from dateutil.relativedelta import relativedelta
 from services.equip_metrics import compute_metrics
+from ui.utils import run_async_safe
 
 from ui.filters import show_active_filters
 
@@ -50,22 +51,39 @@ def _build_history_df(os_list: list[OS]) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
-@st.cache_data(ttl=900, experimental_allow_widgets=True)
-async def fetch_data(v: int):
-    client = ArkmedsClient.from_session()
-    metrics = await compute_metrics(client, **filters)
-    equip = await client.list_equipment()
-    hist_ini = date.today().replace(day=1) - relativedelta(months=11)
-    os_hist = await client.list_os(
-        tipo_id=TIPO_CORRETIVA,
-        data_fechamento__gte=hist_ini,
-        data_fechamento__lte=date.today(),
-    )
-    return metrics, equip, os_hist
+@st.cache_data(ttl=900)
+def fetch_data(v: int):
+    """Wrapper síncrono para executar e cachear os resultados da função assíncrona."""
+    
+    async def _fetch_data_async():
+        """Função assíncrona que busca os dados."""
+        client = ArkmedsClient.from_session()
+        
+        # Extrair datas e outros filtros
+        dt_ini = filters.get("dt_ini")
+        dt_fim = filters.get("dt_fim")
+        extra = {k: v for k, v in filters.items() if k not in {"dt_ini", "dt_fim"}}
+        
+        # Chamar compute_metrics com os parâmetros corretos
+        metrics_task = compute_metrics(client, start_date=dt_ini, end_date=dt_fim, **extra)
+        
+        equip_task = client.list_equipment()
+        
+        hist_ini = date.today().replace(day=1) - relativedelta(months=11)
+        os_hist_task = client.list_os(
+            tipo_id=TIPO_CORRETIVA,
+            data_fechamento__gte=hist_ini,
+            data_fechamento__lte=date.today(),
+        )
+        
+        metrics, equip, os_hist = await asyncio.gather(metrics_task, equip_task, os_hist_task)
+        return metrics, equip, os_hist
+    
+    return run_async_safe(_fetch_data_async())
 
 
 with st.spinner("Carregando dados de equipamentos…"):
-    metrics, equip_list, os_hist = asyncio.run(fetch_data(version))
+    metrics, equip_list, os_hist = fetch_data(version)
 
 show_active_filters(ArkmedsClient.from_session())
 

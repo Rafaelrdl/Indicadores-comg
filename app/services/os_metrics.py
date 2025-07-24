@@ -271,9 +271,9 @@ def calculate_sla_metrics(closed_orders: list[OS]) -> float:
     try:
         within_sla = sum(
             1 for order in closed_orders 
-            if (hasattr(order, 'closed_at') and hasattr(order, 'created_at') and
-                order.closed_at is not None and
-                (order.closed_at - order.created_at) <= timedelta(hours=SLA_HOURS))
+            if (hasattr(order, 'data_fechamento') and hasattr(order, 'data_criacao') and
+                order.data_fechamento is not None and
+                (order.data_fechamento - order.data_criacao) <= timedelta(hours=SLA_HOURS))
         )
         
         return (within_sla / len(closed_orders)) * 100
@@ -298,8 +298,10 @@ def _cached_compute(
     end_date: date,
     frozen_filters: tuple[tuple[str, Any], ...],
     _client: ArkmedsClient,
-) -> OSMetrics:
+) -> dict[str, Any]:
     """Cached computation of service order metrics.
+    
+    Returns a dict representation of OSMetrics for better pickle compatibility.
     
     This function is wrapped with Streamlit's cache decorator to avoid
     redundant computations. The cache is invalidated when:
@@ -314,13 +316,23 @@ def _cached_compute(
         _client: Arkmeds client (prefixed with _ to exclude from cache key)
         
     Returns:
-        OSMetrics: Calculated service order metrics
+        dict: Dictionary representation of OSMetrics
     """
     try:
         filters = dict(frozen_filters)
-        return run_async_safe(
+        metrics = run_async_safe(
             _async_compute_metrics(_client, start_date, end_date, filters)
         )
+        # Convert to dict for better pickle compatibility
+        return {
+            "corrective_building": metrics.corrective_building,
+            "corrective_engineering": metrics.corrective_engineering,
+            "preventive_building": metrics.preventive_building,
+            "preventive_infra": metrics.preventive_infra,
+            "active_search": metrics.active_search,
+            "backlog": metrics.backlog,
+            "sla_percentage": metrics.sla_percentage,
+        }
     except Exception as exc:
         st.error(f"Erro ao calcular métricas: {str(exc)}")
         raise
@@ -433,13 +445,16 @@ async def compute_metrics(
         frozen = tuple(sorted(filters.items()))
         
         # Run the computation in a separate thread to avoid blocking the event loop
-        return await asyncio.to_thread(
+        metrics_dict = await asyncio.to_thread(
             _cached_compute,
             start_date,
             end_date,
             frozen,
             client
         )
+        
+        # Convert dict back to OSMetrics object
+        return OSMetrics(**metrics_dict)
         
     except ValidationError:
         raise  # Re-raise validation errors as-is

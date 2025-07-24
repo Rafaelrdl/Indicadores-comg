@@ -31,7 +31,7 @@ POST /rest-auth/token-auth/
 
 Utilize o token retornado em todas as requisições autenticadas no header:
 ```
-Authorization: Token <token>
+Authorization: JWT <token>
 ```
 
 ---

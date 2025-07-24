@@ -136,14 +136,14 @@ def calculate_technician_kpis(
     open_orders = [
         o for o in orders 
         if o.estado.id != OSEstado.FECHADA.value 
-        and o.created_at.date() >= start_date
+        and o.data_criacao.date() >= start_date
     ]
     
     completed_orders_list = [
         o for o in orders
         if o.estado.id == OSEstado.FECHADA.value
-        and o.closed_at
-        and start_date <= o.closed_at.date() <= end_date
+        and o.data_fechamento
+        and start_date <= o.data_fechamento.date() <= end_date
     ]
     
     total_pending = len([o for o in orders if o.estado.id != OSEstado.FECHADA.value])
@@ -153,10 +153,10 @@ def calculate_technician_kpis(
     total_hours = 0.0
     
     for order in completed_orders_list:
-        if not order.closed_at:
+        if not order.data_fechamento:
             continue
             
-        duration_hours = (order.closed_at - order.created_at).total_seconds() / 3600
+        duration_hours = (order.data_fechamento - order.data_criacao).total_seconds() / 3600
         total_hours += duration_hours
         
         if duration_hours <= SLA_HOURS:
@@ -184,14 +184,28 @@ def _cached_compute(
     end_date: date,
     frozen_filters: tuple[tuple[str, Any], ...],
     _client: ArkmedsClient,
-) -> list[TechnicianKPI]:
+) -> list[dict[str, Any]]:
     """Cached computation of technician metrics.
+    
+    Returns a list of dict representations for better pickle compatibility.
     
     This function is wrapped with Streamlit's cache decorator to avoid
     redundant computations.
     """
     filters = dict(frozen_filters)
-    return run_async_safe(_async_compute_metrics(_client, start_date, end_date, filters))
+    metrics = run_async_safe(_async_compute_metrics(_client, start_date, end_date, filters))
+    # Convert to list of dicts for better pickle compatibility
+    return [
+        {
+            "technician_name": m.technician_name,
+            "total_orders": m.total_orders,
+            "closed_orders": m.closed_orders,
+            "pending_orders": m.pending_orders,
+            "avg_resolution_time": m.avg_resolution_time,
+            "efficiency_percentage": m.efficiency_percentage,
+        }
+        for m in metrics
+    ]
 
 
 async def _async_compute_metrics(
@@ -250,10 +264,14 @@ async def compute_metrics(
     start_date = start_date or dt_ini
     end_date = end_date or dt_fim
     frozen = tuple(sorted(filters.items()))
-    return await asyncio.to_thread(
+    
+    metrics_dicts = await asyncio.to_thread(
         _cached_compute,
         start_date,
         end_date,
         frozen,
         client
     )
+    
+    # Convert dicts back to TechnicianKPI objects
+    return [TechnicianKPI(**m) for m in metrics_dicts]

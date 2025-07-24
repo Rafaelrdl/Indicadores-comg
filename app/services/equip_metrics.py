@@ -83,12 +83,19 @@ async def fetch_equipment_data(
     """
     try:
         equip_task = client.list_equipment()
-        os_task = client.list_os(
-            tipo_id=TIPO_CORRETIVA,
-            data_criacao__gte=start_date,
-            data_criacao__lte=end_date,
+        
+        # Prepare OS filters, ensuring we don't duplicate tipo_id
+        os_filters = {
+            "data_criacao__gte": start_date,
+            "data_criacao__lte": end_date,
             **filters,
-        )
+        }
+        # Set default tipo_id only if not already specified
+        if "tipo_id" not in os_filters:
+            os_filters["tipo_id"] = TIPO_CORRETIVA
+            
+        os_task = client.list_os(**os_filters)
+        
         return await asyncio.gather(equip_task, os_task)
     except (httpx.TimeoutException, ArkmedsAuthError) as exc:
         raise DataFetchError(f"Failed to fetch equipment data: {str(exc)}") from exc
@@ -118,33 +125,33 @@ def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, float]:
     """
     # Filter active maintenance orders
     in_maintenance = {
-        os_obj.equipment_id
+        os_obj.equipamento_id
         for os_obj in os_list
-        if os_obj.equipment_id is not None 
-        and os_obj.estado.id != OSEstado.FECHADA.value
+        if os_obj.equipamento_id is not None 
+        and os_obj.estado and os_obj.estado.get('id') != OSEstado.FECHADA.value
     }
 
     # Calculate MTTR (Mean Time To Repair)
     closed_durations = [
-        (os_obj.closed_at - os_obj.created_at).total_seconds()
+        (os_obj.data_fechamento - os_obj.data_criacao).total_seconds()
         for os_obj in os_list
-        if os_obj.closed_at
+        if os_obj.data_fechamento
     ]
     mttr_h = mean(closed_durations) / 3600 if closed_durations else 0.0
 
     # Group by equipment and calculate MTBF
     by_equipment = defaultdict(list)
     for os_obj in os_list:
-        if os_obj.equipment_id is not None and os_obj.closed_at:
-            by_equipment[os_obj.equipment_id].append(os_obj)
+        if os_obj.equipamento_id is not None and os_obj.data_fechamento:
+            by_equipment[os_obj.equipamento_id].append(os_obj)
 
     intervals = []
     for items in by_equipment.values():
         if len(items) < 2:
             continue
-        items.sort(key=lambda o: o.created_at)
+        items.sort(key=lambda o: o.data_criacao)
         for i in range(1, len(items)):
-            intervals.append((items[i].created_at - items[i-1].created_at).total_seconds())
+            intervals.append((items[i].data_criacao - items[i-1].data_criacao).total_seconds())
     
     mtbf_h = mean(intervals) / 3600 if intervals else 0.0
 
@@ -157,14 +164,24 @@ def _cached_compute(
     end_date: date,
     frozen_filters: tuple[tuple[str, Any], ...],
     _client: ArkmedsClient,
-) -> EquipmentMetrics:
+) -> dict[str, Any]:
     """Cached computation of equipment metrics.
+    
+    Returns a dict representation for better pickle compatibility.
     
     This function is wrapped with Streamlit's cache decorator to avoid
     redundant computations.
     """
     filters = dict(frozen_filters)
-    return run_async_safe(_async_compute_metrics(_client, start_date, end_date, filters))
+    metrics = run_async_safe(_async_compute_metrics(_client, start_date, end_date, filters))
+    # Convert to dict for better pickle compatibility
+    return {
+        "active": metrics.active,
+        "inactive": metrics.inactive,
+        "in_maintenance": metrics.in_maintenance,
+        "mttr_hours": metrics.mttr_hours,
+        "mtbf_hours": metrics.mtbf_hours,
+    }
 
 
 async def _async_compute_metrics(
@@ -219,10 +236,14 @@ async def compute_metrics(
     start_date = start_date or dt_ini
     end_date = end_date or dt_fim
     frozen = tuple(sorted(filters.items()))
-    return await asyncio.to_thread(
+    
+    metrics_dict = await asyncio.to_thread(
         _cached_compute,
         start_date,
         end_date,
         frozen,
         client
     )
+    
+    # Convert dict back to EquipmentMetrics object
+    return EquipmentMetrics(**metrics_dict)

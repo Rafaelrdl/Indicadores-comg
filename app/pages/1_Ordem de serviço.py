@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 from arkmeds_client.client import ArkmedsClient
 from services.os_metrics import compute_metrics
+from ui.utils import run_async_safe
 
 from ui.filters import show_active_filters
 
@@ -36,7 +37,7 @@ def get_data(v: int):
         metrics, os_raw = await asyncio.gather(metrics_task, os_raw_task)
         return metrics, os_raw
 
-    return asyncio.run(_get_data_async())
+    return run_async_safe(_get_data_async())
 
 
 with st.spinner("Calculando KPIs…"):

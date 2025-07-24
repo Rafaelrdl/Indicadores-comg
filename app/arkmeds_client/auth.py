@@ -26,6 +26,8 @@ class ArkmedsAuth:
     # be cached for subsequent logins.
     LOGIN_ENDPOINT_CANDIDATES = [
         "/rest-auth/token-auth/",
+        "/rest-auth/login/",
+        "/api/v5/auth/login/",
         "/api/v3/auth/login",
         "/api/v3/login",
         "/api/auth/login",
@@ -63,6 +65,7 @@ class ArkmedsAuth:
             password=cfg.get("password", ""),
             base_url=cfg.get("base_url", ""),
             token=cfg.get("token"),
+            login_path=cfg.get("login_path"),
         )
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -121,10 +124,8 @@ class ArkmedsAuth:
             for attempt in range(self.max_tries):
                 try:
                     # Different endpoints may expect different payload formats
-                    if endpoint == "/rest-auth/token-auth/":
-                        payload = {"username": self.email, "password": self.password}
-                    else:
-                        payload = {"email": self.email, "password": self.password}
+                    # Based on testing, /rest-auth/token-auth/ expects email/password
+                    payload = {"email": self.email, "password": self.password}
                     
                     resp = await client.post(
                         endpoint,
@@ -134,6 +135,13 @@ class ArkmedsAuth:
 
                     if resp.status_code == 401:
                         raise ArkmedsAuthError("Invalid credentials")
+                    if resp.status_code == 400:
+                        # Try to get more info from the response
+                        try:
+                            error_detail = resp.text
+                            raise ArkmedsAuthError(f"Bad request to {endpoint}: {error_detail}")
+                        except Exception:
+                            raise ArkmedsAuthError(f"Bad request to {endpoint}")
                     if resp.status_code == 404:
                         last_404 = resp
                         break
