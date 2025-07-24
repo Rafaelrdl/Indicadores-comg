@@ -63,22 +63,16 @@ class OS(ArkBase):
     numero: str | None = None
     tipo_servico: int | None = Field(default=None, alias="tipo_servico")
     estado: dict | None = None  # Estrutura: {"id": int, "descricao": str, "pode_visualizar": bool}
-    responsavel: int | None = None  # ID do responsável, não o objeto User completo
+    responsavel: User | None = None
     data_criacao: datetime = Field(alias="data_criacao")
     data_fechamento: datetime | None = Field(default=None, alias="data_fechamento")
     equipamento: dict | None = None  # Objeto equipamento completo
+    equipamento_id: int | None = Field(default=None, alias="equipamento_id")
     is_active: bool | None = None
     observacoes: str | None = None
     solicitante: dict | None = None
     origem: int | None = None
     descricao_servico: str | None = None
-
-    @property
-    def equipamento_id(self) -> int | None:
-        """Retorna o ID do equipamento a partir do objeto equipamento."""
-        if self.equipamento and isinstance(self.equipamento, dict):
-            return self.equipamento.get('id')
-        return None
 
     @field_validator("data_criacao", "data_fechamento", mode="before")
     @classmethod
@@ -86,3 +80,20 @@ class OS(ArkBase):
         if v is None or isinstance(v, datetime):
             return v
         return datetime.strptime(v, "%d/%m/%y - %H:%M")
+
+    @field_validator("responsavel", mode="before")
+    @classmethod
+    def _parse_user(cls, v: int | dict | None) -> User | None:
+        if v is None or isinstance(v, User):
+            return v
+        if isinstance(v, dict):
+            return User.model_validate(v)
+        return User(id=v, nome="", email="")
+
+    @property
+    def created_at(self) -> datetime:
+        return self.data_criacao
+
+    @property
+    def closed_at(self) -> datetime | None:
+        return self.data_fechamento
