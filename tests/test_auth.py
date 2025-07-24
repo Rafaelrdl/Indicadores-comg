@@ -16,11 +16,10 @@ class DummyAuth(ArkmedsAuth):
 @pytest.mark.asyncio
 async def test_login_success_without_trailing_slash():
     async def handler(request: Request) -> Response:
-        if request.url.path == "/api/v3/auth/login":
-            return Response(
-                200,
-                json={"token": "x"},
-            )
+        if request.method in ("HEAD", "OPTIONS") and request.url.path == "/api/v3/auth/login":
+            return Response(204)
+        if request.method == "POST" and request.url.path == "/api/v3/auth/login":
+            return Response(200, json={"token": "x"})
         return Response(404)
 
     auth = DummyAuth(MockTransport(handler))
@@ -31,12 +30,18 @@ async def test_login_success_without_trailing_slash():
 
 @pytest.mark.asyncio
 async def test_login_fallback_on_404():
-    calls = []
+    calls_head = []
+    calls_post = []
 
     async def handler(request: Request) -> Response:
-        calls.append(request.url.path)
-        if request.url.path == "/api/v3/auth/login":
+        if request.method in ("HEAD", "OPTIONS"):
+            calls_head.append(request.url.path)
+            if request.url.path == "/api/v3/auth/login":
+                return Response(404)
+            if request.url.path == "/api/v3/login":
+                return Response(204)
             return Response(404)
+        calls_post.append(request.url.path)
         if request.url.path == "/api/v3/login":
             return Response(200, json={"token": "y"})
         return Response(404)
@@ -46,9 +51,8 @@ async def test_login_fallback_on_404():
     assert data.token == "y"
     assert auth._login_url == "/api/v3/login"
 
-    # second call should use cached endpoint
     await auth.login()
-    assert calls.count("/api/v3/auth/login") == 1
-    assert calls.count("/api/v3/login") == 2
+    assert "/api/v3/auth/login" in calls_head
+    assert calls_post == ["/api/v3/login", "/api/v3/login"]
 
 
