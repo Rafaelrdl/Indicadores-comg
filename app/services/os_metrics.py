@@ -11,7 +11,6 @@ import streamlit as st
 from arkmeds_client.auth import ArkmedsAuthError
 from arkmeds_client.client import ArkmedsClient
 from arkmeds_client.models import OSEstado, OS
-from ui.utils import run_async_safe
 
 from app.config.os_types import (
     AREA_ENG_CLIN,
@@ -293,7 +292,7 @@ def calculate_sla_metrics(closed_orders: list[OS]) -> float:
     show_spinner="Calculando métricas de ordens de serviço...",
     max_entries=100  # Limit cache size
 )
-def _cached_compute(
+async def _cached_compute(
     start_date: date,
     end_date: date,
     frozen_filters: tuple[tuple[str, Any], ...],
@@ -320,8 +319,8 @@ def _cached_compute(
     """
     try:
         filters = dict(frozen_filters)
-        metrics = run_async_safe(
-            _async_compute_metrics(_client, start_date, end_date, filters)
+        metrics = await _async_compute_metrics(
+            _client, start_date, end_date, filters
         )
         # Convert to dict for better pickle compatibility
         return {
@@ -444,13 +443,11 @@ async def compute_metrics(
         # Convert filters to a hashable type for caching
         frozen = tuple(sorted(filters.items()))
         
-        # Run the computation in a separate thread to avoid blocking the event loop
-        metrics_dict = await asyncio.to_thread(
-            _cached_compute,
+        metrics_dict = await _cached_compute(
             start_date,
             end_date,
             frozen,
-            client
+            client,
         )
         
         # Convert dict back to OSMetrics object
