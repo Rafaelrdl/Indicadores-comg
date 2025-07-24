@@ -73,3 +73,4 @@ automaticamente pelo Streamlit.
 ## Contato / Licenca
 
 Projeto sob a [MIT License](LICENSE). Dúvidas abra uma issue.
+<!-- Random comment for PR test -->
