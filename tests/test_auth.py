@@ -1,11 +1,8 @@
-import asyncio
-from datetime import datetime, timedelta, timezone
-
-import pytest
 import httpx
-from httpx import Response, Request, MockTransport
+import pytest
+from httpx import MockTransport, Request, Response
 
-from app.arkmeds_client.auth import ArkmedsAuth, ArkmedsAuthError, TokenData
+from app.arkmeds_client.auth import ArkmedsAuth, TokenData
 
 
 class DummyAuth(ArkmedsAuth):
@@ -32,32 +29,26 @@ async def test_login_success_without_trailing_slash():
     assert data.token == "x"
 
 
-class OldAuth(ArkmedsAuth):
-    async def login(self) -> TokenData:  # type: ignore[override]
-        client = await self._get_client()
-        resp = await client.post(
-            "/api/v3/auth/login/",
-            json={"email": self.email, "password": self.password},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        exp = datetime.now(timezone.utc) + timedelta(hours=1)
-        token = resp.json().get("token")
-        if not token:
-            raise ArkmedsAuthError("Malformed login response")
-        self._token = TokenData(token=token, exp=exp)
-        return self._token
-
-
 @pytest.mark.asyncio
-async def test_login_with_trailing_slash_returns_404():
+async def test_login_fallback_on_404():
+    calls = []
+
     async def handler(request: Request) -> Response:
-        assert request.url.path == "/api/v3/auth/login/"
+        calls.append(request.url.path)
+        if request.url.path == "/api/v3/auth/login":
+            return Response(404)
+        if request.url.path == "/api/v3/login":
+            return Response(200, json={"token": "y"})
         return Response(404)
 
-    auth = OldAuth(email="a", password="b", base_url="https://api.test")
-    auth._client = httpx.AsyncClient(base_url=auth.base_url, transport=MockTransport(handler))
-    with pytest.raises(httpx.HTTPStatusError):
-        await auth.login()
+    auth = DummyAuth(MockTransport(handler))
+    data = await auth.login()
+    assert data.token == "y"
+    assert auth._login_url == "/api/v3/login"
+
+    # second call should use cached endpoint
+    await auth.login()
+    assert calls.count("/api/v3/auth/login") == 1
+    assert calls.count("/api/v3/login") == 2
 
 
