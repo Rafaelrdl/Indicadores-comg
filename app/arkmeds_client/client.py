@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 import streamlit as st
-from aiolimiter import AsyncLimiter
 
 from .auth import ArkmedsAuth, ArkmedsAuthError
 from .models import (
@@ -35,29 +34,11 @@ class ArkmedsClient:
         *,
         timeout: float = 5.0,
         max_retries: int = 3,
-        rate: int = 10,
     ) -> None:
         self.auth = auth
         self.timeout = timeout
         self.max_retries = max_retries
-        self.rate = rate
-        self._limiter: Optional[AsyncLimiter] = None
         self._client: Optional[httpx.AsyncClient] = None
-        self._loop_id: Optional[id] = None
-
-    def _get_limiter(self) -> AsyncLimiter:
-        """Get or create a rate limiter for the current event loop."""
-        try:
-            current_loop = asyncio.get_running_loop()
-            current_loop_id = id(current_loop)
-        except RuntimeError:
-            current_loop_id = None
-            
-        if self._limiter is None or self._loop_id != current_loop_id:
-            self._limiter = AsyncLimiter(max_rate=self.rate, time_period=1)
-            self._loop_id = current_loop_id
-            
-        return self._limiter
 
     async def _get_client(self) -> httpx.AsyncClient:
         if not self._client:
@@ -65,7 +46,7 @@ class ArkmedsClient:
             headers = {"Authorization": f"JWT {token}"}
             self._client = httpx.AsyncClient(
                 base_url=self.auth.base_url, 
-                timeout=self.timeout, 
+                timeout=httpx.Timeout(self.timeout), 
                 headers=headers,
                 limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
             )
@@ -75,12 +56,10 @@ class ArkmedsClient:
         self, method: str, url: str, *, params: Optional[Dict[str, Any]] = None
     ) -> httpx.Response:
         client = await self._get_client()
-        limiter = self._get_limiter()
-        
+
         for attempt in range(self.max_retries):
             try:
-                async with limiter:
-                    resp = await client.request(method, url, params=params)
+                resp = await client.request(method, url, params=params)
 
                 if resp.status_code == 401 and attempt == 0:
                     await self.auth.login()

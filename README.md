@@ -15,7 +15,6 @@ Reúne ordens de serviço, equipamentos e produtividade em uma interface simples
 ## Requisitos
 
 - Python 3.12+
-- Docker
 - [Poetry](https://python-poetry.org/docs/#installation)
 
 ## Quick Start
@@ -32,30 +31,16 @@ cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 # O endpoint de login utilizado pela API
 # "/api/v3/auth/login" não possui barra final.
 
-# instalar dependências e subir o app (Linux/macOS)
-make install && make run
-
-# no Windows (cmd ou PowerShell via Batch)
-./make.bat install
-./make.bat run PORT=8501
-# ou em PowerShell puro
-./make.ps1 -Target install   # instala dependências + package editável
-./make.ps1 -Target run -Port 8501
-# se bloquear scripts, use
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+# instalar dependências e subir o app
+poetry install --no-dev
+poetry run streamlit run app/main.py
 ```
 
 
-## Scripts Uteis
+## Execução Rápida
 
-- `make install` – instala as dependências
-- `make lint` – ruff lint
-- `make format` – ruff format
-- `make test` – pytest
-- `make run` – inicia o Streamlit em localhost:8501
-- `make docker` – build da imagem Docker
-- `make compose` – docker compose up --build
-- `make ci` – executa lint e testes
+- `poetry install --no-dev` – instala dependências
+- `poetry run streamlit run app/main.py` – inicia o dashboard
 
 ## Boas práticas
 
