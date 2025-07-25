@@ -1,0 +1,129 @@
+"""Centralized configuration management for the application."""
+
+from __future__ import annotations
+
+import os
+from typing import Optional
+
+from pydantic import BaseSettings, Field
+
+
+class Settings(BaseSettings):
+    """Application settings with environment variable support."""
+
+    # API Settings
+    arkmeds_base_url: str = Field(
+        default="https://comg.arkmeds.com",
+        description="Base URL for Arkmeds API"
+    )
+    arkmeds_email: Optional[str] = Field(
+        default=None,
+        description="Email for Arkmeds authentication"
+    )
+    arkmeds_password: Optional[str] = Field(
+        default=None,
+        description="Password for Arkmeds authentication"  
+    )
+    arkmeds_token: Optional[str] = Field(
+        default=None,
+        description="JWT token for Arkmeds authentication"
+    )
+    arkmeds_login_path: str = Field(
+        default="/rest-auth/token-auth/",
+        description="Login endpoint path"
+    )
+
+    # Cache Settings
+    default_cache_ttl: int = Field(
+        default=900,
+        description="Default cache TTL in seconds (15 minutes)"
+    )
+    heavy_operation_ttl: int = Field(
+        default=1800,
+        description="Heavy operation cache TTL in seconds (30 minutes)"
+    )
+    cache_max_entries: int = Field(
+        default=1000,
+        description="Maximum number of cache entries"
+    )
+
+    # UI Settings
+    page_title: str = Field(
+        default="Indicadores COMG",
+        description="Application page title"
+    )
+    page_icon: str = Field(
+        default="🩺",
+        description="Page icon for browser tab"
+    )
+    layout: str = Field(
+        default="wide",
+        description="Streamlit layout mode"
+    )
+    sidebar_state: str = Field(
+        default="expanded",
+        description="Default sidebar state"
+    )
+
+    # Performance Settings
+    max_concurrent_requests: int = Field(
+        default=10,
+        description="Maximum concurrent API requests"
+    )
+    request_timeout: int = Field(
+        default=30,
+        description="Request timeout in seconds"
+    )
+    
+    # Logging Settings
+    log_level: str = Field(
+        default="INFO",
+        description="Application log level"
+    )
+    log_format: str = Field(
+        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        description="Log message format"
+    )
+
+    # Development Settings
+    debug_mode: bool = Field(
+        default=False,
+        description="Enable debug mode"
+    )
+    dev_mode: bool = Field(
+        default=False,
+        description="Enable development mode features"
+    )
+
+    class Config:
+        """Pydantic configuration."""
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = False
+        # Allow reading from Streamlit secrets
+        env_prefix = ""
+
+    @classmethod
+    def from_streamlit_secrets(cls) -> 'Settings':
+        """Load settings from Streamlit secrets.toml."""
+        try:
+            import streamlit as st
+            
+            # Extract from secrets if available
+            secrets = getattr(st, 'secrets', {})
+            arkmeds_config = secrets.get('arkmeds', {})
+            
+            return cls(
+                arkmeds_base_url=arkmeds_config.get('base_url', cls.__fields__['arkmeds_base_url'].default),
+                arkmeds_email=arkmeds_config.get('email'),
+                arkmeds_password=arkmeds_config.get('password'),
+                arkmeds_token=arkmeds_config.get('token'),
+                arkmeds_login_path=arkmeds_config.get('login_path', cls.__fields__['arkmeds_login_path'].default),
+            )
+        except ImportError:
+            # Fallback to environment variables
+            return cls()
+
+
+# Global settings instance
+settings = Settings.from_streamlit_secrets()

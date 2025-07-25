@@ -1,37 +1,83 @@
-"""Sistema centralizado de tratamento de exceções."""
+"""Centralized exception handling system."""
 
-from typing import Any, Dict, Optional, Type
-import streamlit as st
+from __future__ import annotations
+
+import functools
+import traceback
 from datetime import datetime
+from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union
+
+import streamlit as st
+
+T = TypeVar('T')
 
 
 class AppException(Exception):
-    """Exceção base da aplicação."""
+    """Base application exception with enhanced context tracking."""
     
-    def __init__(self, message: str, context: Dict[str, Any] = None):
+    def __init__(
+        self, 
+        message: str, 
+        context: Optional[Dict[str, Any]] = None,
+        original_error: Optional[Exception] = None,
+        error_code: Optional[str] = None
+    ):
         self.message = message
         self.context = context or {}
+        self.original_error = original_error
+        self.error_code = error_code
         self.timestamp = datetime.now()
         super().__init__(self.message)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert exception to dictionary for logging."""
+        return {
+            'error_type': self.__class__.__name__,
+            'message': self.message,
+            'context': self.context,
+            'error_code': self.error_code,
+            'timestamp': self.timestamp.isoformat(),
+            'original_error': str(self.original_error) if self.original_error else None,
+        }
 
 
 class DataFetchError(AppException):
-    """Erro ao buscar dados da API."""
+    """Error fetching data from external APIs."""
     pass
 
 
 class DataProcessingError(AppException):
-    """Erro ao processar dados."""
+    """Error processing or transforming data."""
     pass
 
 
 class AuthenticationError(AppException):
-    """Erro de autenticação."""
+    """Authentication and authorization errors.""" 
     pass
 
 
 class ValidationError(AppException):
-    """Erro de validação de dados."""
+    """Data validation errors."""
+    pass
+
+
+class CacheError(AppException):
+    """Cache-related errors."""
+    pass
+
+
+class ConfigurationError(AppException):
+    """Configuration and settings errors."""
+    pass
+
+
+class RateLimitError(AppException):
+    """API rate limit exceeded."""
+    pass
+
+
+class TimeoutError(AppException):
+    """Operation timeout errors."""
     pass
 
 
