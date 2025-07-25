@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
 import streamlit as st
 
-from ..core.constants import CACHE_TTL_DEFAULT
+from ...core.constants import CACHE_TTL_DEFAULT
 
 logger = logging.getLogger(__name__)
 F = TypeVar('F', bound=Callable[..., Any])

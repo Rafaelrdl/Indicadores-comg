@@ -81,6 +81,16 @@ class TimeoutError(AppException):
     pass
 
 
+class APIError(AppException):
+    """Error communicating with external APIs."""
+    pass
+
+
+# Legacy compatibility aliases
+ApplicationError = AppException
+DataValidationError = ValidationError
+
+
 class ErrorHandler:
     """Manipulador centralizado de erros."""
     

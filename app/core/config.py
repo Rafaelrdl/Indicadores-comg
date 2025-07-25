@@ -5,11 +5,20 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Application settings with environment variable support."""
+    
+    model_config = {
+        "extra": "ignore",  # Allow extra fields to be ignored
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+        "env_prefix": ""
+    }
 
     # API Settings
     arkmeds_base_url: str = Field(
@@ -95,14 +104,6 @@ class Settings(BaseSettings):
         description="Enable development mode features"
     )
 
-    class Config:
-        """Pydantic configuration."""
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        # Allow reading from Streamlit secrets
-        env_prefix = ""
-
     @classmethod
     def from_streamlit_secrets(cls) -> 'Settings':
         """Load settings from Streamlit secrets.toml."""
@@ -114,11 +115,11 @@ class Settings(BaseSettings):
             arkmeds_config = secrets.get('arkmeds', {})
             
             return cls(
-                arkmeds_base_url=arkmeds_config.get('base_url', cls.__fields__['arkmeds_base_url'].default),
+                arkmeds_base_url=arkmeds_config.get('base_url', "https://comg.arkmeds.com"),
                 arkmeds_email=arkmeds_config.get('email'),
                 arkmeds_password=arkmeds_config.get('password'),
                 arkmeds_token=arkmeds_config.get('token'),
-                arkmeds_login_path=arkmeds_config.get('login_path', cls.__fields__['arkmeds_login_path'].default),
+                arkmeds_login_path=arkmeds_config.get('login_path', "/rest-auth/token-auth/"),
             )
         except ImportError:
             # Fallback to environment variables
@@ -127,3 +128,8 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings.from_streamlit_secrets()
+
+
+def get_settings() -> Settings:
+    """Get the global settings instance."""
+    return settings

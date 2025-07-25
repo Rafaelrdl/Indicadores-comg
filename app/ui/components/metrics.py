@@ -6,29 +6,9 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 import streamlit as st
-from dataclasses import dataclass
 
 from ...core.constants import COLORS
-
-
-@dataclass
-class Metric:
-    """Data class for a single metric."""
-    label: str
-    value: Union[int, float, str]
-    delta: Optional[Union[int, float, str]] = None
-    delta_color: Optional[str] = None
-    help_text: Optional[str] = None
-    icon: Optional[str] = None
-
-
-@dataclass 
-class KPICard:
-    """Data class for KPI card configuration."""
-    title: str
-    metrics: List[Metric]
-    color: str = COLORS['primary']
-    width: Optional[int] = None
+from ...data.models import Metric, KPICard
 
 
 class MetricsDisplay:

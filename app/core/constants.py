@@ -104,3 +104,20 @@ COLOR_PALETTE_PRIORITY = [
     '#FF8C00',  # Alta - Laranja
     '#DC143C'   # Crítica - Vermelho escuro
 ]
+
+# Cache TTL settings (alias for compatibility)
+CACHE_TTL = {
+    'default': CACHE_TTL_DEFAULT,
+    'heavy': CACHE_TTL_HEAVY,
+    'light': CACHE_TTL_LIGHT,
+    'daily': CACHE_TTL_DAILY
+}
+
+# API endpoints
+API_ENDPOINTS = {
+    'login': '/rest-auth/token-auth/',
+    'chamados': '/api/chamados/',
+    'equipamentos': '/api/equipamentos/',
+    'usuarios': '/api/usuarios/',
+    'tipos_os': '/api/tipos-os/',
+}

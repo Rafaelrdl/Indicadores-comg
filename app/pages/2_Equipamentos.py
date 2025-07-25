@@ -102,7 +102,6 @@ def _build_history_df(os_list: list[Chamado]) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
-@smart_cache(ttl=settings.cache.default_ttl)
 @log_cache_performance
 @performance_monitor
 async def fetch_equipment_data_async() -> tuple:
@@ -141,33 +140,37 @@ async def fetch_equipment_data_async() -> tuple:
         return metrics, equip_list, os_hist
         
     except Exception as e:
-        app_logger.error(f"Erro na busca de dados de equipamentos: {e}")
+        app_logger.log_error(e, {"context": "fetch_equipment_data_async"})
         raise APIError(f"Erro ao buscar dados de equipamentos: {str(e)}")
 
 
 # Wrapper function for compatibility
+@smart_cache(ttl=900)
 def fetch_equipment_data() -> tuple:
     """Wrapper síncrono para compatibilidade."""
-    return run_async_safe(fetch_equipment_data_async())
+    async def async_wrapper():
+        return await fetch_equipment_data_async()
+    return run_async_safe(async_wrapper())
 
 
-@smart_cache(ttl=settings.cache.heavy_operations_ttl)
 @log_cache_performance
 async def fetch_advanced_stats_async():
     """Busca estatísticas avançadas dos equipamentos."""
     try:
         return await calcular_stats_equipamentos(ArkmedsClient.from_session())
     except Exception as e:
-        app_logger.error(f"Erro ao calcular stats avançadas: {e}")
+        app_logger.log_error(e, {"context": "fetch_advanced_stats_async"})
         return None
 
 
+@smart_cache(ttl=1800)
 def fetch_advanced_stats():
     """Wrapper síncrono para compatibilidade."""
-    return run_async_safe(fetch_advanced_stats_async())
+    async def async_wrapper():
+        return await fetch_advanced_stats_async()
+    return run_async_safe(async_wrapper())
 
 
-@smart_cache(ttl=settings.cache.heavy_operations_ttl)
 @log_cache_performance
 @performance_monitor
 async def fetch_mttf_mtbf_data_async():
@@ -175,13 +178,16 @@ async def fetch_mttf_mtbf_data_async():
     try:
         return await calcular_mttf_mtbf_top(ArkmedsClient.from_session())
     except Exception as e:
-        app_logger.error(f"Erro ao calcular MTTF/MTBF: {e}")
+        app_logger.log_error(e, {"context": "fetch_mttf_mtbf_data_async"})
         return ([], [])
 
 
+@smart_cache(ttl=1800)
 def fetch_mttf_mtbf_data():
     """Wrapper síncrono para compatibilidade."""
-    return run_async_safe(fetch_mttf_mtbf_data_async())
+    async def async_wrapper():
+        return await fetch_mttf_mtbf_data_async()
+    return run_async_safe(async_wrapper())
 
 
 def render_basic_metrics(metrics, equip_list: list) -> None:
@@ -544,9 +550,5 @@ def main():
 # Executar a aplicação
 if __name__ == "__main__":
     main()
-            render_equipment_table(equip_list, os_hist)
-
-
-# Executar a aplicação
 if __name__ == "__main__":
     main()

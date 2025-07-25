@@ -25,7 +25,6 @@ from app.core.exceptions import ErrorHandler, DataFetchError, safe_operation
 # Get configuration
 settings = get_settings()
 
-@smart_cache(ttl=settings.cache.default_ttl)
 @log_cache_performance  
 @performance_monitor
 async def fetch_os_data_async(filters_dict: dict = None) -> Tuple:
@@ -74,14 +73,17 @@ async def fetch_os_data_async(filters_dict: dict = None) -> Tuple:
         return metrics, os_raw
         
     except Exception as e:
-        app_logger.error(f"Erro ao buscar dados de OS: {str(e)}")
+        app_logger.log_error(e, {"context": "fetch_os_data_async"})
         raise APIError(f"Erro ao buscar dados: {str(e)}")
 
 
 # Wrapper function for compatibility  
+@smart_cache(ttl=900)
 def fetch_os_data(filters_dict: dict = None) -> Tuple:
     """Wrapper síncrono para compatibilidade."""
-    return run_async_safe(fetch_os_data_async(filters_dict))
+    async def async_wrapper():
+        return await fetch_os_data_async(filters_dict)
+    return run_async_safe(async_wrapper())
 
 
 def render_kpi_metrics(metrics) -> None:
