@@ -5,9 +5,9 @@ packages = [{include = "app"}]
 [project]
 name = "indicadores-comg"
 version = "0.1.0"
-description = ""
+description = "Aplicativo de geração de indicadores"
 authors = [
-    {name = "Codex",email = "codex@openai.com"}
+    {name = "Rafael Ribeiro",email = "rafaelrdlessa@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.12"
