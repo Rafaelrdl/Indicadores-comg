@@ -86,11 +86,11 @@ async def fetch_technician_orders(
         DataFetchError: If there's an error fetching data from the API
     """
     try:
-        return await client.list_os(
-            data_criacao__lte=end_date,
-            estado_ids=[OSEstado.ABERTA.value, OSEstado.FECHADA.value],
+        return await client.list_chamados({
+            "data_criacao__lte": end_date,
+            "estado_ids": [OSEstado.ABERTA.value, OSEstado.FECHADA.value],
             **filters,
-        )
+        })
     except (httpx.TimeoutException, ArkmedsAuthError) as exc:
         raise DataFetchError(f"Failed to fetch technician data: {str(exc)}") from exc
 
@@ -236,7 +236,7 @@ async def _async_compute_metrics(
         if not tech_orders or not tech_orders[0].responsavel:
             continue
 
-        tech_name = tech_orders[0].responsavel.nome
+        tech_name = tech_orders[0].responsavel.display_name
         kpi = calculate_technician_kpis(tech_id, tech_name, tech_orders, start_date, end_date)
         results.append(kpi)
 

@@ -237,11 +237,63 @@ class TipoOS(Enum):
 # NOTA: EstadoOS removida - use OSEstado(Enum) que é mais completa e type-safe
 
 
-class User(ArkBase):
-    id: int
+class ResponsavelTecnico(ArkBase):
+    """Modelo para responsável técnico baseado na API /api/v5/chamado/.
+    
+    ⚡ AUDITORIA REALIZADA: 24/07/2025
+    📡 Fonte: Consulta à API /api/v5/chamado/ campo 'get_resp_tecnico'
+    🔍 Estrutura real descoberta nos dados de chamados
+    """
+    id: str  # Vem como string na API (ex: "1", "6", "7")
     nome: str
     email: str
-    cargo: str | None = None
+    has_avatar: bool = False
+    has_resp_tecnico: bool = True
+    avatar: str | None = None  # Pode ser URL ou iniciais (ex: "Uc", "HP")
+    
+    @property
+    def id_int(self) -> int:
+        """Retorna ID como inteiro."""
+        try:
+            return int(self.id)
+        except (ValueError, TypeError):
+            return 0
+    
+    @property
+    def display_name(self) -> str:
+        """Retorna nome para exibição."""
+        if self.nome and self.nome.strip():
+            return self.nome.strip()
+        
+        # Fallback para email sem domínio
+        if self.email and self.email.strip():
+            email_part = self.email.split("@")[0]
+            if email_part.startswith("_"):
+                email_part = email_part[1:]  # Remove underscore inicial
+            return email_part
+        
+        return f"Técnico {self.id}"
+    
+    @property
+    def avatar_display(self) -> str:
+        """Retorna avatar para exibição (URL ou iniciais)."""
+        if self.avatar and self.avatar.startswith("http"):
+            return self.avatar  # URL completa
+        elif self.avatar:
+            return self.avatar  # Iniciais
+        else:
+            # Gerar iniciais do nome
+            if self.nome:
+                words = self.nome.split()
+                if len(words) >= 2:
+                    return f"{words[0][0]}{words[-1][0]}".upper()
+                elif len(words) == 1:
+                    return words[0][:2].upper()
+            return f"T{self.id}"
+    
+    def __str__(self) -> str:
+        """Representação string do responsável."""
+        return self.display_name
 
 
 class Equipment(ArkBase):
@@ -258,42 +310,97 @@ class Equipment(ArkBase):
         return datetime.strptime(v, "%d/%m/%y - %H:%M")
 
 
-class OS(ArkBase):
+class Chamado(ArkBase):
+    """Modelo para Chamados baseado na API /api/v5/chamado/.
+    
+    ⚡ AUDITORIA REALIZADA: 24/07/2025
+    📡 Fonte: Consulta à API /api/v5/chamado/
+    📊 Total de registros: 5,049 chamados
+    🔍 Estrutura completa com tempo, responsável e ordem de serviço
+    """
     id: int
-    numero: str | None = None
-    tipo_servico: int | None = Field(default=None, alias="tipo_servico")
-    estado: dict | None = None  # Estrutura: {"id": int, "descricao": str, "pode_visualizar": bool}
-    responsavel: User | None = None
-    data_criacao: datetime = Field(alias="data_criacao")
-    data_fechamento: datetime | None = Field(default=None, alias="data_fechamento")
-    equipamento: dict | None = None  # Objeto equipamento completo
-    equipamento_id: int | None = Field(default=None, alias="equipamento_id")
-    is_active: bool | None = None
-    observacoes: str | None = None
-    solicitante: dict | None = None
-    origem: int | None = None
-    descricao_servico: str | None = None
-
-    @field_validator("data_criacao", "data_fechamento", mode="before")
+    chamados: int  # Número sequencial do chamado
+    chamado_arquivado: bool = False
+    responsavel_id: int
+    
+    # Arrays de tempo [descrição, status, número, valor_adicional]
+    tempo: list = Field(default_factory=list)  # Status de execução
+    tempo_fechamento: list = Field(default_factory=list)  # Status de fechamento
+    
+    # Dados do responsável técnico
+    get_resp_tecnico: ResponsavelTecnico
+    
+    # Dados da ordem de serviço associada
+    ordem_servico: dict  # Estrutura complexa com equipamento, solicitante, etc.
+    
+    @field_validator("get_resp_tecnico", mode="before")
     @classmethod
-    def _parse_dt(cls, v: str | datetime | None) -> datetime | None:
-        if v is None or isinstance(v, datetime):
-            return v
-        return datetime.strptime(v, "%d/%m/%y - %H:%M")
-
-    @field_validator("responsavel", mode="before")
-    @classmethod
-    def _parse_user(cls, v: int | dict | None) -> User | None:
-        if v is None or isinstance(v, User):
+    def _parse_responsavel(cls, v: dict | ResponsavelTecnico | None) -> ResponsavelTecnico | None:
+        if v is None or isinstance(v, ResponsavelTecnico):
             return v
         if isinstance(v, dict):
-            return User.model_validate(v)
-        return User(id=v, nome="", email="")
-
+            return ResponsavelTecnico.model_validate(v)
+        return None
+    
     @property
-    def created_at(self) -> datetime:
-        return self.data_criacao
-
+    def status_tempo(self) -> str:
+        """Retorna status de execução em texto."""
+        if self.tempo and len(self.tempo) > 0:
+            return str(self.tempo[0])
+        return "vazio"
+    
     @property
-    def closed_at(self) -> datetime | None:
-        return self.data_fechamento
+    def status_fechamento(self) -> str:
+        """Retorna status de fechamento em texto."""
+        if self.tempo_fechamento and len(self.tempo_fechamento) > 0:
+            return str(self.tempo_fechamento[0])
+        return "vazio"
+    
+    @property
+    def finalizado_sem_atraso(self) -> bool:
+        """Verifica se foi finalizado sem atraso."""
+        return self.status_tempo == "finalizado sem atraso" or self.status_fechamento == "finalizado sem atraso"
+    
+    @property
+    def finalizado_com_atraso(self) -> bool:
+        """Verifica se foi finalizado com atraso."""
+        return self.status_tempo == "finalizado com atraso" or self.status_fechamento == "finalizado com atraso"
+    
+    @property
+    def responsavel_nome(self) -> str:
+        """Retorna nome do responsável técnico."""
+        return self.get_resp_tecnico.display_name if self.get_resp_tecnico else f"Responsável {self.responsavel_id}"
+    
+    @property
+    def numero_os(self) -> str:
+        """Retorna número da ordem de serviço."""
+        return self.ordem_servico.get("numero", "") if self.ordem_servico else ""
+    
+    @property
+    def data_criacao_os(self) -> str:
+        """Retorna data de criação da OS."""
+        return self.ordem_servico.get("data_criacao", "") if self.ordem_servico else ""
+    
+    @property
+    def equipamento_id(self) -> int | None:
+        """Retorna ID do equipamento."""
+        return self.ordem_servico.get("equipamento") if self.ordem_servico else None
+    
+    @property
+    def tipo_servico_id(self) -> int | None:
+        """Retorna ID do tipo de serviço."""
+        return self.ordem_servico.get("tipo_servico") if self.ordem_servico else None
+    
+    @property
+    def estado_id(self) -> int | None:
+        """Retorna ID do estado."""
+        return self.ordem_servico.get("estado") if self.ordem_servico else None
+    
+    @property
+    def prioridade(self) -> int | None:
+        """Retorna prioridade da OS."""
+        return self.ordem_servico.get("prioridade") if self.ordem_servico else None
+    
+    def __str__(self) -> str:
+        """Representação string do chamado."""
+        return f"Chamado #{self.chamados} - OS {self.numero_os} - {self.responsavel_nome}"

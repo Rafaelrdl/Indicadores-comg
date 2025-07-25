@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from arkmeds_client.client import ArkmedsClient
-from arkmeds_client.models import OS
+from arkmeds_client.models import Chamado
 from config.os_types import TIPO_CORRETIVA
 from dateutil.relativedelta import relativedelta
 from services.equip_metrics import compute_metrics
@@ -21,14 +21,25 @@ filters = st.session_state["filters"]
 version = st.session_state.get("filtros_version", 0)
 
 
-def _build_history_df(os_list: list[OS]) -> pd.DataFrame:
+def _build_history_df(os_list: list[Chamado]) -> pd.DataFrame:
     mttr_map: dict[date, list[float]] = defaultdict(list)
-    by_eq: dict[int | None, list[OS]] = defaultdict(list)
+    by_eq: dict[int | None, list[Chamado]] = defaultdict(list)
     for os_obj in os_list:
-        if os_obj.closed_at is None:
+        # Para Chamado, precisamos extrair dados da ordem_servico
+        data_fechamento_str = os_obj.ordem_servico.get("data_fechamento") if os_obj.ordem_servico else None
+        if not data_fechamento_str:
             continue
-        month = os_obj.closed_at.replace(day=1, hour=0, minute=0, second=0, microsecond=0).date()
-        delta_h = (os_obj.closed_at - os_obj.created_at).total_seconds() / 3600
+        
+        # Parse das datas
+        try:
+            from datetime import datetime
+            data_criacao = datetime.strptime(os_obj.data_criacao_os, "%d/%m/%y - %H:%M")
+            data_fechamento = datetime.strptime(data_fechamento_str, "%d/%m/%y - %H:%M")
+        except (ValueError, TypeError):
+            continue
+            
+        month = data_fechamento.replace(day=1, hour=0, minute=0, second=0, microsecond=0).date()
+        delta_h = (data_fechamento - data_criacao).total_seconds() / 3600
         mttr_map[month].append(delta_h)
         by_eq[os_obj.equipamento_id].append(os_obj)
 
@@ -36,10 +47,12 @@ def _build_history_df(os_list: list[OS]) -> pd.DataFrame:
     for items in by_eq.values():
         if len(items) < 2:
             continue
-        items.sort(key=lambda o: o.created_at)
+        items.sort(key=lambda o: datetime.strptime(o.data_criacao_os, "%d/%m/%y - %H:%M"))
         for i in range(1, len(items)):
-            month = items[i].created_at.replace(day=1, hour=0, minute=0, second=0, microsecond=0).date()
-            interval_h = (items[i].created_at - items[i - 1].created_at).total_seconds() / 3600
+            current_date = datetime.strptime(items[i].data_criacao_os, "%d/%m/%y - %H:%M")
+            previous_date = datetime.strptime(items[i-1].data_criacao_os, "%d/%m/%y - %H:%M")
+            month = current_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0).date()
+            interval_h = (current_date - previous_date).total_seconds() / 3600
             mtbf_map[month].append(interval_h)
 
     months = sorted(set(mttr_map.keys()) | set(mtbf_map.keys()))
@@ -124,7 +137,7 @@ def _table_data() -> pd.DataFrame:
     df["idade_anos"] = df["data_aquisicao"].apply(
         lambda d: round((date.today() - d.date()).days / 365, 1) if d else None
     )
-    by_eq: dict[int, list[OS]] = defaultdict(list)
+    by_eq: dict[int, list[Chamado]] = defaultdict(list)
     for os_obj in os_hist:
         if os_obj.equipamento_id is not None and os_obj.closed_at:
             by_eq[os_obj.equipamento_id].append(os_obj)

@@ -10,7 +10,7 @@ import httpx
 import streamlit as st
 from arkmeds_client.auth import ArkmedsAuthError
 from arkmeds_client.client import ArkmedsClient
-from arkmeds_client.models import OS, OSEstado
+from arkmeds_client.models import Chamado, OSEstado
 
 from app.config.os_types import (
     AREA_ENG_CLIN,
@@ -21,7 +21,7 @@ from app.config.os_types import (
 )
 
 # Type aliases
-ServiceOrderData = dict[str, list[OS]]
+ServiceOrderData = dict[str, list[Chamado]]
 
 SLA_HOURS = int(os.getenv("OS_SLA_HOURS", 72))
 
@@ -117,7 +117,7 @@ def _validate_dates(start_date: date, end_date: date) -> None:
 
 async def fetch_orders(
     client: ArkmedsClient, order_type: int, area_id: int | None = None, **extra: Any
-) -> list[OS]:
+) -> list[Chamado]:
     """Fetch orders from the API with the given filters.
 
     Args:
@@ -137,7 +137,7 @@ async def fetch_orders(
     if area_id is not None:
         params["area_id"] = area_id
 
-    return await client.list_os(**params)
+    return await client.list_chamados(**params)
 
 
 async def fetch_service_orders(
@@ -223,14 +223,14 @@ async def fetch_service_orders(
 
         # Map results to named fields with type safety
         return {
-            "corrective_building": cast(list[OS], results[0]),
-            "corrective_engineering": cast(list[OS], results[1]),
-            "preventive_building": cast(list[OS], results[2]),
-            "preventive_infra": cast(list[OS], results[3]),
-            "active_search": cast(list[OS], results[4]),
-            "open_orders": cast(list[OS], results[5]),
-            "closed_orders": cast(list[OS], results[6]),
-            "closed_in_period": cast(list[OS], results[7]),
+            "corrective_building": cast(list[Chamado], results[0]),
+            "corrective_engineering": cast(list[Chamado], results[1]),
+            "preventive_building": cast(list[Chamado], results[2]),
+            "preventive_infra": cast(list[Chamado], results[3]),
+            "active_search": cast(list[Chamado], results[4]),
+            "open_orders": cast(list[Chamado], results[5]),
+            "closed_orders": cast(list[Chamado], results[6]),
+            "closed_in_period": cast(list[Chamado], results[7]),
         }
 
     except (httpx.TimeoutException, ArkmedsAuthError) as exc:
@@ -239,7 +239,7 @@ async def fetch_service_orders(
         raise OSMetricsError(f"Unexpected error while fetching service orders: {str(exc)}") from exc
 
 
-def calculate_sla_metrics(closed_orders: list[OS]) -> float:
+def calculate_sla_metrics(closed_orders: list[Chamado]) -> float:
     """Calculate SLA compliance percentage based on closed orders.
 
     Args:

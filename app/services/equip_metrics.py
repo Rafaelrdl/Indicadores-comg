@@ -93,7 +93,7 @@ async def fetch_equipment_data(
         if "tipo_id" not in os_filters:
             os_filters["tipo_id"] = TIPO_CORRETIVA
 
-        os_task = client.list_os(**os_filters)
+        os_task = client.list_chamados(os_filters)
 
         return await asyncio.gather(equip_task, os_task)
     except (httpx.TimeoutException, ArkmedsAuthError) as exc:

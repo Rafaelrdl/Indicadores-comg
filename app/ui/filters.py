@@ -6,7 +6,7 @@ from typing import List
 
 import streamlit as st
 from arkmeds_client.client import ArkmedsClient
-from arkmeds_client.models import User
+from arkmeds_client.models import ResponsavelTecnico
 from .utils import run_async_safe
 
 
@@ -57,7 +57,7 @@ def render_filters(client: ArkmedsClient) -> dict:
     )
     estado_ids = [est_map[d] for d in est_desc]
 
-    user_map = {"(Todos)": None, **{u.nome: u.id for u in users}}
+    user_map = {"(Todos)": None, **{u.display_name: u.id for u in users}}
     user_desc = st.sidebar.selectbox(
         "👤 Responsável",
         list(user_map.keys()),
@@ -104,7 +104,7 @@ def show_active_filters(client: ArkmedsClient) -> None:
             parts.append(desc)
     if filters.get("responsavel_id"):
         users = _get_users(client)
-        desc = next((u.nome for u in users if u.id == filters["responsavel_id"]), None)
+        desc = next((u.display_name for u in users if u.id == filters["responsavel_id"]), None)
         if desc:
             parts.append(desc)
     st.write(" • ".join(parts))
