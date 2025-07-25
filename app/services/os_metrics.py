@@ -130,13 +130,14 @@ async def fetch_orders(
         List of service orders
     """
     params: dict[str, Any] = {
-        "tipo_id": order_type,
         **extra,
     }
 
     if area_id is not None:
         params["area_id"] = area_id
-
+    
+    # Nota: O parâmetro tipo_id não é suportado pela API atual
+    # A filtragem por tipo deve ser feita após receber os dados
     return await client.list_chamados(**params)
 
 

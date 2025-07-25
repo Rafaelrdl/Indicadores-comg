@@ -296,9 +296,106 @@ class ResponsavelTecnico(ArkBase):
         return self.display_name
 
 
-class Equipment(ArkBase):
+class Company(ArkBase):
+    """Modelo para empresas baseado na API /api/v5/company/equipaments/.
+    
+    ⚡ AUDITORIA REALIZADA: 24/07/2025
+    📡 Fonte: Consulta à API /api/v5/company/equipaments/
+    📊 Total encontrado: 484 empresas
+    🔍 Estrutura completa com equipamentos aninhados
+    """
     id: int
+    has_permission: bool = True
+    tipo: int | None = None
     nome: str
+    nome_fantasia: str | None = None
+    superior: int | None = None
+    cnpj: str | None = None
+    observacoes: str | None = None
+    contato: str | None = None
+    email: str | None = None
+    telefone2: str | None = None
+    ramal2: str | None = None
+    telefone1: str | None = None
+    ramal1: str | None = None
+    fax: str | None = None
+    cep: str | None = None
+    rua: str | None = None
+    numero: int | None = None
+    complemento: str | None = None
+    bairro: str | None = None
+    cidade: str | None = None
+    estado: str | None = None
+    
+    # Lista de equipamentos aninhados
+    equipamentos: list[dict] = Field(default_factory=list)
+    
+    @property
+    def display_name(self) -> str:
+        """Retorna nome para exibição."""
+        return self.nome_fantasia or self.nome
+    
+    @property
+    def total_equipamentos(self) -> int:
+        """Retorna total de equipamentos da empresa."""
+        return len(self.equipamentos)
+    
+    @property
+    def endereco_completo(self) -> str:
+        """Retorna endereço completo formatado."""
+        partes = []
+        if self.rua:
+            endereco = self.rua
+            if self.numero:
+                endereco += f", {self.numero}"
+            if self.complemento:
+                endereco += f" - {self.complemento}"
+            partes.append(endereco)
+        
+        if self.bairro:
+            partes.append(self.bairro)
+        
+        if self.cidade:
+            cidade_estado = self.cidade
+            if self.estado:
+                cidade_estado += f" - {self.estado}"
+            partes.append(cidade_estado)
+        
+        if self.cep:
+            partes.append(f"CEP: {self.cep}")
+        
+        return ", ".join(partes) if partes else "Endereço não informado"
+    
+    def __str__(self) -> str:
+        """Representação string da empresa."""
+        return f"{self.display_name} ({self.total_equipamentos} equipamentos)"
+
+
+class Equipment(ArkBase):
+    """Modelo para equipamentos baseado na API /api/v5/company/equipaments/ e /api/v5/equipament/{id}/.
+    
+    ⚡ AUDITORIA REALIZADA: 24/07/2025
+    📡 Fonte: Consulta às APIs de equipamentos
+    🔍 Estrutura real descoberta nos dados de equipamentos
+    """
+    id: int
+    fabricante: str | None = None
+    modelo: str | None = None
+    patrimonio: str | None = None
+    numero_serie: str | None = None
+    identificacao: str | None = None
+    tipo: int | None = None
+    qr_code: int | None = None
+    tipo_contrato: int | None = None
+    tipo_criticidade: int | None = None
+    oficina: int | None = None
+    prioridade: int | None = None
+    
+    # Campos específicos da API de detalhes
+    proprietario: int | None = None  # ID da empresa proprietária
+    
+    # Campos legados (mantidos para compatibilidade)
+    nome: str | None = None
     ativo: bool | None = None
     data_aquisicao: datetime | None = Field(default=None, alias="data_aquisicao")
 
@@ -308,6 +405,71 @@ class Equipment(ArkBase):
         if v is None or isinstance(v, datetime):
             return v
         return datetime.strptime(v, "%d/%m/%y - %H:%M")
+    
+    @property
+    def display_name(self) -> str:
+        """Retorna nome para exibição."""
+        # Prioridade: identificacao > nome > patrimonio > "Equipamento {id}"
+        if self.identificacao:
+            return self.identificacao
+        elif self.nome:
+            return self.nome
+        elif self.patrimonio:
+            return f"Patrimônio {self.patrimonio}"
+        else:
+            return f"Equipamento {self.id}"
+    
+    @property
+    def descricao_completa(self) -> str:
+        """Retorna descrição completa do equipamento."""
+        partes = [self.display_name]
+        
+        if self.fabricante:
+            partes.append(f"Fabricante: {self.fabricante}")
+        
+        if self.modelo:
+            partes.append(f"Modelo: {self.modelo}")
+        
+        if self.numero_serie:
+            partes.append(f"S/N: {self.numero_serie}")
+        
+        return " | ".join(partes)
+    
+    @property
+    def criticidade_nivel(self) -> str:
+        """Retorna nível de criticidade em texto."""
+        if self.tipo_criticidade is None:
+            return "Não definida"
+        
+        # Mapping baseado nos valores comuns encontrados
+        niveis = {
+            1: "Baixa",
+            2: "Média", 
+            3: "Alta",
+            4: "Crítica",
+            5: "Emergencial"
+        }
+        return niveis.get(self.tipo_criticidade, f"Nível {self.tipo_criticidade}")
+    
+    @property
+    def prioridade_nivel(self) -> str:
+        """Retorna nível de prioridade em texto."""
+        if self.prioridade is None:
+            return "Não definida"
+        
+        # Mapping baseado nos valores comuns
+        niveis = {
+            1: "Baixa",
+            2: "Normal",
+            3: "Alta",
+            4: "Urgente",
+            5: "Emergencial"
+        }
+        return niveis.get(self.prioridade, f"Prioridade {self.prioridade}")
+    
+    def __str__(self) -> str:
+        """Representação string do equipamento."""
+        return self.descricao_completa
 
 
 class Chamado(ArkBase):

@@ -4,16 +4,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 
 import httpx
-import     async def list_os(self, **filters: Any) -> List[Chamado]:
-        """
-        Lista ordens de serviço (agora usando endpoint de chamados).
-        
-        MIGRAÇÃO: Este método agora retorna dados de Chamado que 
-        contêm informações mais ricas incluindo dados da OS associada.
-        """
-        # Converter filtros antigos para o novo formato
-        filters_dict = dict(filters) if filters else {}
-        return await self.list_chamados(filters_dict)eamlit as st
+import streamlit as st
 
 from .auth import ArkmedsAuth, ArkmedsAuthError
 from .models import (
@@ -23,6 +14,7 @@ from .models import (
     TipoOS,
     Chamado,
     ResponsavelTecnico,
+    Company,
 )
 
 
@@ -130,50 +122,27 @@ class ArkmedsClient:
             finally:
                 self._client = None
 
-    async def list_os(self, **filters: Any) -> List[OS]:
-        data = await self._get_all_pages("/api/v3/ordem_servico/", filters)
-        return [OS.model_validate(item) for item in data]
+    async def list_os(self, **filters: Any) -> List[Chamado]:
+        """
+        Lista ordens de serviço (agora usando endpoint de chamados).
+        
+        MIGRAÇÃO: Este método agora retorna dados de Chamado que 
+        contêm informações mais ricas incluindo dados da OS associada.
+        """
+        # Converter filtros antigos para o novo formato
+        filters_dict = dict(filters) if filters else {}
+        return await self.list_chamados(filters_dict)
 
     async def list_equipment(self, **filters: Any) -> List[Equipment]:
         data = await self._get_all_pages("/api/v5/company/equipaments/", filters)
         return [Equipment.model_validate(item) for item in data]
 
-    async def list_users(self, **filters: Any) -> List[User]:
+    async def list_users(self, **filters: Any) -> List[ResponsavelTecnico]:
         """Lista usuários disponíveis.
         
-        Como não há endpoint direto para usuários, extrai de OSs existentes
-        e cria cache de usuários únicos baseado nos responsáveis.
+        MIGRAÇÃO: Agora retorna ResponsavelTecnico extraídos dos chamados.
         """
-        try:
-            # Tentar buscar usuários únicos através de OSs
-            os_data = await self._get_all_pages("/api/v5/ordem_servico/", {"page_size": 200})
-            
-            # Extrair usuários únicos dos responsáveis
-            usuarios_unicos = {}
-            for os in os_data:
-                responsavel = os.get("responsavel")
-                if responsavel:
-                    if isinstance(responsavel, dict):
-                        # Responsável é um objeto completo
-                        user_id = responsavel.get("id")
-                        if user_id and user_id not in usuarios_unicos:
-                            usuarios_unicos[user_id] = User.model_validate(responsavel)
-                    elif isinstance(responsavel, (int, str)):
-                        # Responsável é apenas um ID
-                        user_id = int(responsavel)
-                        if user_id not in usuarios_unicos:
-                            usuarios_unicos[user_id] = User(id=user_id, nome="", email="")
-            
-            # Retornar lista de usuários únicos
-            return list(usuarios_unicos.values())
-            
-        except (httpx.HTTPStatusError, httpx.RequestError, ConnectionError, RuntimeError) as e:
-            # Em caso de erro, retornar usuários padrão mockados
-            return [
-                User(id=1, nome="Técnico 1", email="tecnico1@example.com"),
-                User(id=2, nome="Técnico 2", email="tecnico2@example.com"),
-                User(id=3, nome="Supervisor", email="supervisor@example.com"),
-            ]
+        return await self.list_responsaveis_tecnicos(dict(filters) if filters else {})
 
     async def list_tipos(self, **filters: Any) -> List[dict]:
         """Lista tipos de OS disponíveis.
@@ -302,3 +271,85 @@ class ArkmedsClient:
             return list(responsaveis_map.values())
         except Exception:
             return []
+
+    async def list_companies_equipamentos(self) -> List[Company]:
+        """Lista todas as empresas com seus equipamentos.
+        
+        Returns:
+            Lista de empresas com equipamentos aninhados
+            
+        Raises:
+            ArkmedsClientError: Se houver erro na requisição
+        """
+        try:
+            response = await self._request("GET", "/api/v5/company/equipaments/")
+            data = response.json()
+            
+            if not data.get("results"):
+                return []
+            
+            companies = []
+            for company_data in data["results"]:
+                company = Company(**company_data)
+                companies.append(company)
+            
+            return companies
+        except Exception as e:
+            print(f"Erro ao listar empresas: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    async def list_equipamentos(self, filters: Optional[Dict[str, Any]] = None) -> List[Equipment]:
+        """Lista todos os equipamentos de todas as empresas.
+        
+        Args:
+            filters: Filtros opcionais para aplicar
+            
+        Returns:
+            Lista de equipamentos de todas as empresas
+            
+        Raises:
+            ArkmedsClientError: Se houver erro na requisição
+        """
+        try:
+            companies = await self.list_companies_equipamentos()
+            equipamentos = []
+            
+            for company in companies:
+                for equip_data in company.equipamentos:
+                    # Adiciona o proprietario (empresa) aos dados do equipamento
+                    equip_data["proprietario"] = company.id
+                    equipamento = Equipment(**equip_data)
+                    equipamentos.append(equipamento)
+            
+            return equipamentos
+        except Exception as e:
+            print(f"Erro ao listar equipamentos: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    async def get_equipamento(self, equipamento_id: int) -> Optional[Equipment]:
+        """Busca um equipamento específico pelo ID.
+        
+        Args:
+            equipamento_id: ID do equipamento
+            
+        Returns:
+            Equipamento encontrado ou None se não existir
+            
+        Raises:
+            ArkmedsClientError: Se houver erro na requisição
+        """
+        try:
+            response = await self._request("GET", f"/api/v5/equipament/{equipamento_id}/")
+            data = response.json()
+            if data:
+                return Equipment(**data)
+            return None
+        except Exception as e:
+            print(f"Erro ao buscar equipamento {equipamento_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
