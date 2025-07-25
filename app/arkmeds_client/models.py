@@ -129,14 +129,112 @@ class OSEstado(Enum):
         return descricoes.get(estado_id, f"Estado desconhecido ({estado_id})")
 
 
-class TipoOS(ArkBase):
-    id: int
-    descricao: str = Field(alias="descricao")
+class TipoOS(Enum):
+    """Tipos possíveis de Ordem de Serviço.
+    
+    ⚡ AUDITORIA REALIZADA: 24/07/2025
+    📡 Fonte: Consulta à API /api/v3/tipo_servico/
+    📊 Total encontrado: 18 tipos únicos
+    🔍 Método: Consulta direta à API
+    
+    NOTA: IDs 18 e 19 ambos são "Vistoria Diária" - possível duplicação na API
+    """
+    # Tipos principais de manutenção
+    MANUTENCAO_PREVENTIVA = 1
+    CALIBRACAO = 2
+    MANUTENCAO_CORRETIVA = 3
+    VISITA_TECNICA = 4
+    EMPRESTIMO = 5
+    TREINAMENTO = 6
+    TESTE_SEGURANCA_ELETRICA = 7
+    CHAMADO = 8
+    INSTALACAO = 9
+    TESTE_INICIAL = 10
+    MANUTENCAO_PREDITIVA = 11
+    
+    # Tipos de vistoria/monitoramento
+    VISTORIA_DIARIA_1 = 18  # Duplicação na API
+    VISTORIA_DIARIA_2 = 19  # Duplicação na API
+    MONITORAMENTO_DIARIO = 26
+    
+    # Tipos especializados
+    BUSCA_ATIVA = 28
+    INVENTARIO = 29
+    ANALISE_INFRAESTRUTURA = 30
+    INSPECAO_NR13 = 31
+    
+    @classmethod
+    def tipos_manutencao(cls) -> list["TipoOS"]:
+        """Retorna tipos relacionados à manutenção."""
+        return [
+            cls.MANUTENCAO_PREVENTIVA,
+            cls.MANUTENCAO_CORRETIVA,
+            cls.MANUTENCAO_PREDITIVA,
+        ]
+    
+    @classmethod
+    def tipos_preventivos(cls) -> list["TipoOS"]:
+        """Retorna tipos considerados preventivos."""
+        return [
+            cls.MANUTENCAO_PREVENTIVA,
+            cls.MANUTENCAO_PREDITIVA,
+            cls.CALIBRACAO,
+            cls.TESTE_SEGURANCA_ELETRICA,
+            cls.TESTE_INICIAL,
+            cls.VISTORIA_DIARIA_1,
+            cls.VISTORIA_DIARIA_2,
+            cls.MONITORAMENTO_DIARIO,
+            cls.BUSCA_ATIVA,
+            cls.INVENTARIO,
+            cls.INSPECAO_NR13,
+        ]
+    
+    @classmethod
+    def tipos_corretivos(cls) -> list["TipoOS"]:
+        """Retorna tipos considerados corretivos."""
+        return [
+            cls.MANUTENCAO_CORRETIVA,
+            cls.CHAMADO,
+        ]
+    
+    @classmethod
+    def tipos_operacionais(cls) -> list["TipoOS"]:
+        """Retorna tipos operacionais/administrativos."""
+        return [
+            cls.VISITA_TECNICA,
+            cls.EMPRESTIMO,
+            cls.TREINAMENTO,
+            cls.INSTALACAO,
+            cls.ANALISE_INFRAESTRUTURA,
+        ]
+    
+    @classmethod
+    def get_descricao(cls, tipo_id: int) -> str:
+        """Retorna descrição amigável do tipo baseado no ID."""
+        descricoes = {
+            1: "Manutenção Preventiva",
+            2: "Calibração",
+            3: "Manutenção Corretiva",
+            4: "Visita Técnica",
+            5: "Empréstimo",
+            6: "Treinamento",
+            7: "Teste de Segurança Elétrica",
+            8: "Chamado",
+            9: "Instalação",
+            10: "Teste Inicial",
+            11: "Manutenção Preditiva",
+            18: "Vistoria Diária",
+            19: "Vistoria Diária",
+            26: "Monitoramento Diário",
+            28: "Busca Ativa",
+            29: "Inventário",
+            30: "Análise de Infraestrutura",
+            31: "Inspeção NR13",
+        }
+        return descricoes.get(tipo_id, f"Tipo desconhecido ({tipo_id})")
 
 
-class EstadoOS(ArkBase):
-    id: int
-    descricao: str
+# NOTA: EstadoOS removida - use OSEstado(Enum) que é mais completa e type-safe
 
 
 class User(ArkBase):

@@ -10,7 +10,7 @@ from .auth import ArkmedsAuth, ArkmedsAuthError
 from .models import (
     OS,
     Equipment,
-    EstadoOS,
+    OSEstado,
     PaginatedResponse,
     TipoOS,
     User,
@@ -137,44 +137,56 @@ class ArkmedsClient:
             # Em caso de erro, retornar lista vazia
             return []
 
-    async def list_tipos(self, **filters: Any) -> List[TipoOS]:
+    async def list_tipos(self, **filters: Any) -> List[dict]:
+        """Lista tipos de OS disponíveis.
+        
+        Retorna lista de dicts para manter compatibilidade com UI.
+        Use TipoOS enum para validação e type safety.
+        """
         try:
-            data = await self._get_all_pages("/api/v3/tipo_ordem_servico/", filters)
-            return [TipoOS.model_validate(item) for item in data]
+            data = await self._get_all_pages("/api/v3/tipo_servico/", filters)
+            return data
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 # Endpoint não existe, retornar dados padrão
                 return [
-                    TipoOS(id=1, descricao="Corretiva"),
-                    TipoOS(id=2, descricao="Preventiva"),
-                    TipoOS(id=3, descricao="Busca Ativa"),
+                    {"id": 1, "descricao": "Manutenção Preventiva"},
+                    {"id": 2, "descricao": "Calibração"},
+                    {"id": 3, "descricao": "Manutenção Corretiva"},
+                    {"id": 28, "descricao": "Busca Ativa"},
                 ]
             raise
         except (httpx.RequestError, ConnectionError, RuntimeError) as e:
             # Em caso de erro de conexão, retornar dados padrão
             return [
-                TipoOS(id=1, descricao="Corretiva"),
-                TipoOS(id=2, descricao="Preventiva"),
-                TipoOS(id=3, descricao="Busca Ativa"),
+                {"id": 1, "descricao": "Manutenção Preventiva"},
+                {"id": 2, "descricao": "Calibração"},
+                {"id": 3, "descricao": "Manutenção Corretiva"},
+                {"id": 28, "descricao": "Busca Ativa"},
             ]
 
-    async def list_estados(self, **filters: Any) -> List[EstadoOS]:
+    async def list_estados(self, **filters: Any) -> List[dict]:
+        """Lista estados de OS disponíveis.
+        
+        Retorna lista de dicts para manter compatibilidade com UI.
+        Use OSEstado enum para validação e type safety.
+        """
         try:
-            data = await self._get_all_pages("/api/v3/estado_os/", filters)
-            return [EstadoOS.model_validate(item) for item in data]
+            data = await self._get_all_pages("/api/v3/estado_ordem_servico/", filters)
+            return data
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 # Endpoint não existe, retornar dados padrão
                 return [
-                    EstadoOS(id=1, descricao="Aberta"),
-                    EstadoOS(id=4, descricao="Fechada"),
-                    EstadoOS(id=5, descricao="Cancelada"),
+                    {"id": 1, "descricao": "Aberta"},
+                    {"id": 2, "descricao": "Fechada"},
+                    {"id": 3, "descricao": "Cancelada"},
                 ]
             raise
         except (httpx.RequestError, ConnectionError, RuntimeError) as e:
             # Em caso de erro de conexão, retornar dados padrão
             return [
-                EstadoOS(id=1, descricao="Aberta"),
-                EstadoOS(id=4, descricao="Fechada"),
-                EstadoOS(id=5, descricao="Cancelada"),
+                {"id": 1, "descricao": "Aberta"},
+                {"id": 2, "descricao": "Fechada"},
+                {"id": 3, "descricao": "Cancelada"},
             ]
