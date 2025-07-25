@@ -21,7 +21,7 @@ def _get_estados(_client: ArkmedsClient) -> List[dict]:
 
 
 @st.cache_data(ttl=86400)
-def _get_users(_client: ArkmedsClient) -> List[User]:
+def _get_users(_client: ArkmedsClient) -> List[ResponsavelTecnico]:
     return run_async_safe(_client.list_users(perfil="responsavel_tecnico"))
 
 

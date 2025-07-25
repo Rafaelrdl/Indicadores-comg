@@ -27,7 +27,7 @@ CACHE_TTL_DEFAULT = 900  # 15 minutos
 @st.cache_data(ttl=CACHE_TTL_DEFAULT, show_spinner="Carregando dados de ordens de serviço...")
 @log_cache_performance
 @performance_monitor
-def fetch_os_data() -> Tuple:
+def fetch_os_data(filters_dict: dict = None) -> Tuple:
     """Busca dados de ordens de serviço e métricas."""
     
     @safe_operation(
@@ -37,7 +37,19 @@ def fetch_os_data() -> Tuple:
     def _safe_fetch():
         async def _fetch_data_async():
             client = ArkmedsClient.from_session()
-            filters = st.session_state["filters"]
+            
+            # Use os filtros passados ou os padrão
+            if filters_dict is None:
+                from datetime import date
+                filters = {
+                    "dt_ini": date.today().replace(day=1),
+                    "dt_fim": date.today(),
+                    "tipo_id": None,
+                    "estado_ids": [],
+                    "responsavel_id": None,
+                }
+            else:
+                filters = filters_dict
             
             # Extrair datas e outros filtros
             dt_ini = filters.get("dt_ini")
@@ -122,6 +134,11 @@ def render_os_table(os_raw: list) -> None:
     # Converter para DataFrame
     df = pd.DataFrame([o.model_dump() for o in os_raw])
     
+    # Converter tipos mistos para string para evitar problemas com Arrow
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            df[col] = df[col].astype(str)
+    
     # Filtros da tabela
     col1, col2 = st.columns(2)
     with col1:
@@ -142,11 +159,18 @@ def render_os_table(os_raw: list) -> None:
         filtered_df = filtered_df[filtered_df['status'] == status_filter]
     
     # Exibir tabela
-    st.dataframe(
-        filtered_df, 
-        use_container_width=True,
-        height=400
-    )
+    try:
+        st.dataframe(
+            filtered_df, 
+            use_container_width=True,
+            height=400
+        )
+    except Exception as e:
+        st.error(f"Erro ao exibir tabela: {str(e)}")
+        st.info("Tentando exibir dados sem formatação especial...")
+        # Fallback: mostrar apenas as primeiras colunas
+        simplified_df = filtered_df.select_dtypes(include=['number', 'bool']).astype(str)
+        st.dataframe(simplified_df, use_container_width=True, height=400)
     
     # Botão de download
     st.download_button(
@@ -165,11 +189,44 @@ def main():
     """Função principal da página de ordens de serviço."""
     st.title("📑 Ordens de Serviço")
     
+    # Inicializar filtros se não existirem
+    if "filters" not in st.session_state:
+        from datetime import date
+        st.session_state["filters"] = {
+            "dt_ini": date.today().replace(day=1),
+            "dt_fim": date.today(),
+            "tipo_id": None,
+            "estado_ids": [],
+            "responsavel_id": None,
+        }
+    
     # Buscar dados
-    metrics, os_raw = fetch_os_data()
+    try:
+        # Passar uma cópia dos filtros para evitar problemas de threading
+        filters_copy = dict(st.session_state["filters"]) if "filters" in st.session_state else None
+        result = fetch_os_data(filters_copy)
+        if result is None or len(result) != 2:
+            st.error("Erro ao carregar dados. Verifique a conexão com a API.")
+            return
+        
+        metrics, os_raw = result
+        
+        if metrics is None:
+            st.error("Erro ao calcular métricas. Verifique os dados e filtros.")
+            return
+            
+        if os_raw is None:
+            os_raw = []
+            
+    except Exception as e:
+        st.error(f"Erro inesperado ao carregar dados: {str(e)}")
+        return
     
     # Mostrar filtros ativos
-    show_active_filters(ArkmedsClient.from_session())
+    try:
+        show_active_filters(ArkmedsClient.from_session())
+    except Exception as e:
+        st.warning(f"Erro ao exibir filtros: {str(e)}")
     
     # Renderizar seções
     render_kpi_metrics(metrics)

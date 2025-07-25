@@ -15,12 +15,22 @@ def run_async_safe(coro: Coroutine[Any, Any, Any]) -> Any:
     # For Streamlit, always use a new thread with a new event loop
     # to avoid conflicts with any existing loop
     def run_in_thread():
-        new_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(new_loop)
+        new_loop = None
         try:
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
             return new_loop.run_until_complete(coro)
+        except Exception as e:
+            # Log the error but don't crash
+            print(f"Error in async execution: {e}")
+            raise
         finally:
-            new_loop.close()
+            # Safely close the loop
+            if new_loop and not new_loop.is_closed():
+                try:
+                    new_loop.close()
+                except Exception:
+                    pass  # Ignore close errors
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
         future = executor.submit(run_in_thread)

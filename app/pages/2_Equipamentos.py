@@ -109,21 +109,34 @@ def fetch_equipment_data() -> tuple:
         error_message="Erro ao buscar dados de equipamentos"
     )
     def _safe_fetch():
-        async def _fetch_data_async():
-            client = ArkmedsClient.from_session()
+        try:
+            async def _fetch_data_async():
+                client = ArkmedsClient.from_session()
+                
+                # Período fixo dos últimos 12 meses para equipamentos
+                dt_fim = date.today()
+                dt_ini = dt_fim - relativedelta(months=DEFAULT_PERIOD_MONTHS)
+                
+                # Buscar métricas e equipamentos primeiro (mais simples)
+                metrics_task = compute_metrics(client, start_date=dt_ini, end_date=dt_fim)
+                equip_task = client.list_equipment()
+                
+                # Buscar os dados básicos primeiro
+                metrics, equip_list = await asyncio.gather(metrics_task, equip_task)
+                
+                # Buscar histórico separadamente para evitar problemas
+                try:
+                    os_hist = await client.list_chamados({"tipo_id": TIPO_CORRETIVA})
+                except Exception as e:
+                    app_logger.warning(f"Erro ao buscar histórico de chamados: {e}")
+                    os_hist = []
+                
+                return metrics, equip_list, os_hist
             
-            # Período fixo dos últimos 12 meses para equipamentos
-            dt_fim = date.today()
-            dt_ini = dt_fim - relativedelta(months=DEFAULT_PERIOD_MONTHS)
-            
-            # Buscar métricas, equipamentos e histórico em paralelo
-            metrics_task = compute_metrics(client, start_date=dt_ini, end_date=dt_fim)
-            equip_task = client.list_equipment()
-            os_hist_task = client.list_chamados({"tipo_id": TIPO_CORRETIVA})
-            
-            return await asyncio.gather(metrics_task, equip_task, os_hist_task)
-        
-        return run_async_safe(_fetch_data_async())
+            return run_async_safe(_fetch_data_async())
+        except Exception as e:
+            app_logger.error(f"Erro na busca de dados de equipamentos: {e}")
+            return (None, [], [])
     
     return _safe_fetch()
 
@@ -154,6 +167,11 @@ def fetch_mttf_mtbf_data():
 def render_basic_metrics(metrics, equip_list: list) -> None:
     """Renderiza as métricas básicas de equipamentos."""
     st.header("📊 Métricas Básicas de Equipamentos")
+
+    # Verificar se métricas são válidas
+    if metrics is None:
+        st.error("Métricas não disponíveis.")
+        return
 
     # Calcular métricas derivadas
     pct_em_manut = round(metrics.em_manutencao / metrics.ativos * 100, 1) if metrics.ativos else 0
@@ -355,9 +373,11 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
         filtered_df = filtered_df[filtered_df["status"] == status_filter]
     
     if "idade_anos" in filtered_df.columns:
+        # Corrigir warning do pandas sobre fillna
+        idade_anos_filled = filtered_df["idade_anos"].fillna(0).infer_objects(copy=False)
         filtered_df = filtered_df[
-            (filtered_df["idade_anos"].fillna(0) >= idade_min) & 
-            (filtered_df["idade_anos"].fillna(0) <= idade_max)
+            (idade_anos_filled >= idade_min) & 
+            (idade_anos_filled <= idade_max)
         ]
     
     # Exibir tabela
@@ -399,7 +419,27 @@ def main():
     st.title("🛠️ Análise de Equipamentos")
     
     # Buscar dados
-    metrics, equip_list, os_hist = fetch_equipment_data()
+    try:
+        result = fetch_equipment_data()
+        if result is None or len(result) != 3:
+            st.error("Erro ao carregar dados de equipamentos. Verifique a conexão com a API.")
+            return
+        
+        metrics, equip_list, os_hist = result
+        
+        if metrics is None:
+            st.error("Erro ao calcular métricas de equipamentos. Verifique os dados.")
+            return
+            
+        if equip_list is None:
+            equip_list = []
+            
+        if os_hist is None:
+            os_hist = []
+            
+    except Exception as e:
+        st.error(f"Erro inesperado ao carregar dados de equipamentos: {str(e)}")
+        return
     
     # Renderizar seções
     render_basic_metrics(metrics, equip_list)
