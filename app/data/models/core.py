@@ -1,7 +1,7 @@
 """Core data models for UI components."""
 
-from typing import Any, Optional, List, Dict
-from pydantic import BaseModel
+from typing import Any, Optional, List, Dict, Union
+from pydantic import BaseModel, field_validator
 
 
 class Metric(BaseModel):
@@ -12,6 +12,14 @@ class Metric(BaseModel):
     delta_color: Optional[str] = "normal"
     icon: Optional[str] = None
     help_text: Optional[str] = None
+    
+    @field_validator('value', mode='before')
+    @classmethod
+    def convert_value_to_string(cls, v):
+        """Convert numeric values to string."""
+        if isinstance(v, (int, float)):
+            return str(v)
+        return v
 
 
 class KPICard(BaseModel):

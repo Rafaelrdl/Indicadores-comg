@@ -79,13 +79,19 @@ async def fetch_technician_data() -> List[dict]:
     """Busca dados dos técnicos com cache inteligente."""
     try:
         client = ArkmedsClient.from_session()
-        users = await client.fetch_all_users()
+        users = await client.list_users()
         
-        # Validar dados usando novo sistema
-        validator = DataValidator()
-        validated_users = validator.validate_user_list(users)
+        # Converter para DataFrame e validar
+        if users:
+            df = pd.DataFrame([user.model_dump() for user in users])
+            df = DataValidator.validate_dataframe(
+                df, 
+                required_columns=["id", "nome"],
+                name="Técnicos"
+            )
+            return df.to_dict('records')
         
-        return validated_users
+        return []
         
     except APIError as e:
         st.error("❌ Erro na API de usuários")

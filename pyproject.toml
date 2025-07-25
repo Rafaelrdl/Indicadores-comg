@@ -2,6 +2,9 @@
 package-mode = true
 packages = [{include = "app"}]
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+
 [project]
 name = "indicadores-comg"
 version = "0.1.0"

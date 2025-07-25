@@ -66,7 +66,7 @@ async def fetch_os_data_async(filters_dict: dict = None) -> Tuple:
             df = pd.DataFrame([o.model_dump() for o in os_raw])
             df = DataValidator.validate_dataframe(
                 df, 
-                required_columns=["id", "numero"],
+                required_columns=["id", "chamados"],
                 name="Ordens de Serviço"
             )
         
@@ -215,7 +215,7 @@ def render_os_table(os_raw: list) -> None:
     table = (DataTable(data=df, title="📋 Lista de Ordens de Serviço")
         .add_filters(
             filterable_columns=["tipo", "status", "prioridade"] if "tipo" in df.columns else [],
-            searchable_columns=["numero", "descricao"] if "numero" in df.columns else []
+            searchable_columns=["chamados", "descricao"] if "chamados" in df.columns else []
         )
     )
     

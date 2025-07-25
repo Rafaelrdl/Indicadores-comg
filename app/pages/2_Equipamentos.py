@@ -330,7 +330,8 @@ def render_reliability_rankings() -> None:
     # Controle para habilitar cálculo pesado
     calcular_rankings = st.checkbox(
         "🔄 Calcular Rankings MTTF/MTBF",
-        help="Este cálculo pode demorar alguns minutos. Deixe marcado apenas se necessário."
+        help="Este cálculo pode demorar alguns minutos. Deixe marcado apenas se necessário.",
+        key="calc_mttf_rankings"
     )
 
     if calcular_rankings:
@@ -429,8 +430,38 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
     # Preparar dados para a nova DataTable
     table_data = []
     for equip in equip_list:
+        # Converter equipamento para dict se for um objeto Pydantic
+        if hasattr(equip, 'model_dump'):
+            equip_dict = equip.model_dump()
+        else:
+            equip_dict = equip
+            
         # Calcular métricas básicas do equipamento
-        equip_os = [os for os in os_hist if os.get('equipamento_id') == equip.get('id')]
+        equip_id = equip_dict.get('id')
+        equip_os = []
+        
+        for os in os_hist:
+            # Converter OS para dict se for um objeto Pydantic
+            if hasattr(os, 'model_dump'):
+                os_dict = os.model_dump()
+            else:
+                os_dict = os
+                
+            # Procurar o equipamento_id dentro da estrutura da ordem_servico
+            if 'ordem_servico' in os_dict and os_dict['ordem_servico']:
+                ordem_servico = os_dict['ordem_servico']
+                equipamento_info = ordem_servico.get('equipamento', {})
+                
+                # equipamento_info pode ser um dict ou um ID direto
+                equipamento_id = None
+                if isinstance(equipamento_info, dict):
+                    equipamento_id = equipamento_info.get('id')
+                elif isinstance(equipamento_info, int):
+                    equipamento_id = equipamento_info
+                    
+                if equipamento_id == equip_id:
+                    equip_os.append(os_dict)
+        
         total_os = len(equip_os)
         
         # Status baseado no número de ordens
@@ -446,15 +477,24 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
             
         # Calcular idade se disponível
         idade = 0
-        if hasattr(equip, 'data_aquisicao') and equip.data_aquisicao:
-            idade = round((date.today() - equip.data_aquisicao.date()).days / 365, 1)
+        if equip_dict.get('data_aquisicao'):
+            try:
+                from datetime import datetime, date
+                data_aquisicao = equip_dict['data_aquisicao']
+                if isinstance(data_aquisicao, str):
+                    data_aquisicao = datetime.fromisoformat(data_aquisicao.replace('Z', '+00:00')).date()
+                elif hasattr(data_aquisicao, 'date'):
+                    data_aquisicao = data_aquisicao.date()
+                idade = round((date.today() - data_aquisicao).days / 365, 1)
+            except:
+                idade = 0
             
         table_data.append({
-            'ID': equip.get('id', ''),
-            'Equipamento': equip.get('nome', ''),
-            'Setor': equip.get('setor', {}).get('nome', 'N/A'),
-            'Marca': equip.get('marca', {}).get('nome', 'N/A'),
-            'Modelo': equip.get('modelo', ''),
+            'ID': equip_dict.get('id', ''),
+            'Equipamento': equip_dict.get('nome', ''),
+            'Setor': equip_dict.get('setor', {}).get('nome', 'N/A') if equip_dict.get('setor') else 'N/A',
+            'Marca': equip_dict.get('marca', {}).get('nome', 'N/A') if equip_dict.get('marca') else 'N/A',
+            'Modelo': equip_dict.get('modelo', ''),
             'Idade (anos)': idade,
             'Ordens Abertas': total_os,
             'Status': status,
@@ -485,13 +525,13 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
     }
     
     # Renderizar usando novo DataTable
-    data_table = DataTable()
-    data_table.render(
-        data=table_data,
-        config=table_config,
-        show_download=True,
-        show_stats=True
+    table_df = pd.DataFrame(table_data)
+    data_table = DataTable(
+        data=table_df,
+        title="Equipamentos",
+        key_prefix="equipment"
     )
+    data_table.render()
 
 
 def main():

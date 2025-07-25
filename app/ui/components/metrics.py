@@ -54,11 +54,8 @@ class MetricsDisplay:
         for kpi in kpis:
             st.subheader(kpi.title)
             
-            # Use custom width if specified
-            if kpi.width:
-                cols = st.columns([kpi.width] + [1] * (len(kpi.metrics) - 1))
-            else:
-                cols = st.columns(len(kpi.metrics))
+            # Use equal column widths for all metrics
+            cols = st.columns(len(kpi.metrics))
             
             for i, metric in enumerate(kpi.metrics):
                 with cols[i]:
