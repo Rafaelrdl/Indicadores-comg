@@ -1,130 +1,293 @@
 import asyncio
+from collections import defaultdict
+from datetime import date
+from statistics import mean
+
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 from arkmeds_client.client import ArkmedsClient
+from arkmeds_client.models import Chamado
+from config.os_types import TIPO_CORRETIVA
+from dateutil.relativedelta import relativedelta
+from services.equip_metrics import compute_metrics
+from services.equip_advanced_metrics import (
+    calcular_stats_equipamentos,
+    calcular_mttf_mtbf_top,
+    exibir_distribuicao_prioridade,
+    exibir_distribuicao_status,
+    exibir_top_mttf_mtbf,
+)
 from app.ui.utils import run_async_safe
 
 st.set_page_config(page_title="Equipamentos", page_icon="🛠️", layout="wide")
 
-st.title("🛠️ Equipamentos")
+# Nota: Equipamentos não usam filtros de data/tipo/estado pois são dados estáticos
+# version = st.session_state.get("filtros_version", 0)  # Não usado mais
+version = 1  # Versão fixa para equipamentos
+
+
+def _build_history_df(os_list: list[Chamado]) -> pd.DataFrame:
+    mttr_map: dict[date, list[float]] = defaultdict(list)
+    by_eq: dict[int | None, list[Chamado]] = defaultdict(list)
+    for os_obj in os_list:
+        # Para Chamado, precisamos extrair dados da ordem_servico
+        data_fechamento_str = os_obj.ordem_servico.get("data_fechamento") if os_obj.ordem_servico else None
+        if not data_fechamento_str:
+            continue
+        
+        # Parse das datas
+        try:
+            from datetime import datetime
+            data_criacao = datetime.strptime(os_obj.data_criacao_os, "%d/%m/%y - %H:%M")
+            data_fechamento = datetime.strptime(data_fechamento_str, "%d/%m/%y - %H:%M")
+        except (ValueError, TypeError):
+            continue
+            
+        month = data_fechamento.replace(day=1, hour=0, minute=0, second=0, microsecond=0).date()
+        delta_h = (data_fechamento - data_criacao).total_seconds() / 3600
+        mttr_map[month].append(delta_h)
+        by_eq[os_obj.equipamento_id].append(os_obj)
+
+    mtbf_map: dict[date, list[float]] = defaultdict(list)
+    for items in by_eq.values():
+        if len(items) < 2:
+            continue
+        items.sort(key=lambda o: datetime.strptime(o.data_criacao_os, "%d/%m/%y - %H:%M"))
+        for i in range(1, len(items)):
+            current_date = datetime.strptime(items[i].data_criacao_os, "%d/%m/%y - %H:%M")
+            previous_date = datetime.strptime(items[i-1].data_criacao_os, "%d/%m/%y - %H:%M")
+            month = current_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0).date()
+            interval_h = (current_date - previous_date).total_seconds() / 3600
+            mtbf_map[month].append(interval_h)
+
+    months = sorted(set(mttr_map.keys()) | set(mtbf_map.keys()))
+    data = {
+        "mes": months,
+        "mttr": [round(mean(mttr_map[m]), 2) if mttr_map.get(m) else 0 for m in months],
+        "mtbf": [round(mean(mtbf_map[m]), 2) if mtbf_map.get(m) else 0 for m in months],
+    }
+    return pd.DataFrame(data)
+
 
 @st.cache_data(ttl=900)
-def fetch_equipment_data(v: int):
-    """Busca dados básicos dos equipamentos."""
+def fetch_data(v: int):
+    """Wrapper síncrono para executar e cachear os resultados da função assíncrona."""
     
     async def _fetch_data_async():
+        """Função assíncrona que busca os dados."""
         client = ArkmedsClient.from_session()
-        try:
-            equip_list = await client.list_equipamentos()
-            return equip_list
-        except Exception as e:
-            st.error(f"Erro ao carregar equipamentos: {e}")
-            return []
+        
+        # Para equipamentos, usaremos período fixo dos últimos 12 meses
+        from dateutil.relativedelta import relativedelta
+        dt_fim = date.today()
+        dt_ini = dt_fim - relativedelta(months=12)
+        
+        # Sem filtros extras pois equipamentos não dependem de tipo/estado/responsável
+        metrics_task = compute_metrics(client, start_date=dt_ini, end_date=dt_fim)
+        
+        equip_task = client.list_equipment()
+        
+        hist_ini = date.today().replace(day=1) - relativedelta(months=11)
+        os_hist_task = client.list_chamados({
+            "tipo_id": TIPO_CORRETIVA,
+        })
+        
+        metrics, equip, os_hist = await asyncio.gather(metrics_task, equip_task, os_hist_task)
+        return metrics, equip, os_hist
     
     return run_async_safe(_fetch_data_async())
 
-# Buscar dados
-with st.spinner("Carregando dados de equipamentos…"):
-    equip_list = fetch_equipment_data(1)
 
-if equip_list:
-    st.success(f"✅ Carregados {len(equip_list)} equipamentos")
+# Função para buscar estatísticas avançadas
+@st.cache_data(ttl=900)
+def fetch_advanced_stats(v: int):
+    """Busca estatísticas avançadas dos equipamentos."""
+    client = ArkmedsClient.from_session()
+    return calcular_stats_equipamentos(client)
+
+
+# Função para buscar dados de MTTF/MTBF
+@st.cache_data(ttl=1800)  # Cache mais longo pois é pesado
+def fetch_mttf_mtbf_data(v: int):
+    """Busca dados de MTTF/MTBF."""
+    client = ArkmedsClient.from_session()
+    return calcular_mttf_mtbf_top(client)
+
+
+with st.spinner("Carregando dados de equipamentos…"):
+    metrics, equip_list, os_hist = fetch_data(version)
+
+# Nota: Filtros removidos pois não se aplicam a equipamentos
+# show_active_filters(ArkmedsClient.from_session())
+
+# Seção 1: Métricas básicas
+st.header("📊 Métricas Básicas de Equipamentos")
+
+pct_em_manut = round(metrics.em_manutencao / metrics.ativos * 100, 1) if metrics.ativos else 0
+idades = [
+    (date.today() - eq.data_aquisicao.date()).days / 365
+    for eq in equip_list
+    if eq.data_aquisicao
+]
+idade_media = round(mean(idades), 1) if idades else 0
+
+cols = st.columns(4)
+cols[0].metric("🔋 Ativos", metrics.ativos)
+cols[1].metric("🚫 Desativados", metrics.desativados)
+cols[2].metric("🔧 Em manutenção", metrics.em_manutencao)
+cols[3].metric("⏱️ MTTR (h)", metrics.mttr_h)
+cols = st.columns(3)
+cols[0].metric("🔄 MTBF (h)", metrics.mtbf_h)
+cols[1].metric("⚠️ % Ativos EM", pct_em_manut)
+cols[2].metric("📅 Idade média", idade_media)
+
+# Seção 2: Estatísticas Avançadas
+st.header("📈 Análise Avançada de Equipamentos")
+
+with st.spinner("Carregando estatísticas avançadas..."):
+    advanced_stats = fetch_advanced_stats(version)
+
+# Sub-seção: Status dos equipamentos
+st.subheader("🔋 Status dos Equipamentos")
+exibir_distribuicao_status(advanced_stats)
+
+# Sub-seção: Distribuição de prioridade
+st.subheader("🎯 Distribuição de Prioridade")
+exibir_distribuicao_prioridade(advanced_stats)
+
+# Seção 3: Histórico MTTR vs MTBF
+st.header("📉 Histórico de Manutenção (Últimos 12 meses)")
+
+hist_df = _build_history_df(os_hist)
+if len(hist_df) >= 1:
+    fig = px.line(
+        hist_df,
+        x="mes",
+        y=["mttr", "mtbf"],
+        markers=True,
+        labels={"value": "Horas", "variable": ""},
+        title="MTTR vs MTBF (últimos 12 meses)",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+# Seção 4: Top Rankings MTTF/MTBF
+st.header("🏆 Top Rankings de Confiabilidade")
+
+# Aviso sobre processamento
+with st.expander("ℹ️ Sobre os cálculos de MTTF/MTBF"):
+    st.info("""
+    **MTTF (Mean Time To Failure)**: Tempo médio até a primeira falha após aquisição.
+    Equipamentos com maior MTTF são mais confiáveis.
     
-    # Métricas básicas
-    st.header("📊 Resumo dos Equipamentos")
+    **MTBF (Mean Time Between Failures)**: Tempo médio entre falhas consecutivas.
+    Equipamentos com maior MTBF têm maior disponibilidade.
     
-    total_equipamentos = len(equip_list)
+    ⚠️ **Nota**: Este cálculo pode demorar alguns minutos pois analisa o histórico completo
+    de manutenções de todos os equipamentos.
+    """)
+
+# Checkbox para habilitar cálculo pesado
+calcular_rankings = st.checkbox(
+    "🔄 Calcular Rankings MTTF/MTBF",
+    help="Este cálculo pode demorar alguns minutos. Deixe marcado apenas se necessário."
+)
+
+if calcular_rankings:
+    with st.spinner("Calculando rankings MTTF/MTBF... Isso pode demorar alguns minutos..."):
+        try:
+            top_mttf, top_mtbf = fetch_mttf_mtbf_data(version)
+            exibir_top_mttf_mtbf(top_mttf, top_mtbf)
+        except Exception as e:
+            st.error(f"Erro ao calcular rankings: {e}")
+            st.info("Tente novamente em alguns minutos.")
+
+# Seção 5: Tabela detalhada (mantida igual)
+st.header("📋 Lista Detalhada de Equipamentos")
+
+
+def _table_data() -> pd.DataFrame:
+    df = pd.DataFrame([e.model_dump() for e in equip_list])
+    df["status"] = df["ativo"].map({True: "Ativo", False: "Desativado"})
+    df["idade_anos"] = df["data_aquisicao"].apply(
+        lambda d: round((date.today() - d.date()).days / 365, 1) if d else None
+    )
+    by_eq: dict[int, list[Chamado]] = defaultdict(list)
+    for os_obj in os_hist:
+        # Verificar se o chamado tem data de fechamento e equipamento
+        data_fechamento_str = os_obj.ordem_servico.get("data_fechamento") if os_obj.ordem_servico else None
+        if os_obj.equipamento_id is not None and data_fechamento_str:
+            by_eq[os_obj.equipamento_id].append(os_obj)
     
-    col1, col2, col3, col4 = st.columns(4)
+    mttr_local = []
+    mtbf_local = []
+    ultima_os = []
     
-    with col1:
-        st.metric("Total de Equipamentos", total_equipamentos)
-    
-    with col2:
-        # Contar por status se disponível
-        ativos = sum(1 for eq in equip_list if hasattr(eq, 'ativo') and eq.ativo)
-        st.metric("Ativos", ativos if ativos > 0 else "N/A")
-    
-    with col3:
-        # Contar equipamentos com prioridade se disponível
-        com_prioridade = sum(1 for eq in equip_list if hasattr(eq, 'prioridade') and eq.prioridade)
-        st.metric("Com Prioridade", com_prioridade if com_prioridade > 0 else "N/A")
-    
-    with col4:
-        # Contar equipamentos por empresa
-        empresas = set()
-        for eq in equip_list:
-            if hasattr(eq, 'empresa') and eq.empresa:
-                empresas.add(eq.empresa.get('nome', 'N/A') if isinstance(eq.empresa, dict) else str(eq.empresa))
-        st.metric("Empresas", len(empresas) if empresas else "N/A")
-    
-    # Tabela de equipamentos
-    st.header("📋 Lista de Equipamentos")
-    
-    # Converter para DataFrame
-    data = []
-    for eq in equip_list:
-        row = {
-            "ID": getattr(eq, 'id', 'N/A'),
-            "Nome": getattr(eq, 'nome', 'N/A'),
-            "Fabricante": getattr(eq, 'fabricante', 'N/A'),
-            "Modelo": getattr(eq, 'modelo', 'N/A'),
-            "Patrimônio": getattr(eq, 'patrimonio', 'N/A'),
-            "Número de Série": getattr(eq, 'numero_serie', 'N/A'),
-        }
-        
-        # Adicionar prioridade se disponível
-        if hasattr(eq, 'prioridade'):
-            prioridade = getattr(eq, 'prioridade', None)
-            if prioridade:
-                prioridade_map = {1: "Baixa", 2: "Normal", 3: "Alta", 4: "Urgente", 5: "Emergencial"}
-                row["Prioridade"] = prioridade_map.get(prioridade, f"Nível {prioridade}")
+    for eq in df["id"]:
+        items = by_eq.get(eq, [])
+        if items:
+            # Calcular datas de fechamento para obter a última OS
+            datas_fechamento = []
+            for o in items:
+                data_fechamento_str = o.ordem_servico.get("data_fechamento")
+                if data_fechamento_str:
+                    try:
+                        data_fechamento = datetime.strptime(data_fechamento_str, "%d/%m/%y - %H:%M")
+                        datas_fechamento.append(data_fechamento)
+                    except (ValueError, TypeError):
+                        continue
+            
+            if datas_fechamento:
+                ultima_os.append(max(datas_fechamento).date())
+                
+                # Calcular MTTR
+                tempos_reparo = []
+                for o in items:
+                    try:
+                        data_criacao = datetime.strptime(o.data_criacao_os, "%d/%m/%y - %H:%M")
+                        data_fechamento_str = o.ordem_servico.get("data_fechamento")
+                        if data_fechamento_str:
+                            data_fechamento = datetime.strptime(data_fechamento_str, "%d/%m/%y - %H:%M")
+                            tempo_reparo = (data_fechamento - data_criacao).total_seconds()
+                            tempos_reparo.append(tempo_reparo)
+                    except (ValueError, TypeError):
+                        continue
+                
+                mttr_local.append(
+                    round(mean(tempos_reparo) / 3600, 2) if tempos_reparo else 0.0
+                )
+                
+                # Calcular MTBF
+                if len(items) > 1:
+                    items.sort(key=lambda o: datetime.strptime(o.data_criacao_os, "%d/%m/%y - %H:%M"))
+                    intervals = []
+                    for i in range(1, len(items)):
+                        try:
+                            data_atual = datetime.strptime(items[i].data_criacao_os, "%d/%m/%y - %H:%M")
+                            data_anterior = datetime.strptime(items[i-1].data_criacao_os, "%d/%m/%y - %H:%M")
+                            interval = (data_atual - data_anterior).total_seconds()
+                            intervals.append(interval)
+                        except (ValueError, TypeError):
+                            continue
+                    mtbf_local.append(round(mean(intervals) / 3600, 2) if intervals else 0.0)
+                else:
+                    mtbf_local.append(0.0)
             else:
-                row["Prioridade"] = "Não definida"
-        
-        # Adicionar empresa se disponível
-        if hasattr(eq, 'empresa') and eq.empresa:
-            if isinstance(eq.empresa, dict):
-                row["Empresa"] = eq.empresa.get('nome', 'N/A')
-            else:
-                row["Empresa"] = str(eq.empresa)
+                ultima_os.append(None)
+                mttr_local.append(0.0)
+                mtbf_local.append(0.0)
         else:
-            row["Empresa"] = "N/A"
-        
-        data.append(row)
+            ultima_os.append(None)
+            mttr_local.append(0.0)
+            mtbf_local.append(0.0)
     
-    if data:
-        df = pd.DataFrame(data)
-        
-        # Filtros
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if "Empresa" in df.columns:
-                empresas_unicas = sorted(df["Empresa"].unique())
-                empresa_filtro = st.selectbox("Filtrar por Empresa", ["Todas"] + empresas_unicas)
-                if empresa_filtro != "Todas":
-                    df = df[df["Empresa"] == empresa_filtro]
-        
-        with col2:
-            if "Prioridade" in df.columns:
-                prioridades_unicas = sorted(df["Prioridade"].unique())
-                prioridade_filtro = st.selectbox("Filtrar por Prioridade", ["Todas"] + prioridades_unicas)
-                if prioridade_filtro != "Todas":
-                    df = df[df["Prioridade"] == prioridade_filtro]
-        
-        # Exibir tabela
-        st.dataframe(df, use_container_width=True)
-        
-        # Download CSV
-        csv = df.to_csv(index=False, encoding='utf-8-sig')
-        st.download_button(
-            label="📥 Baixar CSV",
-            data=csv,
-            file_name="equipamentos.csv",
-            mime="text/csv"
-        )
-    else:
-        st.warning("Nenhum equipamento encontrado ou erro na estrutura dos dados.")
-else:
-    st.error("❌ Não foi possível carregar os equipamentos.")
+    df["ultima_os"] = ultima_os
+    df["mttr_local"] = mttr_local
+    df["mtbf_local"] = mtbf_local
+    return df
+
+
+df = _table_data()
+st.dataframe(df, height=500, use_container_width=True)
+
+st.download_button("⬇️ Baixar CSV", df.to_csv(index=False).encode(), "equipamentos.csv")

@@ -134,8 +134,24 @@ class ArkmedsClient:
         return await self.list_chamados(filters_dict)
 
     async def list_equipment(self, **filters: Any) -> List[Equipment]:
-        data = await self._get_all_pages("/api/v5/company/equipaments/", filters)
-        return [Equipment.model_validate(item) for item in data]
+        """Lista todos os equipamentos extraindo-os das empresas.
+        
+        O endpoint /api/v5/company/equipaments/ retorna empresas com equipamentos aninhados.
+        Esta função extrai todos os equipamentos de todas as empresas.
+        """
+        companies_data = await self._get_all_pages("/api/v5/company/equipaments/", filters)
+        
+        # Extrair todos os equipamentos de todas as empresas
+        all_equipment = []
+        for company in companies_data:
+            equipamentos = company.get("equipamentos", [])
+            for equip_data in equipamentos:
+                # Adicionar o ID da empresa proprietária se disponível
+                if "proprietario" not in equip_data and "id" in company:
+                    equip_data["proprietario"] = company["id"]
+                all_equipment.append(equip_data)
+        
+        return [Equipment.model_validate(item) for item in all_equipment]
 
     async def list_users(self, **filters: Any) -> List[ResponsavelTecnico]:
         """Lista usuários disponíveis.

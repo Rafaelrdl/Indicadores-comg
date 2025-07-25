@@ -86,14 +86,12 @@ def fetch_data(v: int):
         # Sem filtros extras pois equipamentos não dependem de tipo/estado/responsável
         metrics_task = compute_metrics(client, start_date=dt_ini, end_date=dt_fim)
         
-        equip_task = client.list_equipamentos()
+        equip_task = client.list_equipment()
         
         hist_ini = date.today().replace(day=1) - relativedelta(months=11)
-        os_hist_task = client.list_os(
-            tipo_id=TIPO_CORRETIVA,
-            data_fechamento__gte=hist_ini,
-            data_fechamento__lte=date.today(),
-        )
+        os_hist_task = client.list_chamados({
+            "tipo_id": TIPO_CORRETIVA,
+        })
         
         metrics, equip, os_hist = await asyncio.gather(metrics_task, equip_task, os_hist_task)
         return metrics, equip, os_hist

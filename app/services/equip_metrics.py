@@ -83,15 +83,13 @@ async def fetch_equipment_data(
     try:
         equip_task = client.list_equipment()
 
-        # Prepare OS filters, ensuring we don't duplicate tipo_id
-        os_filters = {
-            "data_criacao__gte": start_date,
-            "data_criacao__lte": end_date,
-            **filters,
-        }
+        # Prepare OS filters - remover parâmetros não suportados
+        os_filters = {}
         # Set default tipo_id only if not already specified
-        if "tipo_id" not in os_filters:
+        if "tipo_id" not in filters:
             os_filters["tipo_id"] = TIPO_CORRETIVA
+        else:
+            os_filters["tipo_id"] = filters["tipo_id"]
 
         os_task = client.list_chamados(os_filters)
 

@@ -138,7 +138,7 @@ async def fetch_orders(
     
     # Nota: O parâmetro tipo_id não é suportado pela API atual
     # A filtragem por tipo deve ser feita após receber os dados
-    return await client.list_chamados(**params)
+    return await client.list_chamados(params)
 
 
 async def fetch_service_orders(

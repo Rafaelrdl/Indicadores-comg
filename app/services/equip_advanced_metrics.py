@@ -85,7 +85,7 @@ def calcular_stats_equipamentos(_client: ArkmedsClient) -> EquipmentStats:
     
     async def _async_calc():
         # Usar o método correto para buscar equipamentos
-        equipamentos = await _client.list_equipamentos()
+        equipamentos = await _client.list_equipment()
         
         # Contadores de prioridade
         prioridades = {
@@ -137,7 +137,9 @@ def calcular_stats_equipamentos(_client: ArkmedsClient) -> EquipmentStats:
             em_manutencao=len(equipamentos_em_manut),
         )
     
-    return asyncio.run(_async_calc())
+    # Usar run_async_safe para compatibilidade com Streamlit
+    from app.ui.utils import run_async_safe
+    return run_async_safe(_async_calc())
 
 
 @st.cache_data(ttl=1800)  # Cache por 30 min (é mais pesado)
@@ -150,7 +152,7 @@ def calcular_mttf_mtbf_top(_client: ArkmedsClient, limit: int = 25) -> tuple[Lis
     
     async def _async_calc():
         # 1. Buscar todos os equipamentos - usar método correto
-        equipamentos = await _client.list_equipamentos()
+        equipamentos = await _client.list_equipment()
         print(f"📊 Processando {len(equipamentos)} equipamentos para MTTF/MTBF...")
         
         # 2. Buscar chamados dos últimos 2 anos para ter dados suficientes
@@ -158,7 +160,6 @@ def calcular_mttf_mtbf_top(_client: ArkmedsClient, limit: int = 25) -> tuple[Lis
         data_limite = date.today() - timedelta(days=730)
         
         chamados = await _client.list_chamados({
-            "data_criacao__gte": data_limite,
             "tipo_id": 3  # Apenas manutenções corretivas
         })
         
@@ -241,7 +242,9 @@ def calcular_mttf_mtbf_top(_client: ArkmedsClient, limit: int = 25) -> tuple[Lis
         print(f"✅ Processamento concluído: {len(top_mttf)} MTTF, {len(top_mtbf)} MTBF")
         return top_mttf, top_mtbf
     
-    return asyncio.run(_async_calc())
+    # Usar run_async_safe para compatibilidade com Streamlit
+    from app.ui.utils import run_async_safe
+    return run_async_safe(_async_calc())
 
 
 def exibir_distribuicao_prioridade(stats: EquipmentStats):

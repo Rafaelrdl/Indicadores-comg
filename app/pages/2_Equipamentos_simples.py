@@ -15,7 +15,7 @@ def fetch_equipment_data(v: int):
     async def _fetch_data_async():
         client = ArkmedsClient.from_session()
         try:
-            equip_list = await client.list_equipamentos()
+            equip_list = await client.list_equipment()
             return equip_list
         except Exception as e:
             st.error(f"Erro ao carregar equipamentos: {e}")
