@@ -8,8 +8,8 @@ from statistics import mean
 from typing import Any, Dict, List, Optional
 
 import streamlit as st
-from arkmeds_client.client import ArkmedsClient
-from arkmeds_client.models import Equipment, Chamado, OSEstado
+from app.arkmeds_client.client import ArkmedsClient
+from app.arkmeds_client.models import Equipment, Chamado, OSEstado
 
 
 @dataclass(frozen=True)

@@ -39,7 +39,7 @@ async def test_services():
         kpi_result = await calculate_technician_kpis(
             1, "João", [], date.today(), date.today()
         )
-        print(f"   ✅ KPI Técnico: {kpi_result.technician_name}")
+        print(f"   ✅ KPI Técnico: {kpi_result.name}")  # Usar 'name' que é o atributo correto
         
         print("\n🎉 TODOS OS TESTES PASSARAM!")
         return True
@@ -49,6 +49,12 @@ async def test_services():
         import traceback
         traceback.print_exc()
         return False
+
+
+def main():
+    """Função principal para chamada externa."""
+    return asyncio.run(test_services())
+
 
 if __name__ == "__main__":
     success = asyncio.run(test_services())

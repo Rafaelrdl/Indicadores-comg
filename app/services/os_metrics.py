@@ -8,9 +8,9 @@ from typing import Any, cast
 
 import httpx
 import streamlit as st
-from arkmeds_client.auth import ArkmedsAuthError
-from arkmeds_client.client import ArkmedsClient
-from arkmeds_client.models import Chamado, OSEstado
+from app.arkmeds_client.auth import ArkmedsAuthError
+from app.arkmeds_client.client import ArkmedsClient
+from app.arkmeds_client.models import Chamado, OSEstado
 
 from app.config.os_types import (
     AREA_ENG_CLIN,
@@ -137,6 +137,7 @@ async def fetch_orders(
 
     if area_id is not None:
         params["area_id"] = area_id
+        params["area_id"] = area_id
     
     # Nota: O parâmetro tipo_id não é suportado pela API atual
     # A filtragem por tipo deve ser feita após receber os dados
@@ -242,7 +243,6 @@ async def fetch_service_orders(
         raise OSMetricsError(f"Unexpected error while fetching service orders: {str(exc)}") from exc
 
 
-@smart_cache(ttl=300)  # Cache por 5 minutos para cálculos de SLA
 async def calculate_sla_metrics(closed_orders: list[Chamado]) -> float:
     """Calculate SLA compliance percentage based on closed orders.
 
@@ -263,15 +263,11 @@ async def calculate_sla_metrics(closed_orders: list[Chamado]) -> float:
         return 0.0
 
     try:
+        # Contar ordens finalizadas sem atraso usando as propriedades do modelo Chamado
         within_sla = sum(
             1
             for order in closed_orders
-            if (
-                hasattr(order, "data_fechamento")
-                and hasattr(order, "data_criacao")
-                and order.data_fechamento is not None
-                and (order.data_fechamento - order.data_criacao) <= timedelta(hours=SLA_HOURS)
-            )
+            if order.finalizado_sem_atraso  # Usar propriedade do modelo
         )
 
         return (within_sla / len(closed_orders)) * 100
@@ -358,7 +354,7 @@ async def _async_compute_metrics(
 
         # Calculate SLA percentage with error handling
         try:
-            sla_pct = calculate_sla_metrics(data["closed_in_period"])
+            sla_pct = await calculate_sla_metrics(data["closed_in_period"])
         except Exception as exc:
             st.warning(f"Could not calculate SLA metrics: {str(exc)}")
             sla_pct = 0.0
@@ -420,8 +416,19 @@ async def compute_metrics(
         ValidationError: If input parameters are invalid
     """
     try:
-        start_date = start_date or dt_ini
-        end_date = end_date or dt_fim
+        # Garantir que as datas não sejam None, usar fallbacks
+        if start_date is None:
+            start_date = dt_ini
+        if end_date is None:
+            end_date = dt_fim
+            
+        # Se ainda são None, usar período padrão (último mês)
+        if start_date is None:
+            from datetime import date
+            start_date = date.today().replace(day=1)  # Primeiro dia do mês
+        if end_date is None:
+            from datetime import date
+            end_date = date.today()
 
         # Input validation
         _validate_dates(start_date, end_date)

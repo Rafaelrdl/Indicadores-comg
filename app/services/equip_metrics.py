@@ -8,9 +8,9 @@ from statistics import mean
 from typing import Any
 
 import httpx
-from arkmeds_client.auth import ArkmedsAuthError
-from arkmeds_client.client import ArkmedsClient
-from arkmeds_client.models import OSEstado
+from app.arkmeds_client.auth import ArkmedsAuthError
+from app.arkmeds_client.client import ArkmedsClient
+from app.arkmeds_client.models import OSEstado
 
 from app.config.os_types import TIPO_CORRETIVA
 from app.data.cache.smart_cache import smart_cache
@@ -99,7 +99,6 @@ async def fetch_equipment_data(
         raise DataFetchError(f"Failed to fetch equipment data: {str(exc)}") from exc
 
 
-@smart_cache(ttl=180)  # Cache por 3 minutos para status de equipamentos
 async def calculate_equipment_status(equipment_list: list) -> tuple[int, int]:
     """Calculate active and inactive equipment counts.
 
@@ -117,7 +116,6 @@ async def calculate_equipment_status(equipment_list: list) -> tuple[int, int]:
     return active, len(equipment_list) - active
 
 
-@smart_cache(ttl=300)  # Cache por 5 minutos para métricas de manutenção
 async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, float]:
     """Calculate maintenance-related metrics.
 
@@ -286,8 +284,20 @@ async def compute_metrics(
     Returns:
         EquipmentMetrics object containing all computed metrics
     """
-    start_date = start_date or dt_ini
-    end_date = end_date or dt_fim
+    # Garantir que as datas não sejam None, usar fallbacks
+    if start_date is None:
+        start_date = dt_ini
+    if end_date is None:
+        end_date = dt_fim
+        
+    # Se ainda são None, usar período padrão
+    if start_date is None:
+        from datetime import date
+        start_date = date.today().replace(day=1)
+    if end_date is None:
+        from datetime import date  
+        end_date = date.today()
+        
     frozen = tuple(sorted(filters.items()))
 
     metrics_dict = await _cached_compute(

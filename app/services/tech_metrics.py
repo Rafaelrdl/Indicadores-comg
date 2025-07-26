@@ -7,9 +7,9 @@ from datetime import date
 from typing import Any
 
 import httpx
-from arkmeds_client.auth import ArkmedsAuthError
-from arkmeds_client.client import ArkmedsClient
-from arkmeds_client.models import OSEstado
+from app.arkmeds_client.auth import ArkmedsAuthError
+from app.arkmeds_client.client import ArkmedsClient
+from app.arkmeds_client.models import OSEstado
 
 from app.data.cache.smart_cache import smart_cache
 
@@ -119,7 +119,6 @@ def group_orders_by_technician(orders: list[Any]) -> dict[int, list[Any]]:
     return by_technician
 
 
-@smart_cache(ttl=600)  # Cache por 10 minutos para KPIs de técnicos (mais custoso)
 async def calculate_technician_kpis(
     technician_id: int, technician_name: str, orders: list[Any], start_date: date, end_date: date
 ) -> TechnicianKPI:
@@ -274,8 +273,20 @@ async def compute_metrics(
     Returns:
         List of TechnicianKPI objects containing metrics for each technician
     """
-    start_date = start_date or dt_ini
-    end_date = end_date or dt_fim
+    # Garantir que as datas não sejam None, usar fallbacks
+    if start_date is None:
+        start_date = dt_ini
+    if end_date is None:
+        end_date = dt_fim
+        
+    # Se ainda são None, usar período padrão
+    if start_date is None:
+        from datetime import date
+        start_date = date.today().replace(day=1)
+    if end_date is None:
+        from datetime import date
+        end_date = date.today()
+        
     frozen = tuple(sorted(filters.items()))
 
     metrics_dicts = await _cached_compute(
