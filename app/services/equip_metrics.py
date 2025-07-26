@@ -13,6 +13,7 @@ from arkmeds_client.client import ArkmedsClient
 from arkmeds_client.models import OSEstado
 
 from app.config.os_types import TIPO_CORRETIVA
+from app.data.cache.smart_cache import smart_cache
 
 
 class EquipmentMetricsError(Exception):
@@ -98,7 +99,8 @@ async def fetch_equipment_data(
         raise DataFetchError(f"Failed to fetch equipment data: {str(exc)}") from exc
 
 
-def calculate_equipment_status(equipment_list: list) -> tuple[int, int]:
+@smart_cache(ttl=180)  # Cache por 3 minutos para status de equipamentos
+async def calculate_equipment_status(equipment_list: list) -> tuple[int, int]:
     """Calculate active and inactive equipment counts.
 
     Args:
@@ -107,11 +109,16 @@ def calculate_equipment_status(equipment_list: list) -> tuple[int, int]:
     Returns:
         Tuple of (active_count, inactive_count)
     """
+    # Validar dados usando helpers de data/validators.py
+    from app.data.validators import validate_input_data
+    validate_input_data(equipment_list, list, "equipment_list must be a list")
+    
     active = sum(1 for eq in equipment_list if getattr(eq, "ativo", True))
     return active, len(equipment_list) - active
 
 
-def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, float]:
+@smart_cache(ttl=300)  # Cache por 5 minutos para métricas de manutenção
+async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, float]:
     """Calculate maintenance-related metrics.
 
     Args:
@@ -120,6 +127,9 @@ def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, float]:
     Returns:
         Tuple of (in_maintenance_count, mttr_hours, mtbf_hours)
     """
+    # Validar dados usando helpers de data/validators.py
+    from app.data.validators import validate_input_data
+    validate_input_data(os_list, list, "os_list must be a list")
 
     # Filter active maintenance orders
     def _resolve_id(os_obj: Any) -> int | None:
@@ -241,8 +251,8 @@ async def _async_compute_metrics(
     """
     equipment_list, os_list = await fetch_equipment_data(client, start_date, end_date, **filters)
 
-    active, inactive = calculate_equipment_status(equipment_list)
-    in_maintenance, mttr_h, mtbf_h = calculate_maintenance_metrics(os_list)
+    active, inactive = await calculate_equipment_status(equipment_list)
+    in_maintenance, mttr_h, mtbf_h = await calculate_maintenance_metrics(os_list)
 
     return EquipmentMetrics(
         active=active,

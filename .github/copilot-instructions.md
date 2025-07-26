@@ -1,416 +1,185 @@
-# Copilot Instructions for AI Agents
+# Estas instruções se aplicam a TODO o repositório
+applyTo: "**"
+---
 
-> **Repository:** [https://github.com/Rafaelrdl/Indicadores-comg](https://github.com/Rafaelrdl/Indicadores-comg)
->
-> **Stack:** Python 3.12 · Streamlit ≥ 1.47 · Poetry · HTTPX · Pydantic v2 · Plotly · Ruff · Pytest
+# Copilot Instructions · Indicadores-comg
+
+> **Repositório** : https://github.com/Rafaelrdl/Indicadores-comg  
+> **Stack base** : Python 3.12 · Streamlit ≥ 1.47 · Poetry · HTTPX (async) · Pydantic v2 · Plotly · Ruff + Black · Pytest  
+> **Escopos fora do MVP** : banco SQL, Celery, CQRS/DDD completo, detecção de anomalias, 2FA, RBAC.
 
 ---
 
-## 1  Project Overview
+## 1 · Visão de alto nível
 
-`Indicadores‑comg` is a **multi‑page Streamlit dashboard** that aggregates maintenance and biomedical engineering KPIs from the **Arkmeds** SaaS platform.
+Indicadores-comg é um **dashboard multipage em Streamlit** que exibe KPIs de manutenção/engenharia clínica obtidos da **API Arkmeds**.  
+A arquitetura segue quatro camadas bem-definidas:
 
-**Architecture Philosophy**: The codebase follows a **layered architecture** with clear separation of concerns:
-- **Core Layer**: Configuration, constants, exceptions, and logging
-- **Data Layer**: Models, repositories, caching, and validation  
-- **Service Layer**: Business logic and KPI calculations
-- **UI Layer**: Reusable components, layouts, and page-specific logic
-- **Integration Layer**: External API clients and authentication
+core → data → services → ui/pages
 
-High‑level pipeline:
+markdown
+Copiar
+Editar
 
-1. **Auth** → JWT login or token refresh ([ArkmedsAuth])
-2. **Data ingest** → async HTTPX client ([ArkmedsClient]) fetches paginated JSON
-3. **Validation** → Data validation and transformation utilities ensure data quality
-4. **Caching** → Intelligent caching system with filter-aware invalidation
-5. **Domain layer** → metric services compute MTTR/MTBF, backlog, SLA etc.
-6. **UI** → reusable components render KPIs, charts & tables; global filters live in the sidebar
+### 1.1 Pipeline principal
+
+1. **Autenticação** · `ArkmedsAuth` fornece/renova JWT.  
+2. **Ingestão** · `ArkmedsClient` (HTTPX - async) busca JSON paginado.  
+3. **Validação** · Pydantic + helpers (`validation.py`).  
+4. **Caching** · `smart_cache.py` com chaves sensíveis a filtros (Redis opcional).  
+5. **Domínio** · Serviços calculam MTTR, MTBF, backlog, SLA.  
+6. **UI** · Componentes reutilizáveis exibem métricas, gráficos, tabelas.
 
 ---
 
-## 2  Enhanced Directory Structure
+## 2 · Estrutura de diretórios (**fonte da verdade**)
 
-```
 app/
-├─ main.py                    # Streamlit entry‑point
-│
-├─ core/                      # ✨ Core infrastructure
-│  ├─ config.py              # Centralized configuration (Pydantic BaseSettings)
-│  ├─ constants.py           # Application constants and enums
-│  ├─ exceptions.py          # Custom exception hierarchy
-│  └─ logging.py             # Structured logging configuration
-│
-├─ data/                      # ✨ Data layer
-│  ├─ models/                # Pydantic data models
-│  ├─ repositories/          # Data access patterns
-│  └─ cache/
-│     └─ smart_cache.py      # Intelligent caching system
-│
-├─ arkmeds_client/           # API integration layer
-│  ├─ auth.py               # ArkmedsAuth (JWT login, cache)
-│  ├─ client.py             # ArkmedsClient (async CRUD helpers)
-│  └─ models.py             # Pydantic schemas (OS, Equipment, User…)
-│
-├─ services/                 # Business logic / KPI calculators
-│  ├─ os_metrics.py         # Correctives / backlog / SLA
-│  ├─ equip_metrics.py      # MTTR / MTBF / park status
-│  └─ tech_metrics.py       # Technicians performance
-│
-├─ ui/                       # ✨ Enhanced UI layer
-│  ├─ __init__.py           # set_page_config + inject filters
-│  ├─ filters.py            # Sidebar widget & session_state
-│  ├─ css.py                # Custom styles
-│  ├─ utils.py              # UI utilities (run_async_safe, etc.)
-│  ├─ components/           # ✨ Reusable UI components
-│  │  ├─ metrics.py         # Metric cards, KPI displays
-│  │  ├─ charts.py          # Plotly chart components
-│  │  └─ tables.py          # Advanced data tables
-│  └─ layouts/              # ✨ Layout components
-│     └─ __init__.py        # Page layouts, sections, grids
-│
-├─ utils/                    # ✨ Utility modules  
-│  ├─ validation.py         # Data validation utilities
-│  └─ data_processing.py    # Data transformation utilities
-│
-├─ pages/                    # Streamlit multipage (auto‑discovered)
-│  ├─ 1_Ordem de serviço.py # OS analysis page
-│  ├─ 2_Equipamentos.py     # Equipment metrics page
-│  └─ 3_Tecnico.py          # Technician performance page
-│
-├─ config/                   # Legacy constants (to be migrated)
-│  └─ os_types.py           # ID maps: TIPO_CORRETIVA etc.
-└─ tests/                    # Pytest suites
-```
+├─ core/ # Config, enums, exceptions, logging
+│ ├─ config.py
+│ ├─ constants.py
+│ ├─ exceptions.py
+│ └─ logging.py
+├─ data/ # Modelos + cache
+│ ├─ models/
+│ └─ cache/
+│ └─ smart_cache.py
+├─ arkmeds_client/ # Integração externa
+│ ├─ auth.py # ArkmedsAuth
+│ ├─ client.py # ArkmedsClient (async)
+│ └─ models.py # Schemas Pydantic
+├─ services/ # Lógica de negócio/KPI
+│ ├─ os_metrics.py
+│ ├─ equip_metrics.py
+│ └─ tech_metrics.py
+├─ ui/ # Componentes e layouts Streamlit
+│ ├─ components/
+│ └─ layouts/
+├─ pages/ # Arquivos multipage (prefixo numérico)
+tests/ # Pytest suites
+
+markdown
+Copiar
+Editar
 
 ---
 
-## 3  Core Architecture Components
+## 3 · Diretrizes de implementação
 
-### 3.1  Configuration System (`app/core/config.py`)
+### 3.1 Código & estilo
 
-Uses **Pydantic BaseSettings** for centralized configuration with environment variable support:
+| Regra | Detalhe |
+|-------|---------|
+| **Formatação** | `ruff check --fix` + Black; *não* usar isort/mypy/bandit antes da F5. |
+| **Tipagem** | 100 % type hints (`from __future__ import annotations`). |
+| **Async** | Todo I/O externo → `async` + `httpx.AsyncClient` (*timeout* 15 s, 3 tentativas com back-off exponencial). |
+| **Exceções** | Lançar subclasses de `app.core.exceptions.*` (nunca `Exception` cru). |
+| **Logging** | A partir da F1 usar `structlog`. Inclua `request_id`, `org_id` no `extra`. |
+| **Testes** | Criar/atualizar pytest; cobertura mínima 80 % para novos arquivos. Usar `pytest-asyncio` + `respx` p/ mocks HTTP. |
 
-```python
-from app.core.config import get_settings
+### 3.2 Padrões de código por domínio
 
-settings = get_settings()  # Auto-loads from env vars or Streamlit secrets
-api_base_url = settings.api.base_url
-cache_ttl = settings.cache.default_ttl
-```
+#### Novo serviço de métrica (`services/…_metrics.py`)
+1. Função pública `async def calculate_<nome>(df: pd.DataFrame, **kwargs) -> pd.DataFrame | dict`.
+2. Validar `df` com helpers de `utils/validation.py`.
+3. Decorar com `@smart_cache(ttl=<s>)` se custo > 3 s.
+4. Documentar com docstring Google-style.
+5. Testes unitários em `tests/services/`.
 
-**Key Features:**
-- Environment variable binding with validation
-- Streamlit secrets integration
-- Typed configuration with autocomplete
-- Separation of concerns (API, Cache, UI, Performance settings)
+#### Novo endpoint Arkmeds
+1. Método assíncrono em `arkmeds_client/client.py`.
+2. Modelo Pydantic em `arkmeds_client/models.py`.
+3. Adaptar para domínio (`services/`).
+4. Cobrir via `respx` no teste de integração.
 
-### 3.2  Constants and Enums (`app/core/constants.py`)
-
-Type-safe constants and enums for application-wide use:
-
-```python
-from app.core.constants import OSType, OSStatus, COLORS, CACHE_TTL
-
-# Type-safe enums
-if os_data.tipo == OSType.CORRETIVA:
-    priority = "high"
-
-# Consistent colors
-chart_colors = [COLORS['primary'], COLORS['secondary']]
-```
-
-### 3.3  Enhanced Exception Handling (`app/core/exceptions.py`)
-
-Custom exception hierarchy with context and error codes:
-
-```python
-from app.core.exceptions import APIError, DataValidationError
-
-try:
-    data = await client.fetch_os()
-except APIError as e:
-    st.error(f"API Error: {e.message}")
-    logger.error(f"API call failed: {e}", extra=e.context)
-```
-
-### 3.4  Smart Caching System (`app/data/cache/smart_cache.py`)
-
-Advanced caching with filter awareness and intelligent invalidation:
-
-```python
-from app.data.cache.smart_cache import smart_cache, cache_with_filters
-
-@cache_with_filters(ttl=3600)
-async def fetch_os_data(filters: FilterState) -> pd.DataFrame:
-    # Cache key automatically includes filter values
-    return await client.get_chamados(**filters.to_api_params())
-```
-
-**Features:**
-- Filter-aware cache keys
-- Automatic TTL management
-- Memory usage monitoring
-- Custom invalidation strategies
+#### Nova página Streamlit
+1. Arquivo `app/pages/4_<Slug>.py` (prefixo controla ordem).  
+2. Usar `PageLayout` + componentes (`ui/`); *nunca* chamar API direto.  
+3. Todas consultas virão de funções da camada `services/`.  
+4. Título, ícone e descrição internacionais? Enviar via `PageLayout`.
 
 ---
 
-## 4  UI Component System
+## 4 · Roadmap (fases & tags)
 
-### 4.1  Reusable Metric Components (`app/ui/components/metrics.py`)
+| Fase | Janela | Metas chave | Tag de PR |
+|------|--------|-------------|-----------|
+| **F0** | Semana 0 | Kick-off, OKRs, setup do repo | `#roadmap:F0` |
+| **F1** | Sem. 1-3 | Cliente async · Redis opcional · structlog | `#roadmap:F1` |
+| **F2** | Sem. 4-6 | Pytest≥60 % · GH Action CI (lint + test) | `#roadmap:F2` |
+| **F3** | Sem. 7-9 | Docker build · deploy manual · UI refactor | `#roadmap:F3` |
+| **F4** | Sem. 10-14 | Multi-tenant infra · rate-limiter opt-in | `#roadmap:F4` |
+| **F5** | Mês 4-6 | CI/CD full · pre-commit robusto · DDD light | `#roadmap:F5` |
+| **F6** | Mês 6-9 | Histórico + Prophet/Anomaly Detection | `#roadmap:F6` |
+| **F7** | Mês 9-12 | 2FA, RBAC, HA infra | `#roadmap:F7` |
 
-Type-safe metric display components:
-
-```python
-from app.ui.components.metrics import MetricsDisplay, Metric, KPICard
-
-# Simple metrics
-metrics = [
-    Metric(label="MTTR", value="2.5h", delta="-0.3h", icon="⏱️"),
-    Metric(label="MTBF", value="120h", delta="+5h", icon="🔧")
-]
-MetricsDisplay.render_metric_cards(metrics, columns=3)
-
-# KPI dashboard
-kpis = [
-    KPICard(title="Manutenção Corretiva", metrics=corrective_metrics),
-    KPICard(title="Manutenção Preventiva", metrics=preventive_metrics)
-]
-MetricsDisplay.render_kpi_dashboard(kpis)
-```
-
-### 4.2  Chart Components (`app/ui/components/charts.py`)
-
-Plotly-based chart components with consistent theming:
-
-```python
-from app.ui.components.charts import TimeSeriesCharts, DistributionCharts
-
-# Time series with automatic styling
-TimeSeriesCharts.render_line_chart(
-    data=trend_data,
-    x_col="data",
-    y_col="mttr",
-    title="Evolução do MTTR",
-    color_col="tipo_equipamento"
-)
-
-# Distribution analysis
-DistributionCharts.render_bar_chart(
-    data=summary_data,
-    x_col="categoria",
-    y_col="quantidade",
-    title="Distribuição por Categoria"
-)
-```
-
-### 4.3  Advanced Data Tables (`app/ui/components/tables.py`)
-
-Feature-rich tables with filtering, pagination, and export:
-
-```python
-from app.ui.components.tables import DataTable
-
-# Chainable table configuration
-table = (DataTable(data=os_data, title="Ordens de Serviço")
-    .add_filters(
-        filterable_columns=["estado", "tipo"],
-        searchable_columns=["numero", "descricao"]
-    )
-    .add_date_filter("data_abertura")
-    .format_columns({
-        "tempo_resolucao": "duration",
-        "custo": "currency"
-    })
-    .add_pagination(page_size=25)
-    .render()
-)
-```
-
-### 4.4  Layout System (`app/ui/layouts/`)
-
-Consistent page layouts and responsive grids:
-
-```python
-from app.ui.layouts import PageLayout, SectionLayout, GridLayout
-
-# Page structure
-layout = PageLayout(
-    title="Análise de Equipamentos",
-    description="Métricas de MTTR, MTBF e disponibilidade",
-    icon="🔧"
-)
-
-layout.render_header()
-
-with layout.main_content():
-    with SectionLayout.metric_section("KPIs Principais", columns=4) as cols:
-        for i, metric in enumerate(key_metrics):
-            with cols[i]:
-                st.metric(**metric)
-    
-    with SectionLayout.chart_section("Tendências"):
-        render_trend_charts()
-```
+> **Instruções ao Copilot**  
+> *Quando sugerir código num PR, alinhe-o estritamente à fase indicada pela tag `#roadmap:`.*  
+> Exemplo: pull-request marcado `#roadmap:F2` **não** deve adicionar CQRS ou configurações de Bandit.
 
 ---
 
-## 5  Data Processing Pipeline
+## 5 · Seção “não gerar”
 
-### 5.1  Validation Utilities (`app/utils/validation.py`)
+Copilot **deve evitar** propor neste estágio (até que as fases correspondentes cheguem):
 
-Comprehensive data validation with custom validators:
+* Banco relacional, migrations.  
+* Celery/Redis‐queue, task schedulers.  
+* Detecção de anomalias avançada.  
+* CQRS, Aggregates, Event Sourcing.  
+* Linters adicionais (isort, mypy estrito, bandit).  
 
-```python
-from app.utils.validation import DataValidator, DataCleaner
-
-# DataFrame validation
-validated_df = DataValidator.validate_dataframe(
-    df=raw_data,
-    required_columns=["id", "data_abertura", "estado"],
-    name="Chamados"
-)
-
-# Date column validation
-validated_df = DataValidator.validate_date_column(
-    df=validated_df,
-    column="data_abertura",
-    allow_null=False
-)
-
-# Data cleaning
-cleaned_df = DataCleaner.clean_string_column(
-    df=validated_df,
-    column="descricao",
-    strip_whitespace=True,
-    normalize_case="title"
-)
-```
-
-### 5.2  Data Processing (`app/utils/data_processing.py`)
-
-Advanced analytics and transformations:
-
-```python
-from app.utils.data_processing import MetricsCalculator, DataProcessor
-
-# MTTR calculation
-mttr = MetricsCalculator.calculate_mttr(
-    incidents=resolved_incidents,
-    start_col="data_abertura",
-    end_col="data_fechamento",
-    group_by="tipo_equipamento"
-)
-
-# Trend analysis
-trend_metrics = MetricsCalculator.calculate_trend_analysis(
-    data=monthly_data,
-    date_col="mes",
-    value_col="mttr_medio",
-    periods=12
-)
-```
+Esses elementos só podem ser introduzidos quando a tag de roadmap correspondente estiver presente no PR.
 
 ---
 
-## 6  Development Guidelines
+## 6 · Instruções granulares via `applyTo`
 
-### 6.1  Coding Standards
+Para instruções específicas de pasta/arquivo, criar arquivos em:
 
-- **Type hints**: Use complete type annotations with `from __future__ import annotations`
-- **Docstrings**: Google-style docstrings for all public functions
-- **Error handling**: Use custom exceptions with context
-- **Logging**: Structured logging with appropriate levels
-- **Testing**: Unit tests with pytest and mocking for external dependencies
+.github/instructions/<contexto>.instructions.md
 
-### 6.2  Performance Best Practices
+yaml
+Copiar
+Editar
 
-- **Async Operations**: Use `run_async_safe()` for all async operations in Streamlit
-- **Caching**: Leverage smart caching for expensive operations
-- **Data Processing**: Process data in chunks for large datasets
-- **Memory Management**: Monitor DataFrame memory usage and optimize dtypes
+Com front-matter:
 
-### 6.3  UI Best Practices
-
-- **Component Reuse**: Use UI components instead of raw Streamlit widgets
-- **Responsive Design**: Use GridLayout for responsive designs
-- **Loading States**: Always show loading indicators for async operations
-- **Error Handling**: Graceful degradation with user-friendly error messages
-
-### 6.4  API Integration
-
-- **Authentication**: Use ArkmedsAuth for JWT token management
-- **Rate Limiting**: Respect API rate limits with exponential backoff
-- **Error Handling**: Handle network errors gracefully
-- **Data Validation**: Validate all API responses using SchemaValidator
-
+```yaml
+---
+applyTo: "app/services/os_metrics.py"
 ---
 
-## 7  Testing Strategy
+Descreva regra especial aqui…
+Copilot deve respeitar essas instruções de escopo reduzido 
+GitHub Docs
+.
 
-### 7.1  Unit Tests (`tests/unit/`)
+7 · Exemplos de commit/PR esperados
+7.1 Feature pequena (F1)
+bash
+Copiar
+Editar
+feat: add async fetch_equipments   #roadmap:F1
 
-- Test core components in isolation
-- Mock external dependencies (API, database)
-- Focus on business logic and edge cases
+* Added ArkmedsClient.fetch_equipments (async, retries, timeout 15 s)
+* Added EquipmentSchema to arkmeds_client/models.py
+* Added unit tests (100 % coverage) in tests/arkmeds
+7.2 Refactor + testes (F2)
+vbnet
+Copiar
+Editar
+refactor: extract backlog calc to service   #roadmap:F2
 
-### 7.2  Integration Tests (`tests/integration/`)
+* Moved backlog computation from page to services/os_metrics.py
+* Added tests/services/test_backlog.py (92 % coverage)
+* Updated ui components to call new service
+8 · Glossário interno (nomes & abreviações)
+Termo	Significado
+OS	Ordem de Serviço (work order)
+MTTR	Mean Time to Repair
+MTBF	Mean Time Between Failures
+SLA	Service Level Agreement
+COMG	Centro Oftalmológico de Minas Gerais
 
-- Test component interactions
-- Use test data for API responses
-- Validate end-to-end workflows
-
-### 7.3  UI Tests (`tests/ui/`)
-
-- Test Streamlit page rendering
-- Validate component behavior
-- Check responsive layouts
-
----
-
-## 8  Common Patterns
-
-### 8.1  Adding a New Metric
-
-1. Define calculation logic in appropriate service module
-2. Add validation for required data columns
-3. Create caching decorator if expensive
-4. Add UI components for display
-5. Write unit tests for calculation logic
-
-### 8.2  Creating a New Page
-
-1. Create page file in `app/pages/`
-2. Use PageLayout for consistent structure
-3. Import and use UI components
-4. Add caching for data fetching
-5. Handle errors gracefully
-
-### 8.3  Adding New API Endpoints
-
-1. Add method to ArkmedsClient
-2. Define Pydantic models for response
-3. Add validation in SchemaValidator
-4. Create service layer function
-5. Add caching if appropriate
-
----
-
-## 9  Migration Notes
-
-### 9.1  From Legacy to New Architecture
-
-- Gradually migrate pages to use new UI components
-- Replace direct API calls with service layer functions
-- Move constants from `config/` to `core/constants.py`
-- Update caching to use smart_cache decorators
-
-### 9.2  Breaking Changes
-
-- `st.cache_data` replaced with `smart_cache`
-- Direct API calls should use service layer
-- Configuration now centralized in `core/config.py`
-- UI components require specific import patterns
-
----
-
-This architecture provides a robust, maintainable, and scalable foundation for the Indicadores-comg dashboard application.
+Última revisão : 26 jul 2025

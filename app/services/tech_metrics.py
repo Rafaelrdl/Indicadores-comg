@@ -11,6 +11,8 @@ from arkmeds_client.auth import ArkmedsAuthError
 from arkmeds_client.client import ArkmedsClient
 from arkmeds_client.models import OSEstado
 
+from app.data.cache.smart_cache import smart_cache
+
 SLA_HOURS = int(os.getenv("OS_SLA_HOURS", 72))
 
 
@@ -117,7 +119,8 @@ def group_orders_by_technician(orders: list[Any]) -> dict[int, list[Any]]:
     return by_technician
 
 
-def calculate_technician_kpis(
+@smart_cache(ttl=600)  # Cache por 10 minutos para KPIs de técnicos (mais custoso)
+async def calculate_technician_kpis(
     technician_id: int, technician_name: str, orders: list[Any], start_date: date, end_date: date
 ) -> TechnicianKPI:
     """Calculate KPIs for a single technician.
@@ -132,6 +135,9 @@ def calculate_technician_kpis(
     Returns:
         TechnicianKPI object with calculated metrics
     """
+    # Validar dados usando helpers de data/validators.py
+    from app.data.validators import validate_input_data
+    validate_input_data(orders, list, "orders must be a list")
 
     # Filter relevant orders
     def _estado_id(o: Any) -> int | None:

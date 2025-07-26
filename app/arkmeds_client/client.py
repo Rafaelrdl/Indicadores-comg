@@ -33,7 +33,7 @@ class ArkmedsClient:
         self,
         auth: ArkmedsAuth,
         *,
-        timeout: float = 5.0,
+        timeout: float = 15.0,
         max_retries: int = 3,
     ) -> None:
         self.auth = auth
@@ -97,11 +97,11 @@ class ArkmedsClient:
         results: List[dict] = []
         try:
             while url:
-                resp = await self._request("GET", url, params=params if url == endpoint else None)
+                resp = await self._request("GET", url, params=params if url == endpoint else {})
                 data = PaginatedResponse.model_validate(resp.json())
                 results.extend(data.results)
                 url = data.next
-                params = None
+                params = {}
         except Exception:
             # Ensure client is closed on error, but ignore cleanup errors
             try:

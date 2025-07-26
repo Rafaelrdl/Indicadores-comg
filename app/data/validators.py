@@ -1,12 +1,30 @@
 """Data validators for the application."""
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Type
 import pandas as pd
 import streamlit as st
 from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def validate_input_data(data: Any, expected_type: Type, error_message: str) -> None:
+    """Validate input data type and raise ValidationError if invalid.
+    
+    Args:
+        data: Data to validate
+        expected_type: Expected data type
+        error_message: Error message to show if validation fails
+        
+    Raises:
+        ValidationError: If data doesn't match expected type
+    """
+    from app.core.exceptions import ValidationError
+    
+    if not isinstance(data, expected_type):
+        logger.error(f"Validation failed: {error_message}. Got {type(data)}, expected {expected_type}")
+        raise ValidationError(error_message)
 
 
 class DataValidator:

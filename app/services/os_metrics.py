@@ -20,6 +20,8 @@ from app.config.os_types import (
     TIPO_PREVENTIVA,
 )
 
+from app.data.cache.smart_cache import smart_cache
+
 # Type aliases
 ServiceOrderData = dict[str, list[Chamado]]
 
@@ -240,7 +242,8 @@ async def fetch_service_orders(
         raise OSMetricsError(f"Unexpected error while fetching service orders: {str(exc)}") from exc
 
 
-def calculate_sla_metrics(closed_orders: list[Chamado]) -> float:
+@smart_cache(ttl=300)  # Cache por 5 minutos para cálculos de SLA
+async def calculate_sla_metrics(closed_orders: list[Chamado]) -> float:
     """Calculate SLA compliance percentage based on closed orders.
 
     Args:
@@ -252,8 +255,9 @@ def calculate_sla_metrics(closed_orders: list[Chamado]) -> float:
     Raises:
         ValidationError: If orders list is not a valid sequence
     """
-    if not isinstance(closed_orders, list):
-        raise ValidationError("closed_orders must be a list")
+    # Validar dados usando helpers de data/validators.py
+    from app.data.validators import validate_input_data
+    validate_input_data(closed_orders, list, "closed_orders must be a list")
 
     if not closed_orders:
         return 0.0
