@@ -52,7 +52,7 @@ class DataProcessor:
                 result = result.merge(
                     df,
                     on=join_keys,
-                    how=how,
+                    how=how,  # type: ignore
                     suffixes=('', suffix)
                 )
             
@@ -526,7 +526,7 @@ class DataAggregator:
             df_copy = df_copy.set_index(date_col)
             
             # Resample and aggregate
-            aggregated = df_copy[value_cols].resample(freq).agg(agg_functions)
+            aggregated = df_copy[value_cols].resample(freq).agg(agg_functions)  # type: ignore
             
             # Reset index
             aggregated = aggregated.reset_index()
@@ -568,7 +568,7 @@ class DataAggregator:
                     index=row_col,
                     columns=col_col,
                     values=value_col,
-                    aggfunc=agg_func,
+                    aggfunc=agg_func,  # type: ignore
                     fill_value=0
                 )
             else:

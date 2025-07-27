@@ -4,6 +4,23 @@ applyTo: "**"
 
 # Copilot Instructions · Indicadores-comg
 
+---
+## 9 · Lições aprendidas e problemas já corrigidos (NÃO REPETIR)
+
+### Problemas identificados e corrigidos:
+
+- ❌ **Streamlit cache incompatível com async**
+  - ✅ Solução: Removidos decoradores `@smart_cache` de funções async
+  - ✅ Cache será implementado apenas na camada superior (controllers/pages), nunca em funções async puras
+
+- ❌ **Dependências em falta**
+  - ✅ Solução: Instalados `httpx`, `respx`, `pydantic`, `streamlit`, `pytest`, `pytest-asyncio` no ambiente correto (venv)
+
+- ❌ **Problemas de tipagem**
+  - ✅ Solução: Corrigido date handling com fallbacks, uso correto de `await` em funções async, propriedades do modelo corrigidas
+
+> **Atenção:** Não repetir esses erros em futuras implementações. Sempre validar se funções async não usam cache do Streamlit diretamente, dependências estão no venv, e tipagem está 100% correta.
+
 > **Repositório** : https://github.com/Rafaelrdl/Indicadores-comg  
 > **Stack base** : Python 3.12 · Streamlit ≥ 1.47 · Poetry · HTTPX (async) · Pydantic v2 · Plotly · Ruff + Black · Pytest  
 > **Escopos fora do MVP** : banco SQL, Celery, CQRS/DDD completo, detecção de anomalias, 2FA, RBAC.

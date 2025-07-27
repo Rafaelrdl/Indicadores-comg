@@ -93,6 +93,18 @@ class Settings(BaseSettings):
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         description="Log message format"
     )
+    enable_structlog: bool = Field(
+        default=True,
+        description="Enable structlog for structured logging"
+    )
+    log_include_timestamp: bool = Field(
+        default=True,
+        description="Include timestamp in structured logs"
+    )
+    log_include_request_id: bool = Field(
+        default=True,
+        description="Include request_id in log context"
+    )
 
     # Development Settings
     debug_mode: bool = Field(
