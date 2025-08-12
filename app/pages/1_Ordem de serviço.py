@@ -9,7 +9,7 @@ import streamlit as st
 from arkmeds_client.client import ArkmedsClient
 from services.os_metrics import compute_metrics
 from app.ui.utils import run_async_safe
-from app.ui.filters import show_active_filters
+from app.ui.os_filters import render_os_filters, show_os_active_filters
 
 # New infrastructure imports
 from app.core import get_settings, APIError, DataValidationError
@@ -33,15 +33,13 @@ async def fetch_os_data_async(filters_dict: dict = None) -> Tuple:
     try:
         client = ArkmedsClient.from_session()
         
-        # Use os filtros passados ou os padrão
+        # Use os filtros passados ou os padrão para OS
         if filters_dict is None:
             from datetime import date
             filters = {
                 "dt_ini": date.today().replace(day=1),
                 "dt_fim": date.today(),
-                "tipo_id": None,
                 "estado_ids": [],
-                "responsavel_id": None,
             }
         else:
             filters = filters_dict
@@ -49,15 +47,31 @@ async def fetch_os_data_async(filters_dict: dict = None) -> Tuple:
         # Extrair datas e outros filtros
         dt_ini = filters.get("dt_ini")
         dt_fim = filters.get("dt_fim") 
-        extra = {k: v for k, v in filters.items() if k not in {"dt_ini", "dt_fim"}}
+        estado_ids = filters.get("estado_ids", [])
+        
+        # Preparar filtros para a API (manter compatibilidade)
+        api_filters = {}
+        if estado_ids:
+            api_filters["estado_ids"] = estado_ids
         
         # Buscar métricas e OS em paralelo
-        metrics_task = compute_metrics(client, start_date=dt_ini, end_date=dt_fim, **extra)
-        os_raw_task = client.list_os(
-            data_criacao__gte=dt_ini,
-            data_criacao__lte=dt_fim,
-            **extra,
-        )
+        metrics_task = compute_metrics(client, start_date=dt_ini, end_date=dt_fim, **api_filters)
+        
+        # Para list_os, usar o filtro correto
+        os_filters = {
+            "data_criacao__gte": dt_ini,
+            "data_criacao__lte": dt_fim,
+        }
+        # Testar diferentes formatos para filtro de estado
+        if estado_ids:
+            # Aumentar page_size quando há filtros para compensar filtragem local
+            os_filters["page_size"] = 100  
+            # Armazenar o estado_ids para filtragem local
+            os_filters["_local_filter_estados"] = estado_ids
+            # Tentar primeiro com estado__in (padrão Django)
+            os_filters["estado__in"] = estado_ids
+            
+        os_raw_task = client.list_os(**os_filters)
         
         metrics, os_raw = await asyncio.gather(metrics_task, os_raw_task)
         
@@ -238,34 +252,38 @@ def render_os_table(os_raw: list) -> None:
 
 
 def main():
-    """Função principal da página de ordens de serviço usando nova arquitetura."""
-    
-    # Usar novo sistema de layout
-    layout = PageLayout(
-        title="Ordens de Serviço", 
-        description="Análise de KPIs de manutenção e ordens de serviço",
-        icon="📑"
+    """Função principal da página de Ordem de Serviço."""
+    st.set_page_config(
+        page_title="Ordem de Serviço - Indicadores", 
+        page_icon="📋",
+        layout="wide"
     )
     
+    # Inicializar cliente
+    try:
+        client = ArkmedsClient.from_session()
+    except Exception as e:
+        st.error(f"Erro ao conectar com o cliente Arkmeds: {str(e)}")
+        st.info("Verifique as credenciais em .streamlit/secrets.toml")
+        return
+    
+    # Renderizar filtros específicos de OS na sidebar
+    filters = render_os_filters(client)
+    
+    # Layout principal
+    layout = PageLayout(
+        title="📋 Ordem de Serviço",
+        description="Análise de ordens de serviço, KPIs de manutenção e SLA"
+    )
     layout.render_header()
     
-    # Inicializar filtros se não existirem
-    if "filters" not in st.session_state:
-        from datetime import date
-        st.session_state["filters"] = {
-            "dt_ini": date.today().replace(day=1),
-            "dt_fim": date.today(),
-            "tipo_id": None,
-            "estado_ids": [],
-            "responsavel_id": None,
-        }
-    
     with layout.main_content():
-        # Buscar dados
+        # Mostrar filtros ativos
+        show_os_active_filters(client)
+        
+        # Buscar dados com os filtros de OS
         try:
-            # Passar uma cópia dos filtros para evitar problemas de threading
-            filters_copy = dict(st.session_state["filters"]) if "filters" in st.session_state else None
-            result = fetch_os_data(filters_copy)
+            result = fetch_os_data(filters)
             if result is None or len(result) != 2:
                 st.error("Erro ao carregar dados. Verifique a conexão com a API.")
                 return
@@ -281,13 +299,8 @@ def main():
                 
         except Exception as e:
             st.error(f"Erro inesperado ao carregar dados: {str(e)}")
+            st.exception(e)  # Para debugging
             return
-        
-        # Mostrar filtros ativos
-        try:
-            show_active_filters(ArkmedsClient.from_session())
-        except Exception as e:
-            st.warning(f"Erro ao exibir filtros: {str(e)}")
         
         # Renderizar seções com novos layouts
         with SectionLayout.metric_section("📊 KPIs de Manutenção"):
@@ -298,7 +311,6 @@ def main():
         
         with SectionLayout.data_section("📋 Detalhes das Ordens"):
             render_os_table(os_raw)
-
 # Executar a aplicação
 if __name__ == "__main__":
     main()

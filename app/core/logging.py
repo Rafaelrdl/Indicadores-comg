@@ -54,9 +54,17 @@ class AppLogger:
         
         self._logger.info(f"PERFORMANCE: {func_name} executed in {duration:.3f}s - {context}")
         
-        # Opcional: mostrar no Streamlit se duração for alta
-        if duration > 5.0:  # Mais de 5 segundos
-            st.warning(f"⚠️ Operação lenta detectada: {func_name} ({duration:.1f}s)")
+        # Opcional: mostrar no Streamlit se duração for alta - mas só no thread principal
+        try:
+            import streamlit as st
+            from streamlit.runtime.scriptrunner import get_script_run_ctx
+            
+            # Só mostrar warning se estivermos no contexto do Streamlit
+            if get_script_run_ctx() is not None and duration > 5.0:
+                st.warning(f"⚠️ Operação lenta detectada: {func_name} ({duration:.1f}s)")
+        except Exception:
+            # Ignore context errors - we're likely in a thread
+            pass
     
     def log_error(self, error: Exception, context: Dict[str, Any] = None) -> None:
         """Log de erros com contexto."""
@@ -89,7 +97,7 @@ class AppLogger:
 
 
 def performance_monitor(func: Callable) -> Callable:
-    """Decorator para monitorar performance de funções."""
+    """Decorator para monitorar performance de funções - thread safe."""
     @wraps(func)
     def wrapper(*args, **kwargs):
         logger = AppLogger()
@@ -126,7 +134,7 @@ def performance_monitor(func: Callable) -> Callable:
 
 
 def log_cache_performance(func: Callable) -> Callable:
-    """Decorator para monitorar performance de cache."""
+    """Decorator para monitorar performance de cache - thread safe."""
     @wraps(func)
     def wrapper(*args, **kwargs):
         logger = AppLogger()
@@ -134,17 +142,31 @@ def log_cache_performance(func: Callable) -> Callable:
         
         # Simular verificação de cache (Streamlit cache não expõe isso diretamente)
         start_time = time.time()
-        result = func(*args, **kwargs)
-        duration = time.time() - start_time
         
-        # Se executou muito rápido, provavelmente foi cache hit
-        if duration < 0.1:  # Menos de 100ms
-            logger.log_cache_hit(func_name)
-        else:
-            logger.log_cache_miss(func_name)
-            logger.log_performance(func_name, duration)
-        
-        return result
+        try:
+            result = func(*args, **kwargs)
+            duration = time.time() - start_time
+            
+            # Se executou muito rápido, provavelmente foi cache hit
+            if duration < 0.1:  # Menos de 100ms
+                logger.log_cache_hit(func_name)
+            else:
+                logger.log_cache_miss(func_name)
+                logger.log_performance(func_name, duration)
+            
+            return result
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.log_error(
+                error=e,
+                context={
+                    "function": func_name,
+                    "duration_before_error": duration,
+                    "cache_operation": True
+                }
+            )
+            raise
     
     return wrapper
 

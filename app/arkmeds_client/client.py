@@ -228,6 +228,9 @@ class ArkmedsClient:
         if filters is None:
             filters = {}
         
+        # Extrair filtros locais que não são suportados pela API
+        local_filter_estados = filters.pop("_local_filter_estados", None)
+        
         # Por padrão, incluir chamados arquivados
         filters.setdefault("arquivadas", "true")
         # Limitar a 25 por página se não especificado
@@ -250,6 +253,29 @@ class ArkmedsClient:
             for item in results:
                 try:
                     chamado = Chamado.model_validate(item)
+                    
+                    # Aplicar filtro local de estados se especificado
+                    if local_filter_estados:
+                        # Verificar se o chamado tem uma OS com estado especificado
+                        if chamado.ordens_servico:
+                            # Verificar se alguma OS tem um estado nos filtros especificados
+                            estado_match = False
+                            for os in chamado.ordens_servico:
+                                if hasattr(os, 'estado') and os.estado:
+                                    if hasattr(os.estado, 'id') and os.estado.id in local_filter_estados:
+                                        estado_match = True
+                                        break
+                                    elif isinstance(os.estado, int) and os.estado in local_filter_estados:
+                                        estado_match = True
+                                        break
+                            
+                            # Se não encontrou match, pular este chamado
+                            if not estado_match:
+                                continue
+                        else:
+                            # Se não tem OS, pular
+                            continue
+                    
                     chamados.append(chamado)
                 except Exception as e:
                     # Log do erro mas continuar processamento
