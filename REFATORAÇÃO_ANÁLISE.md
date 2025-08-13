@@ -16,7 +16,7 @@
 
 **Taxa de sucesso atual: 96%** (102/106 arquivos seguem padrões corretos)
 
-### 🎉 **STEPS 1-3 CONCLUÍDOS**
+### 🎉 **STEPS 1-5 CONCLUÍDOS**
 
 #### ✅ **STEP 1: Guardrails**
 - ✅ **2,252 problemas** corrigidos automaticamente 
@@ -32,6 +32,18 @@
 - ✅ **5 funções async** nos serviços migradas
 - ✅ **0 serviços fazem chamadas API diretas** agora
 - ✅ **39 problemas extras** corrigidos no processo
+
+#### ✅ **STEP 4: Limpeza de Código**
+- ✅ **Imports obsoletos** removidos (ArkmedsClient não utilizados)
+- ✅ **Assinaturas de função** atualizadas (ArkmedsClient → Any)
+- ✅ **Bare except** corrigidos para exceções específicas
+- ✅ **Código morto** removido e formatação melhorada
+
+#### ✅ **STEP 5: Type Hints Consistentes**
+- ✅ **Funções de exibição** tipadas com `-> None`
+- ✅ **Funções async CLI** tipadas com retornos específicos
+- ✅ **Métodos de progresso** tipadas adequadamente
+- ✅ **Type hints específicos** onde possível (dict[str, Any] vs Any)
 
 > **Objetivo:** Chegar a 95%+ após refatoração completa. OS, usa SQLite + API fallback
 - ❌ `2_Equipamentos.py` - **4 funções async ainda chamam API diretamente**

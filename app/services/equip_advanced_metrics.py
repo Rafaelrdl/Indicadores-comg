@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Any
 
 import streamlit as st
-
-from app.arkmeds_client.client import ArkmedsClient
 
 
 @dataclass(frozen=True)
@@ -76,7 +75,7 @@ class EquipmentMTTFBF:
 
 
 @st.cache_data(ttl=900)
-def calcular_stats_equipamentos(_client: ArkmedsClient | None = None) -> EquipmentStats:
+def calcular_stats_equipamentos(_client: Any | None = None) -> EquipmentStats:
     """Calcula estatísticas básicas dos equipamentos usando Repository (SQLite local)."""
 
     async def _async_calc():
@@ -103,8 +102,8 @@ def calcular_stats_equipamentos(_client: ArkmedsClient | None = None) -> Equipme
 
         # Contadores de status
         if "ativo" in equipamentos_df.columns:
-            ativos = len(equipamentos_df[equipamentos_df["ativo"] == True])
-            desativados = len(equipamentos_df[equipamentos_df["ativo"] == False])
+            ativos = len(equipamentos_df[equipamentos_df["ativo"]])
+            desativados = len(equipamentos_df[not equipamentos_df["ativo"]])
         else:
             ativos = len(equipamentos_df)  # Assumir todos ativos se não tiver coluna
             desativados = 0
@@ -141,7 +140,7 @@ def calcular_stats_equipamentos(_client: ArkmedsClient | None = None) -> Equipme
 
 @st.cache_data(ttl=1800)  # Cache por 30 min (é mais pesado)
 def calcular_mttf_mtbf_top(
-    _client: ArkmedsClient | None = None, limit: int = 25
+    _client: Any | None = None, limit: int = 25
 ) -> tuple[list[EquipmentMTTFBF], list[EquipmentMTTFBF]]:
     """Calcula MTTF/MTBF para equipamentos usando Repository (SQLite local) e retorna top rankings.
 
@@ -214,7 +213,7 @@ def calcular_mttf_mtbf_top(
                     latest_date_str = equip_orders.iloc[-1]["data_criacao"]
                     if isinstance(latest_date_str, str):
                         ultima_manut = datetime.fromisoformat(latest_date_str.replace("Z", "+00:00")).date()
-                except:
+                except (ValueError, TypeError):
                     ultima_manut = date.today()
 
             resultado = EquipmentMTTFBF(
@@ -248,7 +247,7 @@ def calcular_mttf_mtbf_top(
     return run_async_safe(_async_calc())
 
 
-def exibir_distribuicao_prioridade(stats: EquipmentStats):
+def exibir_distribuicao_prioridade(stats: EquipmentStats) -> None:
     """Exibe gráfico de distribuição de prioridade."""
     import pandas as pd
     import plotly.express as px
@@ -273,7 +272,7 @@ def exibir_distribuicao_prioridade(stats: EquipmentStats):
         st.info("Nenhum equipamento com prioridade definida encontrado.")
 
 
-def exibir_distribuicao_status(stats: EquipmentStats):
+def exibir_distribuicao_status(stats: EquipmentStats) -> None:
     """Exibe métricas de status dos equipamentos."""
     col1, col2, col3 = st.columns(3)
 
@@ -311,7 +310,7 @@ def exibir_distribuicao_status(stats: EquipmentStats):
         )
 
 
-def exibir_top_mttf_mtbf(top_mttf: list[EquipmentMTTFBF], top_mtbf: list[EquipmentMTTFBF]):
+def exibir_top_mttf_mtbf(top_mttf: list[EquipmentMTTFBF], top_mtbf: list[EquipmentMTTFBF]) -> None:
     """Exibe tabelas dos tops MTTF e MTBF."""
     import pandas as pd
 

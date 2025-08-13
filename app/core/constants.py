@@ -25,6 +25,9 @@ TABLE_HEIGHT_DEFAULT = 400
 ASYNC_BATCH_SIZE = 100
 MAX_MEMORY_USAGE_MB = 512
 
+# Business Constants
+DEFAULT_SLA_HOURS = 72  # Default SLA for service orders
+
 
 class OSType(Enum):
     """Ordem de Serviço types from API."""

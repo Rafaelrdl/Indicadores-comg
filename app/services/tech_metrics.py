@@ -6,11 +6,14 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import OSEstado
+from app.core.constants import DEFAULT_SLA_HOURS
+from app.core.exceptions import DataFetchError as CoreDataFetchError
+from app.core.logging import app_logger
 
 
-SLA_HOURS = int(os.getenv("OS_SLA_HOURS", 72))
+# Backward compatibility alias
+SLA_HOURS = DEFAULT_SLA_HOURS
 
 
 class TechMetricsError(Exception):
@@ -68,8 +71,8 @@ TechKPI = TechnicianKPI
 
 
 async def fetch_technician_orders(
-    client: ArkmedsClient | None, start_date: date, end_date: date, **filters: Any
-) -> list[Any]:
+    client: Any | None, start_date: date, end_date: date, **filters: Any
+) -> list[dict[str, Any]]:
     """Fetch service orders data for technicians using Repository (SQLite local).
 
     Args:
@@ -84,6 +87,11 @@ async def fetch_technician_orders(
     Raises:
         DataFetchError: If there's an error fetching data from the local database
     """
+    app_logger.log_info(
+        "Fetching technician orders from repository", 
+        extra={"start_date": start_date.isoformat(), "end_date": end_date.isoformat(), "filters": filters}
+    )
+    
     try:
         # Import repository functions locally to avoid circular imports
         from app.services.repository import get_orders_df
@@ -101,12 +109,16 @@ async def fetch_technician_orders(
         # Convert to list of dicts for compatibility
         orders_list = orders_df.to_dict("records") if not orders_df.empty else []
 
-        return orders_list
+        return orders_list  # type: ignore[return-value]
     except Exception as exc:
-        raise DataFetchError(f"Failed to fetch technician data from Repository: {exc!s}") from exc
+        raise CoreDataFetchError(
+            message=f"Failed to fetch technician data from Repository: {exc!s}",
+            context={"start_date": start_date.isoformat(), "end_date": end_date.isoformat(), "filters": filters},
+            original_error=exc
+        ) from exc
 
 
-def group_orders_by_technician(orders: list[Any]) -> dict[int, list[Any]]:
+def group_orders_by_technician(orders: list[dict[str, Any]]) -> dict[int, list[dict[str, Any]]]:
     """Group service orders by technician.
 
     Args:
@@ -115,16 +127,21 @@ def group_orders_by_technician(orders: list[Any]) -> dict[int, list[Any]]:
     Returns:
         Dictionary mapping technician IDs to their service orders
     """
-    by_technician: dict[int, list[Any]] = defaultdict(list)
+    by_technician: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for order in orders:
         estado_id = None
-        if order.estado:
-            if isinstance(order.estado, dict):
-                estado_id = order.estado.get("id")
+        estado = order.get("estado")
+        if estado:
+            if isinstance(estado, dict):
+                estado_id = estado.get("id")
             else:
-                estado_id = order.estado.id
-        if estado_id != OSEstado.CANCELADA.value and order.responsavel:
-            by_technician[order.responsavel.id].append(order)
+                estado_id = getattr(estado, "id", None)
+
+        responsavel = order.get("responsavel")
+        if estado_id != OSEstado.CANCELADA.value and responsavel:
+            responsavel_id = responsavel.get("id") if isinstance(responsavel, dict) else getattr(responsavel, "id", None)
+            if responsavel_id:
+                by_technician[responsavel_id].append(order)
     return by_technician
 
 
@@ -206,7 +223,7 @@ async def _cached_compute(
     start_date: date,
     end_date: date,
     frozen_filters: tuple[tuple[str, Any], ...],
-    _client: ArkmedsClient,
+    _client: Any,
 ) -> list[dict[str, Any]]:
     """Cached computation of technician metrics.
 
@@ -233,7 +250,7 @@ async def _cached_compute(
 
 
 async def _async_compute_metrics(
-    client: ArkmedsClient,
+    client: Any,
     start_date: date,
     end_date: date,
     filters: dict[str, Any],
@@ -248,10 +265,17 @@ async def _async_compute_metrics(
     # Calculate KPIs for each technician
     results = []
     for tech_id, tech_orders in by_technician.items():
-        if not tech_orders or not tech_orders[0].responsavel:
+        if not tech_orders:
             continue
 
-        tech_name = tech_orders[0].responsavel.display_name
+        # Get technician name from first order
+        responsavel = tech_orders[0].get("responsavel")
+        if not responsavel:
+            continue
+
+        tech_name = responsavel.get("display_name") if isinstance(responsavel, dict) else getattr(responsavel, "display_name", f"Técnico {tech_id}")
+        if not isinstance(tech_name, str):
+            tech_name = f"Técnico {tech_id}"
         kpi = calculate_technician_kpis(tech_id, tech_name, tech_orders, start_date, end_date)
         results.append(kpi)
 
@@ -261,7 +285,7 @@ async def _async_compute_metrics(
 
 
 async def compute_metrics(
-    client: ArkmedsClient,
+    client: Any,
     *,
     start_date: date | None = None,
     end_date: date | None = None,

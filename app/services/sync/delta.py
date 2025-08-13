@@ -381,7 +381,7 @@ class IncrementalSync:
 
 # Funções de conveniência para uso direto
 async def run_incremental_sync(
-    client: ArkmedsClient, resources: list[str] = None, **filters
+    client: ArkmedsClient, resources: list[str] | None = None, **filters
 ) -> dict[str, int]:
     """
     Executa sincronização incremental para recursos especificados.

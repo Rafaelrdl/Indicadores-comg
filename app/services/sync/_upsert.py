@@ -26,17 +26,17 @@ class RateLimiter:
         self.current_delay = base_delay
         self.error_count = 0
 
-    async def wait(self):
+    async def wait(self) -> None:
         """Espera o tempo atual de delay."""
         if self.current_delay > 0:
             await asyncio.sleep(self.current_delay)
 
-    def on_success(self):
+    def on_success(self) -> None:
         """Reseta delay após sucesso."""
         self.current_delay = self.base_delay
         self.error_count = 0
 
-    def on_error(self):
+    def on_error(self) -> None:
         """Aumenta delay após erro."""
         self.error_count += 1
         self.current_delay = min(self.current_delay * self.backoff_factor, self.max_delay)
@@ -69,7 +69,7 @@ def upsert_records(
 
         # SQL de upsert usando formato payload
         sql = f"""
-            INSERT OR REPLACE INTO {table} (id, payload, updated_at, fetched_at) 
+            INSERT OR REPLACE INTO {table} (id, payload, updated_at, fetched_at)
             VALUES (?, ?, ?, ?)
         """
 
@@ -141,7 +141,7 @@ def update_sync_state(
 
         sql = """
             INSERT OR REPLACE INTO sync_state (
-                resource, last_updated_at, last_id, total_records, 
+                resource, last_updated_at, last_id, total_records,
                 sync_type, synced_at
             ) VALUES (?, ?, ?, ?, ?, ?)
         """
@@ -173,11 +173,11 @@ def get_last_sync_info(conn: sqlite3.Connection, resource: str) -> dict[str, Any
     """
     try:
         sql = """
-            SELECT resource, last_updated_at, last_id, total_records, 
-                   sync_type, synced_at 
-            FROM sync_state 
+            SELECT resource, last_updated_at, last_id, total_records,
+                   sync_type, synced_at
+            FROM sync_state
             WHERE resource = ?
-            ORDER BY synced_at DESC 
+            ORDER BY synced_at DESC
             LIMIT 1
         """
 
@@ -215,7 +215,7 @@ class ProgressTracker:
             self.progress_bar = st.progress(0)
             self.status_text = st.empty()
 
-    def update(self, current: int, total: int | None = None):
+    def update(self, current: int, total: int | None = None) -> None:
         """Atualiza progresso."""
         if total:
             self.total = total
@@ -241,7 +241,7 @@ class ProgressTracker:
 
             app_logger.log_info(f"📊 {message}")
 
-    def complete(self):
+    def complete(self) -> None:
         """Marca como completo."""
         elapsed = time.time() - self.start_time
         message = f"✅ {self.description} completo: {self.current:,} registros em {elapsed:.1f}s"

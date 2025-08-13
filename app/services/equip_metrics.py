@@ -6,7 +6,6 @@ from datetime import date
 from statistics import mean
 from typing import Any
 
-from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import OSEstado
 from app.config.os_types import TIPO_CORRETIVA
 
@@ -60,7 +59,7 @@ EquipMetrics = EquipmentMetrics
 
 
 async def fetch_equipment_data(
-    client: ArkmedsClient | None, start_date: date, end_date: date, **filters: Any
+    client: Any | None, start_date: date, end_date: date, **filters: Any
 ) -> tuple[list, list]:
     """Fetch equipment and maintenance orders data using Repository (SQLite local).
 
@@ -143,9 +142,8 @@ async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, floa
             return os_obj.equipamento_id
 
         # Caso seja um objeto Chamado com ordem_servico aninhada
-        if hasattr(os_obj, "ordem_servico") and os_obj.ordem_servico:
-            if isinstance(os_obj.ordem_servico, dict):
-                return os_obj.ordem_servico.get("equipamento")
+        if hasattr(os_obj, "ordem_servico") and os_obj.ordem_servico and isinstance(os_obj.ordem_servico, dict):
+            return os_obj.ordem_servico.get("equipamento")
 
         return None
 
@@ -231,7 +229,7 @@ async def _cached_compute(
     start_date: date,
     end_date: date,
     frozen_filters: tuple[tuple[str, Any], ...],
-    _client: ArkmedsClient,
+    _client: Any,
 ) -> dict[str, Any]:
     """Cached computation of equipment metrics.
 
@@ -253,7 +251,7 @@ async def _cached_compute(
 
 
 async def _async_compute_metrics(
-    client: ArkmedsClient, start_date: date, end_date: date, filters: dict[str, Any]
+    client: Any, start_date: date, end_date: date, filters: dict[str, Any]
 ) -> EquipmentMetrics:
     """Compute all equipment metrics asynchronously.
 
@@ -274,7 +272,7 @@ async def _async_compute_metrics(
 
 
 async def compute_metrics(
-    client: ArkmedsClient,
+    client: Any,
     *,
     start_date: date | None = None,
     end_date: date | None = None,

@@ -304,7 +304,7 @@ class BackfillSync:
 # Função de conveniência para uso direto
 async def run_backfill(
     client: ArkmedsClient,
-    resources: list[str] = None,
+    resources: list[str] | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
     **filters,

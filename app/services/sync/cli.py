@@ -14,7 +14,7 @@ from app.services.sync.delta import run_incremental_sync
 from app.services.sync.ingest import run_backfill
 
 
-async def main():
+async def main() -> None:
     """Função principal do CLI."""
     parser = argparse.ArgumentParser(description="Sincronização de dados Arkmeds")
 
@@ -95,7 +95,7 @@ async def main():
         print(f"❌ Erro durante sincronização: {e}")
 
 
-async def handle_backfill(client: ArkmedsClient, args):
+async def handle_backfill(client: ArkmedsClient, args) -> None:
     """Executa backfill completo."""
     print(f"🚀 Iniciando backfill para recursos: {', '.join(args.resources)}")
 
@@ -122,7 +122,7 @@ async def handle_backfill(client: ArkmedsClient, args):
     print(f"\n✅ Total: {total:,} registros sincronizados")
 
 
-async def handle_incremental(client: ArkmedsClient, args):
+async def handle_incremental(client: ArkmedsClient, args) -> None:
     """Executa sincronização incremental."""
     print(f"🔄 Iniciando sincronização incremental para recursos: {', '.join(args.resources)}")
 
@@ -138,7 +138,7 @@ async def handle_incremental(client: ArkmedsClient, args):
     print(f"\n✅ Total: {total:,} novos registros sincronizados")
 
 
-async def handle_smart_sync(client: ArkmedsClient, args):
+async def handle_smart_sync(client: ArkmedsClient, args) -> None:
     """Executa sincronização inteligente."""
     from app.services.sync.delta import should_run_incremental_sync
 

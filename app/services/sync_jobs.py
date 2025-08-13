@@ -29,7 +29,7 @@ def create_job(kind: str) -> str:
             conn.execute(
                 """
                 INSERT INTO sync_jobs(
-                    job_id, kind, status, processed, total, percent, 
+                    job_id, kind, status, processed, total, percent,
                     started_at, updated_at
                 )
                 VALUES (?, ?, 'running', 0, NULL, NULL, datetime('now'), datetime('now'))
@@ -123,7 +123,7 @@ def get_running_job(kind: str | None = None) -> dict[str, Any] | None:
             if kind:
                 cursor = conn.execute(
                     """
-                    SELECT job_id, kind, status, total, processed, percent, 
+                    SELECT job_id, kind, status, total, processed, percent,
                            started_at, updated_at
                     FROM sync_jobs
                     WHERE status = 'running' AND kind = ?
@@ -135,7 +135,7 @@ def get_running_job(kind: str | None = None) -> dict[str, Any] | None:
             else:
                 cursor = conn.execute(
                     """
-                    SELECT job_id, kind, status, total, processed, percent, 
+                    SELECT job_id, kind, status, total, processed, percent,
                            started_at, updated_at
                     FROM sync_jobs
                     WHERE status = 'running'
@@ -178,7 +178,7 @@ def get_last_success_job(kind: str | None = None) -> dict[str, Any] | None:
             if kind:
                 cursor = conn.execute(
                     """
-                    SELECT job_id, kind, status, total, processed, percent, 
+                    SELECT job_id, kind, status, total, processed, percent,
                            started_at, finished_at
                     FROM sync_jobs
                     WHERE status = 'success' AND kind = ?
@@ -190,7 +190,7 @@ def get_last_success_job(kind: str | None = None) -> dict[str, Any] | None:
             else:
                 cursor = conn.execute(
                     """
-                    SELECT job_id, kind, status, total, processed, percent, 
+                    SELECT job_id, kind, status, total, processed, percent,
                            started_at, finished_at
                     FROM sync_jobs
                     WHERE status = 'success'
@@ -247,7 +247,7 @@ def cleanup_old_jobs(days: int = 7) -> int:
             cursor = conn.execute(
                 f"""
                 DELETE FROM sync_jobs
-                WHERE status != 'running' 
+                WHERE status != 'running'
                 AND datetime(started_at) < datetime('now', '-{days} days')
             """
             )
@@ -277,7 +277,7 @@ def get_job_history(limit: int = 10) -> list[dict[str, Any]]:
         with get_conn() as conn:
             cursor = conn.execute(
                 """
-                SELECT job_id, kind, status, total, processed, percent, 
+                SELECT job_id, kind, status, total, processed, percent,
                        started_at, finished_at, updated_at
                 FROM sync_jobs
                 ORDER BY started_at DESC

@@ -11,8 +11,9 @@ import pandas as pd
 import streamlit as st
 
 from app.arkmeds_client.auth import ArkmedsAuthError
-from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import Chamado, OSEstado
+from app.core.exceptions import DataFetchError as CoreDataFetchError
+from app.core.logging import app_logger
 from app.config.os_types import (
     AREA_ENG_CLIN,
     AREA_PREDIAL,
@@ -119,7 +120,7 @@ def _validate_dates(start_date: date, end_date: date) -> None:
 
 
 async def fetch_orders(
-    client: ArkmedsClient | None, order_type: int, area_id: int | None = None, **extra: Any
+    client: Any | None, order_type: int, area_id: int | None = None, **extra: Any
 ) -> list[Chamado]:
     """Fetch orders using Repository (SQLite local) with the given filters.
 
@@ -152,15 +153,17 @@ async def fetch_orders(
         # Convert to list of Chamado-compatible dicts
         orders_list = orders_df.to_dict("records") if not orders_df.empty else []
 
-        # Note: Returning dict records instead of Chamado objects for compatibility
-        return orders_list
+        return orders_list  # type: ignore[return-value]
     except Exception as exc:
-        from app.core.exceptions import DataFetchError
-        raise DataFetchError(f"Failed to fetch orders from Repository: {exc!s}") from exc
+        raise CoreDataFetchError(
+            message=f"Failed to fetch orders from Repository: {exc!s}",
+            context={"order_type": order_type, "area_id": area_id, "extra": extra},
+            original_error=exc
+        ) from exc
 
 
 async def fetch_service_orders_with_cache(
-    client: ArkmedsClient, start_date: date, end_date: date, **filters: Any
+    client: Any, start_date: date, end_date: date, **filters: Any
 ) -> ServiceOrderData:
     """
     Fetch service orders data usando SQLite como fonte primária.
@@ -199,17 +202,9 @@ async def fetch_service_orders_with_cache(
         orders_count = stats.get("orders_count", 0)
 
         if orders_count == 0:
-            st.warning("📭 Banco local vazio. Executando backfill inicial...")
-            from app.services.sync.ingest import BackfillSync
-
-            backfill = BackfillSync()
-            try:
-                await backfill.run_backfill(["orders"], batch_size=100)
-                st.success("✅ Backfill inicial concluído")
-            except Exception as e:
-                st.warning(f"⚠️ Falha no backfill: {e}")
-                st.info("🔄 Usando fallback para API...")
-                return await fetch_service_orders(client, start_date, end_date, **filters)
+            st.warning("📭 Banco local vazio. Execute o sincronismo manual para popular dados.")
+            # Retorna dicionário vazio em formato esperado
+            return {}
 
         # Verificar frescor dos dados e sincronizar se necessário
         elif should_run_incremental_sync("orders", max_age_hours=2):
@@ -346,7 +341,7 @@ def _convert_df_to_service_orders(
 
                 if start_datetime <= order_date <= end_datetime:
                     date_filtered_orders.append(order)
-        except:
+        except (ValueError, TypeError, KeyError):
             continue
 
     # Categorize orders based on type and area
@@ -550,7 +545,7 @@ def _convert_sqlite_df_to_service_orders(
 
 
 async def fetch_service_orders(
-    client: ArkmedsClient, start_date: date, end_date: date, **filters: Any
+    client: Any, start_date: date, end_date: date, **filters: Any
 ) -> ServiceOrderData:
     """Fetch all service orders data concurrently.
 
@@ -688,7 +683,7 @@ async def _cached_compute(
     start_date: date,
     end_date: date,
     frozen_filters: tuple[tuple[str, Any], ...],
-    _client: ArkmedsClient,
+    _client: Any,
 ) -> dict[str, Any]:
     """Cached computation of service order metrics.
 
@@ -723,12 +718,14 @@ async def _cached_compute(
             "sla_percentage": metrics.sla_percentage,
         }
     except Exception as exc:
-        st.error(f"Erro ao calcular métricas: {exc!s}")
+        error_msg = f"Erro ao calcular métricas: {exc!s}"
+        app_logger.log_error(exc, {"context": "cached_compute_metrics", "start_date": str(start_date), "end_date": str(end_date)})
+        st.error(error_msg)
         raise
 
 
 async def _async_compute_metrics(
-    client: ArkmedsClient,
+    client: Any,
     start_date: date,
     end_date: date,
     filters: dict[str, Any],
@@ -781,7 +778,7 @@ async def _async_compute_metrics(
 
 
 async def compute_metrics(
-    client: ArkmedsClient,
+    client: Any,
     *,
     start_date: date | None = None,
     end_date: date | None = None,

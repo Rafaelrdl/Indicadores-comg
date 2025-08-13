@@ -82,7 +82,7 @@ def get_orders_df(
     """
     # Query base extraindo campos do JSON
     sql = """
-        SELECT 
+        SELECT
             json_extract(payload, '$.id') as id,
             json_extract(payload, '$.chamados') as chamados,
             json_extract(payload, '$.data_criacao') as data_criacao,
@@ -148,7 +148,7 @@ def get_equipments_df(limit: int | None = None, search: str | None = None) -> pd
         DataFrame com equipamentos
     """
     sql = """
-        SELECT 
+        SELECT
             json_extract(payload, '$.id') as id,
             json_extract(payload, '$.descricao') as descricao,
             json_extract(payload, '$.fabricante') as fabricante,
@@ -189,7 +189,7 @@ def get_technicians_df(limit: int | None = None) -> pd.DataFrame:
         DataFrame com técnicos
     """
     sql = """
-        SELECT 
+        SELECT
             json_extract(payload, '$.id') as id,
             json_extract(payload, '$.nome') as nome,
             json_extract(payload, '$.email') as email,
@@ -222,10 +222,10 @@ def get_orders_by_state_counts() -> dict[int, int]:
         Dict {estado: contagem}
     """
     sql = """
-        SELECT 
+        SELECT
             json_extract(payload, '$.ordem_servico.estado') as estado,
             COUNT(*) as total
-        FROM orders 
+        FROM orders
         WHERE json_extract(payload, '$.ordem_servico.estado') IS NOT NULL
         GROUP BY json_extract(payload, '$.ordem_servico.estado')
     """
@@ -246,10 +246,10 @@ def get_orders_by_type_counts() -> dict[int, int]:
         Dict {tipo: contagem}
     """
     sql = """
-        SELECT 
+        SELECT
             json_extract(payload, '$.ordem_servico.tipo_servico') as tipo,
             COUNT(*) as total
-        FROM orders 
+        FROM orders
         WHERE json_extract(payload, '$.ordem_servico.tipo_servico') IS NOT NULL
         GROUP BY json_extract(payload, '$.ordem_servico.tipo_servico')
     """
@@ -276,12 +276,12 @@ def get_orders_timeline_data(
         DataFrame com dados agrupados por data
     """
     sql = """
-        SELECT 
+        SELECT
             DATE(json_extract(payload, '$.data_criacao')) as data,
             json_extract(payload, '$.ordem_servico.estado') as estado,
             json_extract(payload, '$.ordem_servico.tipo_servico') as tipo,
             COUNT(*) as total
-        FROM orders 
+        FROM orders
         WHERE json_extract(payload, '$.data_criacao') IS NOT NULL
     """
 
@@ -296,7 +296,7 @@ def get_orders_timeline_data(
         params.append(end_date)
 
     sql += """
-        GROUP BY 
+        GROUP BY
             DATE(json_extract(payload, '$.data_criacao')),
             json_extract(payload, '$.ordem_servico.estado'),
             json_extract(payload, '$.ordem_servico.tipo_servico')
@@ -329,8 +329,8 @@ def get_database_stats() -> dict[str, Any]:
     # Última sincronização
     last_sync_sql = """
         SELECT resource, synced_at, total_records, sync_type
-        FROM sync_state 
-        ORDER BY synced_at DESC 
+        FROM sync_state
+        ORDER BY synced_at DESC
         LIMIT 3
     """
 
