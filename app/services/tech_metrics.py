@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
@@ -88,10 +87,10 @@ async def fetch_technician_orders(
         DataFetchError: If there's an error fetching data from the local database
     """
     app_logger.log_info(
-        "Fetching technician orders from repository", 
+        "Fetching technician orders from repository",
         extra={"start_date": start_date.isoformat(), "end_date": end_date.isoformat(), "filters": filters}
     )
-    
+
     try:
         # Import repository functions locally to avoid circular imports
         from app.services.repository import get_orders_df

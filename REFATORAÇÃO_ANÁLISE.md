@@ -16,7 +16,7 @@
 
 **Taxa de sucesso atual: 96%** (102/106 arquivos seguem padrões corretos)
 
-### 🎉 **STEPS 1-5 CONCLUÍDOS**
+### 🎉 **STEPS 1-6 CONCLUÍDOS**
 
 #### ✅ **STEP 1: Guardrails**
 - ✅ **2,252 problemas** corrigidos automaticamente 
@@ -44,6 +44,12 @@
 - ✅ **Funções async CLI** tipadas com retornos específicos
 - ✅ **Métodos de progresso** tipadas adequadamente
 - ✅ **Type hints específicos** onde possível (dict[str, Any] vs Any)
+
+#### ✅ **STEP 6: Padronização Arquitetural**
+- ✅ **Sistema de exceções centralizado** (CoreDataFetchError)
+- ✅ **Logging estruturado** padronizado (app_logger + st.error)
+- ✅ **Constantes centralizadas** (DEFAULT_SLA_HOURS)
+- ✅ **Padrões async/await** consistentes (run_async_safe)
 
 > **Objetivo:** Chegar a 95%+ após refatoração completa. OS, usa SQLite + API fallback
 - ❌ `2_Equipamentos.py` - **4 funções async ainda chamam API diretamente**

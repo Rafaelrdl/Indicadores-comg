@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, cast
@@ -12,8 +11,6 @@ import streamlit as st
 
 from app.arkmeds_client.auth import ArkmedsAuthError
 from app.arkmeds_client.models import Chamado, OSEstado
-from app.core.exceptions import DataFetchError as CoreDataFetchError
-from app.core.logging import app_logger
 from app.config.os_types import (
     AREA_ENG_CLIN,
     AREA_PREDIAL,
@@ -21,13 +18,17 @@ from app.config.os_types import (
     TIPO_CORRETIVA,
     TIPO_PREVENTIVA,
 )
+from app.core.constants import DEFAULT_SLA_HOURS
+from app.core.exceptions import DataFetchError as CoreDataFetchError
+from app.core.logging import app_logger
 from app.services.sync.delta import run_incremental_sync, should_run_incremental_sync
 
 
 # Type aliases
 ServiceOrderData = dict[str, list[Chamado]]
 
-SLA_HOURS = int(os.getenv("OS_SLA_HOURS", 72))
+# Backward compatibility alias
+SLA_HOURS = DEFAULT_SLA_HOURS
 
 
 class OSMetricsError(Exception):
