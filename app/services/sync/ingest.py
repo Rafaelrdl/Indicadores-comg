@@ -1,6 +1,7 @@
 """
 Sistema de backfill completo para sincronização inicial de dados.
 """
+
 import asyncio
 from datetime import date
 from typing import Any
@@ -20,19 +21,16 @@ class BackfillSync:
         self.rate_limiter = RateLimiter()
 
     async def sync_orders(
-        self,
-        start_date: date | None = None,
-        end_date: date | None = None,
-        **filters
+        self, start_date: date | None = None, end_date: date | None = None, **filters
     ) -> int:
         """
         Sincroniza todas as ordens de serviço.
-        
+
         Args:
             start_date: Data inicial (opcional)
-            end_date: Data final (opcional) 
+            end_date: Data final (opcional)
             **filters: Filtros adicionais
-        
+
         Returns:
             int: Número total de registros sincronizados
         """
@@ -42,12 +40,12 @@ class BackfillSync:
             # Preparar filtros
             api_filters = dict(filters)
             if start_date:
-                api_filters['data_criacao__gte'] = start_date
+                api_filters["data_criacao__gte"] = start_date
             if end_date:
-                api_filters['data_criacao__lte'] = end_date
+                api_filters["data_criacao__lte"] = end_date
 
             # Buscar todos os dados com paginação
-            all_orders = await self._fetch_all_paginated('chamados', api_filters)
+            all_orders = await self._fetch_all_paginated("chamados", api_filters)
 
             if not all_orders:
                 logger.log_info("📋 Nenhuma ordem encontrada para sincronizar")
@@ -63,11 +61,11 @@ class BackfillSync:
             # Converter para formato do banco
             records = []
             for order in all_orders:
-                record = order.model_dump() if hasattr(order, 'model_dump') else order
+                record = order.model_dump() if hasattr(order, "model_dump") else order
                 records.append(record)
 
             # Fazer upsert
-            processed = upsert_records(conn, 'orders', records, progress_callback)
+            processed = upsert_records(conn, "orders", records, progress_callback)
 
             # Atualizar estado de sync
             last_updated = None
@@ -75,16 +73,17 @@ class BackfillSync:
 
             if records:
                 # Tentar usar updated_at se disponível, senão usar ID
-                last_record = max(records, key=lambda r: r.get('id', 0))
-                last_updated = last_record.get('updated_at')
-                last_id = last_record.get('id')
+                last_record = max(records, key=lambda r: r.get("id", 0))
+                last_updated = last_record.get("updated_at")
+                last_id = last_record.get("id")
 
             update_sync_state(
-                conn, 'orders',
+                conn,
+                "orders",
                 last_updated_at=last_updated,
                 last_id=last_id,
                 total_records=processed,
-                sync_type='backfill'
+                sync_type="backfill",
             )
 
             progress.complete()
@@ -97,10 +96,10 @@ class BackfillSync:
     async def sync_equipments(self, **filters) -> int:
         """
         Sincroniza todos os equipamentos.
-        
+
         Args:
             **filters: Filtros adicionais
-        
+
         Returns:
             int: Número total de registros sincronizados
         """
@@ -108,7 +107,7 @@ class BackfillSync:
 
         try:
             # Buscar todos os equipamentos
-            all_equipments = await self._fetch_all_paginated('equipments', filters)
+            all_equipments = await self._fetch_all_paginated("equipments", filters)
 
             if not all_equipments:
                 logger.log_info("🔧 Nenhum equipamento encontrado para sincronizar")
@@ -124,27 +123,28 @@ class BackfillSync:
             # Converter para formato do banco
             records = []
             for equip in all_equipments:
-                record = equip.model_dump() if hasattr(equip, 'model_dump') else equip
+                record = equip.model_dump() if hasattr(equip, "model_dump") else equip
                 records.append(record)
 
             # Fazer upsert
-            processed = upsert_records(conn, 'equipments', records, progress_callback)
+            processed = upsert_records(conn, "equipments", records, progress_callback)
 
             # Atualizar estado de sync
             last_updated = None
             last_id = None
 
             if records:
-                last_record = max(records, key=lambda r: r.get('id', 0))
-                last_updated = last_record.get('updated_at')
-                last_id = last_record.get('id')
+                last_record = max(records, key=lambda r: r.get("id", 0))
+                last_updated = last_record.get("updated_at")
+                last_id = last_record.get("id")
 
             update_sync_state(
-                conn, 'equipments',
+                conn,
+                "equipments",
                 last_updated_at=last_updated,
                 last_id=last_id,
                 total_records=processed,
-                sync_type='backfill'
+                sync_type="backfill",
             )
 
             progress.complete()
@@ -157,10 +157,10 @@ class BackfillSync:
     async def sync_technicians(self, **filters) -> int:
         """
         Sincroniza todos os técnicos.
-        
+
         Args:
             **filters: Filtros adicionais
-        
+
         Returns:
             int: Número total de registros sincronizados
         """
@@ -168,7 +168,7 @@ class BackfillSync:
 
         try:
             # Buscar todos os técnicos
-            all_technicians = await self._fetch_all_paginated('technicians', filters)
+            all_technicians = await self._fetch_all_paginated("technicians", filters)
 
             if not all_technicians:
                 logger.log_info("👥 Nenhum técnico encontrado para sincronizar")
@@ -184,27 +184,28 @@ class BackfillSync:
             # Converter para formato do banco
             records = []
             for tech in all_technicians:
-                record = tech.model_dump() if hasattr(tech, 'model_dump') else tech
+                record = tech.model_dump() if hasattr(tech, "model_dump") else tech
                 records.append(record)
 
             # Fazer upsert
-            processed = upsert_records(conn, 'technicians', records, progress_callback)
+            processed = upsert_records(conn, "technicians", records, progress_callback)
 
             # Atualizar estado de sync
             last_updated = None
             last_id = None
 
             if records:
-                last_record = max(records, key=lambda r: r.get('id', 0))
-                last_updated = last_record.get('updated_at')
-                last_id = last_record.get('id')
+                last_record = max(records, key=lambda r: r.get("id", 0))
+                last_updated = last_record.get("updated_at")
+                last_id = last_record.get("id")
 
             update_sync_state(
-                conn, 'technicians',
+                conn,
+                "technicians",
                 last_updated_at=last_updated,
                 last_id=last_id,
                 total_records=processed,
-                sync_type='backfill'
+                sync_type="backfill",
             )
 
             progress.complete()
@@ -215,19 +216,16 @@ class BackfillSync:
             raise
 
     async def sync_all(
-        self,
-        start_date: date | None = None,
-        end_date: date | None = None,
-        **filters
+        self, start_date: date | None = None, end_date: date | None = None, **filters
     ) -> dict[str, int]:
         """
         Sincroniza todos os recursos em sequência.
-        
+
         Args:
             start_date: Data inicial para ordens (opcional)
             end_date: Data final para ordens (opcional)
             **filters: Filtros adicionais
-        
+
         Returns:
             Dict com contadores por recurso
         """
@@ -237,13 +235,13 @@ class BackfillSync:
 
         try:
             # Sincronizar em sequência para não sobrecarregar a API
-            results['orders'] = await self.sync_orders(start_date, end_date, **filters)
+            results["orders"] = await self.sync_orders(start_date, end_date, **filters)
             await asyncio.sleep(2)  # Pausa entre recursos
 
-            results['equipments'] = await self.sync_equipments(**filters)
+            results["equipments"] = await self.sync_equipments(**filters)
             await asyncio.sleep(2)
 
-            results['technicians'] = await self.sync_technicians(**filters)
+            results["technicians"] = await self.sync_technicians(**filters)
 
             total = sum(results.values())
             logger.log_info(f"🎉 Backfill completo! Total: {total:,} registros sincronizados")
@@ -254,18 +252,14 @@ class BackfillSync:
             logger.log_error(f"❌ Erro durante backfill completo: {e}")
             raise
 
-    async def _fetch_all_paginated(
-        self,
-        resource_type: str,
-        filters: dict[str, Any]
-    ) -> list[Any]:
+    async def _fetch_all_paginated(self, resource_type: str, filters: dict[str, Any]) -> list[Any]:
         """
         Busca todos os registros de um recurso usando paginação.
-        
+
         Args:
             resource_type: Tipo do recurso ('chamados', 'equipments', etc)
             filters: Filtros para a busca
-        
+
         Returns:
             Lista com todos os registros
         """
@@ -274,10 +268,10 @@ class BackfillSync:
         try:
             # Mapeamento de tipos para métodos do client
             method_map = {
-                'chamados': self.client.list_chamados,
-                'orders': self.client.list_chamados,
-                'equipments': getattr(self.client, 'list_equipments', None),
-                'technicians': getattr(self.client, 'list_technicians', None)
+                "chamados": self.client.list_chamados,
+                "orders": self.client.list_chamados,
+                "equipments": getattr(self.client, "list_equipments", None),
+                "technicians": getattr(self.client, "list_technicians", None),
             }
 
             fetch_method = method_map.get(resource_type)
@@ -286,7 +280,7 @@ class BackfillSync:
                 return []
 
             # Para ordens, usar o método existente que já tem paginação
-            if resource_type in ['chamados', 'orders']:
+            if resource_type in ["chamados", "orders"]:
                 records = await fetch_method(filters)
                 return records
 
@@ -313,34 +307,34 @@ async def run_backfill(
     resources: list[str] = None,
     start_date: date | None = None,
     end_date: date | None = None,
-    **filters
+    **filters,
 ) -> dict[str, int]:
     """
     Executa backfill para recursos especificados.
-    
+
     Args:
         client: Cliente da API
         resources: Lista de recursos ('orders', 'equipments', 'technicians')
         start_date: Data inicial (apenas para orders)
         end_date: Data final (apenas para orders)
         **filters: Filtros adicionais
-    
+
     Returns:
         Dict com resultados por recurso
     """
     if resources is None:
-        resources = ['orders', 'equipments', 'technicians']
+        resources = ["orders", "equipments", "technicians"]
 
     sync = BackfillSync(client)
     results = {}
 
     for resource in resources:
         try:
-            if resource == 'orders':
+            if resource == "orders":
                 results[resource] = await sync.sync_orders(start_date, end_date, **filters)
-            elif resource == 'equipments':
+            elif resource == "equipments":
                 results[resource] = await sync.sync_equipments(**filters)
-            elif resource == 'technicians':
+            elif resource == "technicians":
                 results[resource] = await sync.sync_technicians(**filters)
             else:
                 logger.log_warning(f"⚠️ Recurso desconhecido: {resource}")

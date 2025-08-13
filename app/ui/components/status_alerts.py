@@ -4,6 +4,7 @@ Componente de notificação de status geral dos dados.
 Este módulo fornece alertas e notificações sobre o estado
 geral da sincronização em todas as páginas.
 """
+
 from datetime import datetime
 
 import streamlit as st
@@ -16,21 +17,21 @@ from app.services.sync.delta import should_run_incremental_sync
 def render_global_status_alert(show_details: bool = False) -> None:
     """
     Renderiza alerta de status global dos dados.
-    
+
     Args:
         show_details: Se deve mostrar detalhes por recurso
     """
     try:
         # Verificar status de todos os recursos
-        resources = ['orders', 'equipments', 'technicians']
+        resources = ["orders", "equipments", "technicians"]
         status_info = check_global_status(resources)
 
         # Determinar tipo de alerta
-        if status_info['critical_count'] > 0:
+        if status_info["critical_count"] > 0:
             render_critical_alert(status_info, show_details)
-        elif status_info['warning_count'] > 0:
+        elif status_info["warning_count"] > 0:
             render_warning_alert(status_info, show_details)
-        elif status_info['total_records'] == 0:
+        elif status_info["total_records"] == 0:
             render_empty_db_alert()
         else:
             # Status OK - mostrar badge discreto
@@ -48,42 +49,42 @@ def check_global_status(resources: list[str]) -> dict:
     stats = get_database_stats()
 
     status_info = {
-        'total_records': 0,
-        'critical_count': 0,  # Nunca sincronizado
-        'warning_count': 0,   # Desatualizado
-        'ok_count': 0,        # Atualizado
-        'resources': {},
-        'last_global_sync': None
+        "total_records": 0,
+        "critical_count": 0,  # Nunca sincronizado
+        "warning_count": 0,  # Desatualizado
+        "ok_count": 0,  # Atualizado
+        "resources": {},
+        "last_global_sync": None,
     }
 
     for resource in resources:
-        count = stats.get(f'{resource}_count', 0)
-        status_info['total_records'] += count
+        count = stats.get(f"{resource}_count", 0)
+        status_info["total_records"] += count
 
         # Verificar frescor
         is_fresh = not should_run_incremental_sync(resource, max_age_hours=2)
 
         # Classificar status
         if count == 0:
-            status = 'critical'  # Nunca sincronizado
-            status_info['critical_count'] += 1
+            status = "critical"  # Nunca sincronizado
+            status_info["critical_count"] += 1
         elif not is_fresh:
-            status = 'warning'   # Desatualizado
-            status_info['warning_count'] += 1
+            status = "warning"  # Desatualizado
+            status_info["warning_count"] += 1
         else:
-            status = 'ok'        # Atualizado
-            status_info['ok_count'] += 1
+            status = "ok"  # Atualizado
+            status_info["ok_count"] += 1
 
-        status_info['resources'][resource] = {
-            'count': count,
-            'status': status,
-            'is_fresh': is_fresh
+        status_info["resources"][resource] = {
+            "count": count,
+            "status": status,
+            "is_fresh": is_fresh,
         }
 
     # Encontrar última sincronização global
-    last_syncs = stats.get('last_syncs', [])
+    last_syncs = stats.get("last_syncs", [])
     if last_syncs:
-        status_info['last_global_sync'] = last_syncs[0].get('synced_at')
+        status_info["last_global_sync"] = last_syncs[0].get("synced_at")
 
     return status_info
 
@@ -91,8 +92,8 @@ def check_global_status(resources: list[str]) -> dict:
 def render_critical_alert(status_info: dict, show_details: bool) -> None:
     """Renderiza alerta crítico."""
 
-    critical_count = status_info['critical_count']
-    total_records = status_info['total_records']
+    critical_count = status_info["critical_count"]
+    total_records = status_info["total_records"]
 
     st.error(
         f"🚨 **Atenção**: {critical_count} tipo(s) de dados nunca foram sincronizados. "
@@ -113,8 +114,8 @@ def render_critical_alert(status_info: dict, show_details: bool) -> None:
 def render_warning_alert(status_info: dict, show_details: bool) -> None:
     """Renderiza alerta de aviso."""
 
-    warning_count = status_info['warning_count']
-    total_records = status_info['total_records']
+    warning_count = status_info["warning_count"]
+    total_records = status_info["total_records"]
 
     st.warning(
         f"⚠️ **Dados desatualizados**: {warning_count} tipo(s) de dados precisam ser atualizados. "
@@ -149,8 +150,8 @@ def render_empty_db_alert() -> None:
 def render_success_status(status_info: dict) -> None:
     """Renderiza status de sucesso."""
 
-    total_records = status_info['total_records']
-    ok_count = status_info['ok_count']
+    total_records = status_info["total_records"]
+    ok_count = status_info["ok_count"]
 
     st.success(
         f"✅ **Dados atualizados**: {ok_count} tipo(s) de dados estão sincronizados. "
@@ -158,10 +159,10 @@ def render_success_status(status_info: dict) -> None:
     )
 
     # Mostrar última sincronização
-    last_sync = status_info.get('last_global_sync')
+    last_sync = status_info.get("last_global_sync")
     if last_sync:
         try:
-            dt = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
+            dt = datetime.fromisoformat(last_sync.replace("Z", "+00:00"))
             formatted = dt.strftime("Última sincronização: %H:%M:%S - %d/%m/%Y")
             st.caption(formatted)
         except:
@@ -172,21 +173,21 @@ def render_detailed_status(status_info: dict) -> None:
     """Renderiza status detalhado por recurso."""
 
     resource_names = {
-        'orders': '📋 Ordens de Serviço',
-        'equipments': '🛠️ Equipamentos',
-        'technicians': '👥 Técnicos'
+        "orders": "📋 Ordens de Serviço",
+        "equipments": "🛠️ Equipamentos",
+        "technicians": "👥 Técnicos",
     }
 
-    for resource, details in status_info['resources'].items():
+    for resource, details in status_info["resources"].items():
         name = resource_names.get(resource, resource.title())
-        count = details['count']
-        status = details['status']
+        count = details["count"]
+        status = details["status"]
 
         # Ícone e cor por status
-        if status == 'critical':
+        if status == "critical":
             icon = "🔴"
             status_text = "Nunca sincronizado"
-        elif status == 'warning':
+        elif status == "warning":
             icon = "🟡"
             status_text = "Desatualizado"
         else:
@@ -208,8 +209,9 @@ def trigger_emergency_sync(status_info: dict) -> None:
 
         # Identificar recursos que precisam de sync
         critical_resources = [
-            resource for resource, details in status_info['resources'].items()
-            if details['status'] == 'critical'
+            resource
+            for resource, details in status_info["resources"].items()
+            if details["status"] == "critical"
         ]
 
         # Executar backfill
@@ -236,13 +238,15 @@ def trigger_incremental_sync(status_info: dict) -> None:
 
         # Identificar recursos que precisam de atualização
         warning_resources = [
-            resource for resource, details in status_info['resources'].items()
-            if details['status'] == 'warning'
+            resource
+            for resource, details in status_info["resources"].items()
+            if details["status"] == "warning"
         ]
 
         # Criar cliente da API
         from app.arkmeds_client.auth import ArkmedsAuth
         from app.arkmeds_client.client import ArkmedsClient
+
         auth = ArkmedsAuth()
         client = ArkmedsClient(auth)
 
@@ -269,7 +273,7 @@ def trigger_initial_sync() -> None:
         from app.services.sync.ingest import BackfillSync
 
         backfill = BackfillSync()
-        asyncio.run(backfill.run_backfill(['orders', 'equipments', 'technicians'], batch_size=100))
+        asyncio.run(backfill.run_backfill(["orders", "equipments", "technicians"], batch_size=100))
 
         st.success("✅ Primeira sincronização concluída!")
         st.cache_data.clear()
@@ -281,26 +285,33 @@ def trigger_initial_sync() -> None:
 
 # ========== COMPONENTES AUXILIARES ==========
 
+
 def render_status_banner() -> None:
     """Renderiza banner de status na parte superior."""
 
     try:
-        status_info = check_global_status(['orders', 'equipments', 'technicians'])
+        status_info = check_global_status(["orders", "equipments", "technicians"])
 
-        if status_info['critical_count'] > 0:
-            st.markdown("""
+        if status_info["critical_count"] > 0:
+            st.markdown(
+                """
                 <div style="background-color: #ff4b4b; color: white; padding: 10px; border-radius: 5px; margin: 10px 0;">
                     🚨 <strong>Atenção:</strong> Alguns dados nunca foram sincronizados. 
                     <a href="#sync" style="color: white; text-decoration: underline;">Sincronizar agora</a>
                 </div>
-            """, unsafe_allow_html=True)
-        elif status_info['warning_count'] > 0:
-            st.markdown("""
+            """,
+                unsafe_allow_html=True,
+            )
+        elif status_info["warning_count"] > 0:
+            st.markdown(
+                """
                 <div style="background-color: #ffa500; color: white; padding: 10px; border-radius: 5px; margin: 10px 0;">
                     ⚠️ <strong>Dados desatualizados.</strong> 
                     <a href="#update" style="color: white; text-decoration: underline;">Atualizar</a>
                 </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
     except Exception:
         pass  # Falha silenciosa para não quebrar a página
@@ -310,20 +321,21 @@ def render_floating_status_indicator() -> None:
     """Renderiza indicador flutuante de status."""
 
     try:
-        status_info = check_global_status(['orders', 'equipments', 'technicians'])
+        status_info = check_global_status(["orders", "equipments", "technicians"])
 
         # CSS para indicador flutuante
-        if status_info['critical_count'] > 0:
+        if status_info["critical_count"] > 0:
             color = "#ff4b4b"
             icon = "🚨"
-        elif status_info['warning_count'] > 0:
+        elif status_info["warning_count"] > 0:
             color = "#ffa500"
             icon = "⚠️"
         else:
             color = "#00cc00"
             icon = "✅"
 
-        st.markdown(f"""
+        st.markdown(
+            f"""
             <div style="
                 position: fixed; 
                 top: 20px; 
@@ -343,7 +355,9 @@ def render_floating_status_indicator() -> None:
             " title="Status da Sincronização">
                 {icon}
             </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
     except Exception:
         pass  # Falha silenciosa

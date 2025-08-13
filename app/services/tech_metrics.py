@@ -88,11 +88,13 @@ async def fetch_technician_orders(
         DataFetchError: If there's an error fetching data from the API
     """
     try:
-        return await client.list_chamados({
-            "data_criacao__lte": end_date,
-            "estado_ids": [OSEstado.ABERTA.value, OSEstado.FECHADA.value],
-            **filters,
-        })
+        return await client.list_chamados(
+            {
+                "data_criacao__lte": end_date,
+                "estado_ids": [OSEstado.ABERTA.value, OSEstado.FECHADA.value],
+                **filters,
+            }
+        )
     except (httpx.TimeoutException, ArkmedsAuthError) as exc:
         raise DataFetchError(f"Failed to fetch technician data: {exc!s}") from exc
 
@@ -136,6 +138,7 @@ async def calculate_technician_kpis(
     """
     # Validar dados usando helpers de data/validators.py
     from app.data.validators import validate_input_data
+
     validate_input_data(orders, list, "orders must be a list")
 
     # Filter relevant orders
@@ -282,9 +285,11 @@ async def compute_metrics(
     # Se ainda são None, usar período padrão
     if start_date is None:
         from datetime import date
+
         start_date = date.today().replace(day=1)
     if end_date is None:
         from datetime import date
+
         end_date = date.today()
 
     frozen = tuple(sorted(filters.items()))

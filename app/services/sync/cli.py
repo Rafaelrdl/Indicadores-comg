@@ -1,6 +1,7 @@
 """
 Comandos de linha para sincronização manual de dados.
 """
+
 import argparse
 import asyncio
 from datetime import date, timedelta
@@ -18,34 +19,48 @@ async def main():
     parser = argparse.ArgumentParser(description="Sincronização de dados Arkmeds")
 
     # Comandos principais
-    subparsers = parser.add_subparsers(dest='command', help='Comandos disponíveis')
+    subparsers = parser.add_subparsers(dest="command", help="Comandos disponíveis")
 
     # Comando backfill
-    backfill_parser = subparsers.add_parser('backfill', help='Sincronização completa (backfill)')
-    backfill_parser.add_argument('--resources', nargs='+',
-                                choices=['orders', 'equipments', 'technicians'],
-                                default=['orders'],
-                                help='Recursos para sincronizar')
-    backfill_parser.add_argument('--start-date', type=str,
-                                help='Data inicial (YYYY-MM-DD, apenas para orders)')
-    backfill_parser.add_argument('--end-date', type=str,
-                                help='Data final (YYYY-MM-DD, apenas para orders)')
+    backfill_parser = subparsers.add_parser("backfill", help="Sincronização completa (backfill)")
+    backfill_parser.add_argument(
+        "--resources",
+        nargs="+",
+        choices=["orders", "equipments", "technicians"],
+        default=["orders"],
+        help="Recursos para sincronizar",
+    )
+    backfill_parser.add_argument(
+        "--start-date", type=str, help="Data inicial (YYYY-MM-DD, apenas para orders)"
+    )
+    backfill_parser.add_argument(
+        "--end-date", type=str, help="Data final (YYYY-MM-DD, apenas para orders)"
+    )
 
     # Comando incremental
-    incremental_parser = subparsers.add_parser('incremental', help='Sincronização incremental')
-    incremental_parser.add_argument('--resources', nargs='+',
-                                   choices=['orders', 'equipments', 'technicians'],
-                                   default=['orders'],
-                                   help='Recursos para sincronizar')
+    incremental_parser = subparsers.add_parser("incremental", help="Sincronização incremental")
+    incremental_parser.add_argument(
+        "--resources",
+        nargs="+",
+        choices=["orders", "equipments", "technicians"],
+        default=["orders"],
+        help="Recursos para sincronizar",
+    )
 
     # Comando sync (automático)
-    sync_parser = subparsers.add_parser('sync', help='Sincronização inteligente (incremental + fallback)')
-    sync_parser.add_argument('--resources', nargs='+',
-                            choices=['orders', 'equipments', 'technicians'],
-                            default=['orders'],
-                            help='Recursos para sincronizar')
-    sync_parser.add_argument('--force-backfill', action='store_true',
-                            help='Forçar backfill completo')
+    sync_parser = subparsers.add_parser(
+        "sync", help="Sincronização inteligente (incremental + fallback)"
+    )
+    sync_parser.add_argument(
+        "--resources",
+        nargs="+",
+        choices=["orders", "equipments", "technicians"],
+        default=["orders"],
+        help="Recursos para sincronizar",
+    )
+    sync_parser.add_argument(
+        "--force-backfill", action="store_true", help="Forçar backfill completo"
+    )
 
     args = parser.parse_args()
 
@@ -61,17 +76,17 @@ async def main():
     auth = ArkmedsAuth(
         base_url=settings.api_base_url,
         username=settings.api_username,
-        password=settings.api_password
+        password=settings.api_password,
     )
 
     client = ArkmedsClient(auth=auth)
 
     try:
-        if args.command == 'backfill':
+        if args.command == "backfill":
             await handle_backfill(client, args)
-        elif args.command == 'incremental':
+        elif args.command == "incremental":
             await handle_incremental(client, args)
-        elif args.command == 'sync':
+        elif args.command == "sync":
             await handle_smart_sync(client, args)
 
     except KeyboardInterrupt:
@@ -95,10 +110,7 @@ async def handle_backfill(client: ArkmedsClient, args):
 
     # Executar backfill
     results = await run_backfill(
-        client,
-        resources=args.resources,
-        start_date=start_date,
-        end_date=end_date
+        client, resources=args.resources, start_date=start_date, end_date=end_date
     )
 
     # Mostrar resultados
@@ -140,7 +152,7 @@ async def handle_smart_sync(client: ArkmedsClient, args):
         if args.force_backfill or not should_run_incremental_sync(resource):
             print(f"  🔄 Executando backfill para {resource}")
 
-            if resource == 'orders':
+            if resource == "orders":
                 # Para orders, fazer backfill dos últimos 30 dias por padrão
                 end_date = date.today()
                 start_date = end_date - timedelta(days=30)

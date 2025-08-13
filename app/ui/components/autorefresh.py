@@ -4,6 +4,7 @@ Componente de auto-refresh opcional como fallback para o scheduler.
 Este módulo fornece funcionalidade de refresh automático da página
 em intervalos longos, útil como fallback quando o scheduler não está ativo.
 """
+
 from datetime import datetime
 
 import streamlit as st
@@ -16,25 +17,25 @@ from app.core.scheduler import get_scheduler_status
 def render_autorefresh_fallback(
     interval_seconds: int = 1800,  # 30 minutos por padrão
     key: str = "main_autorefresh",
-    show_controls: bool = False
+    show_controls: bool = False,
 ) -> int | None:
     """
     Renderiza auto-refresh opcional como fallback do scheduler.
-    
+
     Só é ativado se o scheduler não estiver rodando ou se o usuário optar.
-    
+
     Args:
         interval_seconds: Intervalo em segundos para refresh
         key: Chave única para o componente
         show_controls: Se deve mostrar controles para o usuário
-        
+
     Returns:
         Contador de refresh ou None se não ativo
     """
     try:
         # Verificar status do scheduler
         scheduler_status = get_scheduler_status()
-        scheduler_active = scheduler_status.get('running', False)
+        scheduler_active = scheduler_status.get("running", False)
 
         # Configurações no session state
         enabled_key = f"{key}_enabled"
@@ -46,11 +47,7 @@ def render_autorefresh_fallback(
 
         # Mostrar controles se solicitado
         if show_controls:
-            _render_autorefresh_controls(
-                interval_seconds,
-                enabled_key,
-                scheduler_active
-            )
+            _render_autorefresh_controls(interval_seconds, enabled_key, scheduler_active)
 
         # Executar auto-refresh se habilitado
         if st.session_state.get(enabled_key, False):
@@ -58,7 +55,7 @@ def render_autorefresh_fallback(
                 interval=interval_seconds * 1000,  # Converter para ms
                 key=key,
                 debounce=False,
-                limit=None
+                limit=None,
             )
 
             # Log do refresh
@@ -66,7 +63,7 @@ def render_autorefresh_fallback(
                 app_logger.log_info(
                     f"🔄 Auto-refresh executado (#{counter})",
                     interval_seconds=interval_seconds,
-                    page_key=key
+                    page_key=key,
                 )
 
             return counter
@@ -79,9 +76,7 @@ def render_autorefresh_fallback(
 
 
 def _render_autorefresh_controls(
-    interval_seconds: int,
-    enabled_key: str,
-    scheduler_active: bool
+    interval_seconds: int, enabled_key: str, scheduler_active: bool
 ) -> None:
     """Renderiza controles do auto-refresh."""
 
@@ -103,7 +98,7 @@ def _render_autorefresh_controls(
             f"Atualizar página a cada {interval_seconds // 60} minutos",
             value=current_state,
             help="Recarrega a página automaticamente para atualizar dados",
-            key=f"{enabled_key}_toggle"
+            key=f"{enabled_key}_toggle",
         )
 
         if new_state != current_state:
@@ -118,7 +113,8 @@ def _render_autorefresh_controls(
 
     # Informações adicionais
     with st.expander("ℹ️ Como funciona"):
-        st.markdown(f"""
+        st.markdown(
+            f"""
         **Auto-Refresh da Página:**
         - Recarrega toda a página a cada {interval_seconds // 60} minutos
         - Força nova busca de dados do cache/banco
@@ -129,19 +125,18 @@ def _render_autorefresh_controls(
         - Use apenas em páginas com alto tráfego
         - Prefira o scheduler automático quando possível
         - Considere intervalos longos (30+ minutos) para reduzir carga
-        """)
+        """
+        )
 
 
 def render_smart_refresh(
-    page_name: str,
-    high_traffic: bool = False,
-    interval_minutes: int = 30
+    page_name: str, high_traffic: bool = False, interval_minutes: int = 30
 ) -> None:
     """
     Renderiza sistema inteligente de refresh.
-    
+
     Escolhe automaticamente entre scheduler e auto-refresh baseado no contexto.
-    
+
     Args:
         page_name: Nome da página para logging
         high_traffic: Se é página de alto tráfego
@@ -149,22 +144,22 @@ def render_smart_refresh(
     """
     try:
         scheduler_status = get_scheduler_status()
-        scheduler_active = scheduler_status.get('running', False)
+        scheduler_active = scheduler_status.get("running", False)
 
         # Se scheduler ativo, apenas mostrar status
         if scheduler_active:
-            interval_scheduler = scheduler_status.get('interval_minutes', 15)
-            next_run = scheduler_status.get('next_run')
+            interval_scheduler = scheduler_status.get("interval_minutes", 15)
+            next_run = scheduler_status.get("next_run")
 
             st.success(
                 f"🕐 Dados atualizados automaticamente a cada {interval_scheduler} minutos",
-                icon="✅"
+                icon="✅",
             )
 
             if next_run:
                 try:
                     if isinstance(next_run, str):
-                        next_run_dt = datetime.fromisoformat(next_run.replace('Z', '+00:00'))
+                        next_run_dt = datetime.fromisoformat(next_run.replace("Z", "+00:00"))
                     else:
                         next_run_dt = next_run
 
@@ -184,7 +179,7 @@ def render_smart_refresh(
             counter = render_autorefresh_fallback(
                 interval_seconds=interval_minutes * 60,
                 key=f"autorefresh_{page_name}",
-                show_controls=True
+                show_controls=True,
             )
 
             if counter and counter > 0:

@@ -1,6 +1,7 @@
 """
 Módulo para operações de upsert idempotente e controle de rate limiting.
 """
+
 import asyncio
 import json
 import sqlite3
@@ -16,7 +17,9 @@ from app.core.logging import app_logger
 class RateLimiter:
     """Controla rate limiting com backoff exponencial."""
 
-    def __init__(self, base_delay: float = 0.1, max_delay: float = 10.0, backoff_factor: float = 2.0):
+    def __init__(
+        self, base_delay: float = 0.1, max_delay: float = 10.0, backoff_factor: float = 2.0
+    ):
         self.base_delay = base_delay
         self.max_delay = max_delay
         self.backoff_factor = backoff_factor
@@ -36,10 +39,7 @@ class RateLimiter:
     def on_error(self):
         """Aumenta delay após erro."""
         self.error_count += 1
-        self.current_delay = min(
-            self.current_delay * self.backoff_factor,
-            self.max_delay
-        )
+        self.current_delay = min(self.current_delay * self.backoff_factor, self.max_delay)
         app_logger.log_warning(f"Rate limit hit, increasing delay to {self.current_delay:.2f}s")
 
 
@@ -47,17 +47,17 @@ def upsert_records(
     conn: sqlite3.Connection,
     table: str,
     records: list[dict[str, Any]],
-    progress_callback: callable | None = None
+    progress_callback: callable | None = None,
 ) -> int:
     """
     Executa upsert idempotente de registros no banco.
-    
+
     Args:
         conn: Conexão SQLite
         table: Nome da tabela de destino ('orders', 'equipments', 'technicians')
         records: Lista de registros para inserir/atualizar
         progress_callback: Função callback para progresso (opcional)
-    
+
     Returns:
         int: Número de registros processados
     """
@@ -77,13 +77,13 @@ def upsert_records(
         batch_data = []
 
         for record in records:
-            record_id = record.get('id')
+            record_id = record.get("id")
             if not record_id:
                 continue  # Pular registros sem ID
 
             # Serializar registro completo como JSON
             payload = json.dumps(record, ensure_ascii=False, default=str)
-            updated_at = record.get('updated_at')
+            updated_at = record.get("updated_at")
 
             batch_data.append((record_id, payload, updated_at, current_timestamp))
 
@@ -92,7 +92,7 @@ def upsert_records(
         processed = 0
 
         for i in range(0, len(batch_data), batch_size):
-            batch = batch_data[i:i + batch_size]
+            batch = batch_data[i : i + batch_size]
 
             conn.executemany(sql, batch)
             processed += len(batch)
@@ -123,11 +123,11 @@ def update_sync_state(
     last_updated_at: str | None = None,
     last_id: int | None = None,
     total_records: int | None = None,
-    sync_type: str = 'unknown'
+    sync_type: str = "unknown",
 ) -> None:
     """
     Atualiza estado de sincronização após operação bem-sucedida.
-    
+
     Args:
         conn: Conexão SQLite
         resource: Nome do recurso (ex: 'orders', 'equipments')
@@ -146,17 +146,14 @@ def update_sync_state(
             ) VALUES (?, ?, ?, ?, ?, ?)
         """
 
-        conn.execute(sql, (
-            resource,
-            last_updated_at,
-            last_id,
-            total_records,
-            sync_type,
-            current_time
-        ))
+        conn.execute(
+            sql, (resource, last_updated_at, last_id, total_records, sync_type, current_time)
+        )
         conn.commit()
 
-        app_logger.log_info(f"✅ Sync state updated for {resource}: type={sync_type}, records={total_records}")
+        app_logger.log_info(
+            f"✅ Sync state updated for {resource}: type={sync_type}, records={total_records}"
+        )
 
     except sqlite3.Error as e:
         app_logger.log_error(f"❌ Error updating sync state: {e}")
@@ -166,11 +163,11 @@ def update_sync_state(
 def get_last_sync_info(conn: sqlite3.Connection, resource: str) -> dict[str, Any] | None:
     """
     Obtém informações do último sync para um recurso.
-    
+
     Args:
         conn: Conexão SQLite
         resource: Nome do recurso
-    
+
     Returns:
         Dict com informações do sync ou None se não encontrado
     """
@@ -189,12 +186,12 @@ def get_last_sync_info(conn: sqlite3.Connection, resource: str) -> dict[str, Any
 
         if row:
             return {
-                'resource': row[0],
-                'last_updated_at': row[1],
-                'last_id': row[2],
-                'total_records': row[3],
-                'sync_type': row[4],
-                'synced_at': row[5]
+                "resource": row[0],
+                "last_updated_at": row[1],
+                "last_id": row[2],
+                "total_records": row[3],
+                "sync_type": row[4],
+                "synced_at": row[5],
             }
 
         return None
@@ -214,7 +211,7 @@ class ProgressTracker:
         self.start_time = time.time()
 
         # Para Streamlit UI
-        if hasattr(st, 'empty'):
+        if hasattr(st, "empty"):
             self.progress_bar = st.progress(0)
             self.status_text = st.empty()
 
@@ -238,7 +235,7 @@ class ProgressTracker:
             message = f"{self.description}: {current:,}/{self.total:,} ({percent}%){eta_str}"
 
             # Update Streamlit UI se disponível
-            if hasattr(self, 'progress_bar'):
+            if hasattr(self, "progress_bar"):
                 self.progress_bar.progress(percent / 100)
                 self.status_text.text(message)
 
@@ -249,7 +246,7 @@ class ProgressTracker:
         elapsed = time.time() - self.start_time
         message = f"✅ {self.description} completo: {self.current:,} registros em {elapsed:.1f}s"
 
-        if hasattr(self, 'progress_bar'):
+        if hasattr(self, "progress_bar"):
             self.progress_bar.progress(1.0)
             self.status_text.text(message)
 

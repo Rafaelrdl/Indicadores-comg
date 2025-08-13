@@ -74,7 +74,7 @@ class LogContext:
             "org_id": LogContext.get_org_id(),
             "user_id": LogContext.get_user_id(),
             "timestamp": datetime.now().isoformat(),
-            **extra
+            **extra,
         }
 
 
@@ -99,11 +99,7 @@ class StructuredLogger:
         self._logger = structlog.get_logger("indicadores_comg")
 
     def log_performance(
-        self,
-        func_name: str,
-        duration: float,
-        request_id: str | None = None,
-        **kwargs
+        self, func_name: str, duration: float, request_id: str | None = None, **kwargs
     ) -> None:
         """Log de performance de função com contexto estruturado."""
         context = LogContext.create_context(
@@ -111,7 +107,7 @@ class StructuredLogger:
             function=func_name,
             duration_seconds=round(duration, 3),
             request_id=request_id or LogContext.generate_request_id(),
-            **kwargs
+            **kwargs,
         )
 
         # Log level baseado na duração
@@ -124,10 +120,7 @@ class StructuredLogger:
             self._logger.info("Function execution", **context)
 
     def log_error(
-        self,
-        error: Exception,
-        context: dict[str, Any] | None = None,
-        request_id: str | None = None
+        self, error: Exception, context: dict[str, Any] | None = None, request_id: str | None = None
     ) -> None:
         """Log de erros com contexto estruturado."""
         error_context = LogContext.create_context(
@@ -135,55 +128,44 @@ class StructuredLogger:
             error_type=type(error).__name__,
             error_message=str(error),
             request_id=request_id or LogContext.generate_request_id(),
-            **(context or {})
+            **(context or {}),
         )
 
         self._logger.error("Application error", **error_context)
 
-    def log_info(
-        self,
-        message: str,
-        request_id: str | None = None,
-        **kwargs
-    ) -> None:
+    def log_info(self, message: str, request_id: str | None = None, **kwargs) -> None:
         """Log de informações gerais."""
         context = LogContext.create_context(
             event="info",
             message=message,
             request_id=request_id or LogContext.generate_request_id(),
-            **kwargs
+            **kwargs,
         )
 
         self._logger.info("Application info", **context)
 
     def log_cache_hit(
-        self,
-        func_name: str,
-        cache_key: str | None = None,
-        request_id: str | None = None
+        self, func_name: str, cache_key: str | None = None, request_id: str | None = None
     ) -> None:
         """Log de cache hit."""
         context = LogContext.create_context(
             event="cache_hit",
             function=func_name,
             cache_key=cache_key,
-            request_id=request_id or LogContext.generate_request_id()
+            request_id=request_id or LogContext.generate_request_id(),
         )
 
         self._logger.info("Cache hit", **context)
 
     def log_cache_miss(
-        self,
-        func_name: str,
-        cache_key: str | None = None,
-        request_id: str | None = None
+        self, func_name: str, cache_key: str | None = None, request_id: str | None = None
     ) -> None:
         """Log de cache miss."""
         context = LogContext.create_context(
             event="cache_miss",
             function=func_name,
             cache_key=cache_key,
-            request_id=request_id or LogContext.generate_request_id()
+            request_id=request_id or LogContext.generate_request_id(),
         )
 
         self._logger.info("Cache miss", **context)
@@ -195,7 +177,7 @@ class StructuredLogger:
         status_code: int,
         duration: float,
         request_id: str | None = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Log de chamadas de API."""
         context = LogContext.create_context(
@@ -205,7 +187,7 @@ class StructuredLogger:
             status_code=status_code,
             duration_seconds=round(duration, 3),
             request_id=request_id or LogContext.generate_request_id(),
-            **kwargs
+            **kwargs,
         )
 
         if status_code >= 400:
@@ -216,6 +198,7 @@ class StructuredLogger:
 
 def structured_performance_monitor(func: Callable) -> Callable:
     """Decorator para monitorar performance com logging estruturado."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -230,7 +213,7 @@ def structured_performance_monitor(func: Callable) -> Callable:
                 duration=duration,
                 request_id=request_id,
                 args_count=len(args),
-                kwargs_keys=list(kwargs.keys()) if kwargs else []
+                kwargs_keys=list(kwargs.keys()) if kwargs else [],
             )
 
             return result
@@ -243,9 +226,9 @@ def structured_performance_monitor(func: Callable) -> Callable:
                     "function": func.__name__,
                     "duration": duration,
                     "args_count": len(args),
-                    "kwargs_keys": list(kwargs.keys()) if kwargs else []
+                    "kwargs_keys": list(kwargs.keys()) if kwargs else [],
                 },
-                request_id=request_id
+                request_id=request_id,
             )
             raise
 
@@ -254,6 +237,7 @@ def structured_performance_monitor(func: Callable) -> Callable:
 
 def structured_cache_performance(func: Callable) -> Callable:
     """Decorator para monitorar performance de cache com logging estruturado."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -267,21 +251,15 @@ def structured_cache_performance(func: Callable) -> Callable:
         is_cache_hit = duration < 0.01
 
         if is_cache_hit:
-            struct_logger.log_cache_hit(
-                func_name=func.__name__,
-                request_id=request_id
-            )
+            struct_logger.log_cache_hit(func_name=func.__name__, request_id=request_id)
         else:
-            struct_logger.log_cache_miss(
-                func_name=func.__name__,
-                request_id=request_id
-            )
+            struct_logger.log_cache_miss(func_name=func.__name__, request_id=request_id)
 
         struct_logger.log_performance(
             func_name=func.__name__,
             duration=duration,
             request_id=request_id,
-            cache_status="hit" if is_cache_hit else "miss"
+            cache_status="hit" if is_cache_hit else "miss",
         )
 
         return result

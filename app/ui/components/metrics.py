@@ -17,7 +17,7 @@ class MetricsDisplay:
     def render_metric_cards(metrics: list[Metric], columns: int = 3) -> None:
         """
         Render metrics as cards in a grid layout.
-        
+
         Args:
             metrics: List of metrics to display
             columns: Number of columns in the grid
@@ -39,14 +39,14 @@ class MetricsDisplay:
                     value=metric.value,
                     delta=metric.delta,
                     delta_color=metric.delta_color,
-                    help=metric.help_text
+                    help=metric.help_text,
                 )
 
     @staticmethod
     def render_kpi_dashboard(kpis: list[KPICard]) -> None:
         """
         Render KPI dashboard with grouped metrics.
-        
+
         Args:
             kpis: List of KPI cards to display
         """
@@ -64,20 +64,18 @@ class MetricsDisplay:
                         value=metric.value,
                         delta=metric.delta,
                         delta_color=metric.delta_color,
-                        help=metric.help_text
+                        help=metric.help_text,
                     )
 
             st.divider()
 
     @staticmethod
     def render_summary_metrics(
-        title: str,
-        metrics_data: dict[str, Any],
-        layout: str = "horizontal"
+        title: str, metrics_data: dict[str, Any], layout: str = "horizontal"
     ) -> None:
         """
         Render summary metrics with customizable layout.
-        
+
         Args:
             title: Section title
             metrics_data: Dictionary with metric names as keys and values
@@ -98,11 +96,11 @@ class MetricsDisplay:
     def render_comparison_metrics(
         current_metrics: dict[str, Any],
         previous_metrics: dict[str, Any],
-        title: str = "Comparação com Período Anterior"
+        title: str = "Comparação com Período Anterior",
     ) -> None:
         """
         Render metrics with comparison to previous period.
-        
+
         Args:
             current_metrics: Current period metrics
             previous_metrics: Previous period metrics for comparison
@@ -117,18 +115,16 @@ class MetricsDisplay:
                 previous_value = previous_metrics.get(label, 0)
 
                 # Calculate delta
-                if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
+                if isinstance(current_value, (int, float)) and isinstance(
+                    previous_value, (int, float)
+                ):
                     delta = current_value - previous_value
                     delta_percent = (delta / previous_value * 100) if previous_value != 0 else 0
                     delta_display = f"{delta:+.1f} ({delta_percent:+.1f}%)"
                 else:
                     delta_display = None
 
-                st.metric(
-                    label=label,
-                    value=current_value,
-                    delta=delta_display
-                )
+                st.metric(label=label, value=current_value, delta=delta_display)
 
 
 class ProgressIndicators:
@@ -140,11 +136,11 @@ class ProgressIndicators:
         value: float,
         max_value: float = 100.0,
         format_string: str = "%.1f",
-        color: str | None = None
+        color: str | None = None,
     ) -> None:
         """
         Render a progress bar with label.
-        
+
         Args:
             label: Progress bar label
             value: Current value
@@ -163,12 +159,11 @@ class ProgressIndicators:
 
     @staticmethod
     def render_status_indicators(
-        statuses: dict[str, str],
-        colors: dict[str, str] | None = None
+        statuses: dict[str, str], colors: dict[str, str] | None = None
     ) -> None:
         """
         Render status indicators with colored badges.
-        
+
         Args:
             statuses: Dictionary with status names and values
             colors: Optional color mapping for statuses
@@ -182,7 +177,7 @@ class ProgressIndicators:
                     color = colors[status]
                     st.markdown(
                         f"**{label}**: <span style='color: {color}'>{status}</span>",
-                        unsafe_allow_html=True
+                        unsafe_allow_html=True,
                     )
                 else:
                     st.write(f"**{label}**: {status}")
@@ -193,14 +188,11 @@ class DataCards:
 
     @staticmethod
     def render_info_card(
-        title: str,
-        content: str,
-        icon: str | None = None,
-        color: str = "info"
+        title: str, content: str, icon: str | None = None, color: str = "info"
     ) -> None:
         """
         Render an information card.
-        
+
         Args:
             title: Card title
             content: Card content
@@ -219,13 +211,10 @@ class DataCards:
             st.info(f"**{title_with_icon}**\n\n{content}")
 
     @staticmethod
-    def render_data_summary_card(
-        data: pd.DataFrame,
-        title: str = "Resumo dos Dados"
-    ) -> None:
+    def render_data_summary_card(data: pd.DataFrame, title: str = "Resumo dos Dados") -> None:
         """
         Render a data summary card showing key statistics.
-        
+
         Args:
             data: DataFrame to summarize
             title: Card title
@@ -247,5 +236,7 @@ class DataCards:
 
             with col3:
                 # Calculate completeness
-                completeness = (1 - data.isnull().sum().sum() / (len(data) * len(data.columns))) * 100
+                completeness = (
+                    1 - data.isnull().sum().sum() / (len(data) * len(data.columns))
+                ) * 100
                 st.metric("Completude", f"{completeness:.1f}%")

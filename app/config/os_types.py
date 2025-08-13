@@ -10,7 +10,7 @@ Edit IDs if API mappings change.
 # Tipos de OS - IDs reais da API
 TIPO_PREVENTIVA = 1  # Manutenção Preventiva
 TIPO_CALIBRACAO = 2  # Calibração
-TIPO_CORRETIVA = 3   # Manutenção Corretiva
+TIPO_CORRETIVA = 3  # Manutenção Corretiva
 TIPO_VISITA_TECNICA = 4  # Visita Técnica
 TIPO_EMPRESTIMO = 5  # Empréstimo
 TIPO_TREINAMENTO = 6  # Treinamento

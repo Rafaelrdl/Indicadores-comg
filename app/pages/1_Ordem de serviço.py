@@ -1,6 +1,5 @@
 """Página de análise de ordens de serviço e KPIs de manutenção."""
 
-
 import pandas as pd
 import streamlit as st
 
@@ -29,7 +28,7 @@ settings = get_settings()
 def compute_metrics_from_sqlite_data(service_orders: dict, dt_ini, dt_fim) -> dict:
     """
     Processa métricas a partir de dados do SQLite.
-    
+
     Função local otimizada que evita chamadas async desnecessárias
     quando os dados já estão carregados do banco local.
     """
@@ -60,15 +59,15 @@ def compute_metrics_from_sqlite_data(service_orders: dict, dt_ini, dt_fim) -> di
             busca_ativa=len(busca_ativa),
             abertas=len(abertas),
             fechadas=len(fechadas),
-            sla_pct=sla_pct
+            sla_pct=sla_pct,
         )
 
         # Retornar dados completos
         return {
-            'metrics': metrics,
-            'service_orders': service_orders,
-            'dt_ini': dt_ini,
-            'dt_fim': dt_fim
+            "metrics": metrics,
+            "service_orders": service_orders,
+            "dt_ini": dt_ini,
+            "dt_fim": dt_fim,
         }
 
     except Exception as e:
@@ -95,12 +94,12 @@ def calculate_sla_sync(closed_orders: list) -> float:
 
                 # Parse dates
                 if isinstance(order.data_criacao, str):
-                    created = datetime.fromisoformat(order.data_criacao.replace('Z', '+00:00'))
+                    created = datetime.fromisoformat(order.data_criacao.replace("Z", "+00:00"))
                 else:
                     created = order.data_criacao
 
                 if isinstance(order.data_fechamento, str):
-                    closed = datetime.fromisoformat(order.data_fechamento.replace('Z', '+00:00'))
+                    closed = datetime.fromisoformat(order.data_fechamento.replace("Z", "+00:00"))
                 else:
                     closed = order.data_fechamento
 
@@ -118,11 +117,12 @@ def calculate_sla_sync(closed_orders: list) -> float:
     except Exception:
         return 0.0
 
+
 @performance_monitor
 async def fetch_os_data_async(filters_dict: dict = None) -> tuple:
     """
     Busca dados de ordens de serviço - REFATORADO PARA SQLITE.
-    
+
     🔄 NOVA IMPLEMENTAÇÃO: Leitura direta do SQLite local
     """
 
@@ -133,6 +133,7 @@ async def fetch_os_data_async(filters_dict: dict = None) -> tuple:
         # Use os filtros passados ou os padrão para OS
         if filters_dict is None:
             from datetime import date
+
             filters = {
                 "dt_ini": date.today().replace(day=1),
                 "dt_fim": date.today(),
@@ -153,21 +154,22 @@ async def fetch_os_data_async(filters_dict: dict = None) -> tuple:
 
         # Verificar estatísticas do banco
         stats = get_database_stats()
-        orders_count = stats.get('orders_count', 0)
+        orders_count = stats.get("orders_count", 0)
 
         if orders_count == 0:
             st.warning("📭 Banco local vazio. Executando sincronização inicial...")
             from app.services.sync.ingest import BackfillSync
+
             backfill = BackfillSync(client)
-            await backfill.run_backfill(['orders'], batch_size=100)
+            await backfill.run_backfill(["orders"], batch_size=100)
             st.success("✅ Sincronização inicial concluída")
 
         # Verificar frescor e sincronizar se necessário
         from app.services.sync.delta import run_incremental_sync, should_run_incremental_sync
 
-        if should_run_incremental_sync('orders', max_age_hours=2):
+        if should_run_incremental_sync("orders", max_age_hours=2):
             st.info("🔄 Executando sincronização incremental...")
-            await run_incremental_sync(client, ['orders'])
+            await run_incremental_sync(client, ["orders"])
             st.success("✅ Dados sincronizados")
 
         # Buscar dados otimizados do SQLite
@@ -175,7 +177,7 @@ async def fetch_os_data_async(filters_dict: dict = None) -> tuple:
             start_date=dt_ini.isoformat(),
             end_date=dt_fim.isoformat(),
             estados=estado_ids,
-            limit=5000
+            limit=5000,
         )
 
         if df.empty:
@@ -194,6 +196,7 @@ async def fetch_os_data_async(filters_dict: dict = None) -> tuple:
             # Fallback para conversão antiga se nova falhar
             st.warning(f"⚠️ Usando conversão fallback: {e}")
             from app.services.os_metrics import _convert_df_to_service_orders
+
             service_orders = _convert_df_to_service_orders(df, dt_ini, dt_fim, filters)
 
         # Calcular métricas localmente (sem async necessário)
@@ -201,7 +204,7 @@ async def fetch_os_data_async(filters_dict: dict = None) -> tuple:
 
         # Retornar dados no formato esperado
         # Extrair métricas e dados brutos do resultado
-        metrics = metrics_data.get('metrics')
+        metrics = metrics_data.get("metrics")
         os_raw = []
 
         # Converter service_orders de volta para lista de objetos para compatibilidade
@@ -224,7 +227,9 @@ async def fetch_os_data_async(filters_dict: dict = None) -> tuple:
                 api_filters["estado_ids"] = estado_ids
 
             # Buscar métricas da API
-            metrics = await compute_metrics(client, start_date=dt_ini, end_date=dt_fim, **api_filters)
+            metrics = await compute_metrics(
+                client, start_date=dt_ini, end_date=dt_fim, **api_filters
+            )
 
             # Buscar OS da API
             os_filters = {
@@ -248,8 +253,10 @@ async def fetch_os_data_async(filters_dict: dict = None) -> tuple:
 # Wrapper function for compatibility
 def fetch_os_data(filters_dict: dict = None) -> tuple:
     """Wrapper síncrono para compatibilidade."""
+
     async def async_wrapper():
         return await fetch_os_data_async(filters_dict)
+
     return run_async_safe(async_wrapper())
 
 
@@ -263,44 +270,32 @@ def render_kpi_metrics(metrics) -> None:
     # Preparar métricas para os novos componentes
     maintenance_metrics = [
         Metric(
-            label="Corretivas (Predial)",
-            value=getattr(metrics, 'corrective_building', 0),
-            icon="�"
+            label="Corretivas (Predial)", value=getattr(metrics, "corrective_building", 0), icon="�"
         ),
         Metric(
             label="Corretivas (Engenharia)",
-            value=getattr(metrics, 'corrective_engineering', 0),
-            icon="⚙️"
+            value=getattr(metrics, "corrective_engineering", 0),
+            icon="⚙️",
         ),
         Metric(
             label="Preventivas (Predial)",
-            value=getattr(metrics, 'preventive_building', 0),
-            icon="🔄"
-        )
+            value=getattr(metrics, "preventive_building", 0),
+            icon="🔄",
+        ),
     ]
 
     operational_metrics = [
         Metric(
-            label="Preventivas (Infra)",
-            value=getattr(metrics, 'preventive_infra', 0),
-            icon="🏗️"
+            label="Preventivas (Infra)", value=getattr(metrics, "preventive_infra", 0), icon="🏗️"
         ),
-        Metric(
-            label="Busca Ativa",
-            value=getattr(metrics, 'active_search', 0),
-            icon="🔍"
-        ),
-        Metric(
-            label="Abertas Atualmente",
-            value=getattr(metrics, 'currently_open', 0),
-            icon="📋"
-        )
+        Metric(label="Busca Ativa", value=getattr(metrics, "active_search", 0), icon="🔍"),
+        Metric(label="Abertas Atualmente", value=getattr(metrics, "currently_open", 0), icon="📋"),
     ]
 
     # KPI Cards
     kpi_cards = [
         KPICard(title="Manutenção Corretiva/Preventiva", metrics=maintenance_metrics),
-        KPICard(title="Operações e Status", metrics=operational_metrics)
+        KPICard(title="Operações e Status", metrics=operational_metrics),
     ]
 
     MetricsDisplay.render_kpi_dashboard(kpi_cards)
@@ -314,27 +309,26 @@ def render_summary_chart(metrics) -> None:
         return
 
     # Calcular totais
-    abertas_total = getattr(metrics, 'backlog', 0)
+    abertas_total = getattr(metrics, "backlog", 0)
     fechadas_total = (
-        getattr(metrics, 'corrective_building', 0) +
-        getattr(metrics, 'corrective_engineering', 0) +
-        getattr(metrics, 'preventive_building', 0) +
-        getattr(metrics, 'preventive_infra', 0) +
-        getattr(metrics, 'active_search', 0)
+        getattr(metrics, "corrective_building", 0)
+        + getattr(metrics, "corrective_engineering", 0)
+        + getattr(metrics, "preventive_building", 0)
+        + getattr(metrics, "preventive_infra", 0)
+        + getattr(metrics, "active_search", 0)
     )
 
     # Criar DataFrame para o gráfico
-    chart_data = pd.DataFrame({
-        "Status": ["Abertas", "Fechadas"],
-        "Quantidade": [abertas_total, fechadas_total]
-    })
+    chart_data = pd.DataFrame(
+        {"Status": ["Abertas", "Fechadas"], "Quantidade": [abertas_total, fechadas_total]}
+    )
 
     # Usar novo componente de gráfico
     DistributionCharts.render_bar_chart(
         data=chart_data,
         x_col="Status",
         y_col="Quantidade",
-        title="📈 Resumo: Ordens Abertas vs Fechadas"
+        title="📈 Resumo: Ordens Abertas vs Fechadas",
     )
 
     # Métricas de resumo
@@ -342,15 +336,9 @@ def render_summary_chart(metrics) -> None:
     if total > 0:
         summary_metrics = [
             Metric(
-                label="Taxa de Resolução",
-                value=f"{(fechadas_total/total)*100:.1f}%",
-                icon="📈"
+                label="Taxa de Resolução", value=f"{(fechadas_total/total)*100:.1f}%", icon="📈"
             ),
-            Metric(
-                label="Total de OS",
-                value=total,
-                icon="📊"
-            )
+            Metric(label="Total de OS", value=total, icon="📊"),
         ]
         MetricsDisplay.render_metric_cards(summary_metrics, columns=2)
 
@@ -366,24 +354,18 @@ def render_os_table(os_raw: list) -> None:
     df = pd.DataFrame([o.model_dump() for o in os_raw])
 
     # Limpar dados usando utilitários
-    for col in df.select_dtypes(include=['object']).columns:
-        df = DataCleaner.clean_string_column(
-            df, col,
-            strip_whitespace=True,
-            remove_empty=True
-        )
+    for col in df.select_dtypes(include=["object"]).columns:
+        df = DataCleaner.clean_string_column(df, col, strip_whitespace=True, remove_empty=True)
 
     # Converter tipos mistos para string para evitar problemas com Arrow
     for col in df.columns:
-        if df[col].dtype == 'object':
+        if df[col].dtype == "object":
             df[col] = df[col].astype(str)
 
     # Usar novo componente de tabela
-    table = (DataTable(data=df, title="📋 Lista de Ordens de Serviço")
-        .add_filters(
-            filterable_columns=["tipo", "status", "prioridade"] if "tipo" in df.columns else [],
-            searchable_columns=["chamados", "descricao"] if "chamados" in df.columns else []
-        )
+    table = DataTable(data=df, title="📋 Lista de Ordens de Serviço").add_filters(
+        filterable_columns=["tipo", "status", "prioridade"] if "tipo" in df.columns else [],
+        searchable_columns=["chamados", "descricao"] if "chamados" in df.columns else [],
     )
 
     # Adicionar filtro de data se disponível
@@ -406,11 +388,7 @@ def render_os_table(os_raw: list) -> None:
 
 def main():
     """Função principal da página de Ordem de Serviço."""
-    st.set_page_config(
-        page_title="Ordem de Serviço - Indicadores",
-        page_icon="📋",
-        layout="wide"
-    )
+    st.set_page_config(page_title="Ordem de Serviço - Indicadores", page_icon="📋", layout="wide")
 
     # Inicializar cliente
     try:
@@ -429,21 +407,23 @@ def main():
 
         # Badge do scheduler automático
         from app.ui.components.scheduler_status import render_scheduler_badge
+
         render_scheduler_badge()
 
         st.markdown("---")
 
-        render_compact_refresh_button(['orders'])
+        render_compact_refresh_button(["orders"])
 
         # Status rápido
         with st.expander("📊 Status dos Dados"):
             from app.ui.components.refresh_controls import render_sync_status
-            render_sync_status(['orders'], compact_mode=True)
+
+            render_sync_status(["orders"], compact_mode=True)
 
     # Layout principal
     layout = PageLayout(
         title="📋 Ordem de Serviço",
-        description="Análise de ordens de serviço, KPIs de manutenção e SLA"
+        description="Análise de ordens de serviço, KPIs de manutenção e SLA",
     )
     layout.render_header()
 
@@ -455,11 +435,7 @@ def main():
 
     with tab_dados:
         # Controles de refresh completos
-        render_refresh_controls(
-            resources=['orders'],
-            show_advanced=True,
-            compact_mode=False
-        )
+        render_refresh_controls(resources=["orders"], show_advanced=True, compact_mode=False)
 
     with tab_filtros:
         # Mostrar filtros ativos para transparência
@@ -500,6 +476,8 @@ def main():
 
         with SectionLayout.data_section("📋 Detalhes das Ordens"):
             render_os_table(os_raw)
+
+
 # Executar a aplicação
 if __name__ == "__main__":
     main()

@@ -64,6 +64,7 @@ def main():
 
         # Badge do scheduler automático
         from app.ui.components.scheduler_status import render_scheduler_badge
+
         render_scheduler_badge()
 
         st.markdown("---")
@@ -73,17 +74,18 @@ def main():
             render_compact_refresh_button,
             render_sync_status,
         )
-        render_compact_refresh_button(['technicians', 'orders'])
+
+        render_compact_refresh_button(["technicians", "orders"])
 
         # Status dos dados
         with st.expander("📊 Status"):
-            render_sync_status(['technicians', 'orders'], compact_mode=True)
+            render_sync_status(["technicians", "orders"], compact_mode=True)
 
     # Usar novo sistema de layout
     layout = PageLayout(
         title="Análise de Técnicos",
         description="Desempenho e atividades da equipe técnica",
-        icon="👷"
+        icon="👷",
     )
 
     layout.render_header()
@@ -107,7 +109,8 @@ def main():
 
             # Seção em construção
             with SectionLayout.info_section("🚧 Funcionalidades em Desenvolvimento"):
-                st.markdown("""
+                st.markdown(
+                    """
                 ### 🎯 Métricas de Performance
                 - **Produtividade por Técnico**: Ordens concluídas por período
                 - **Tempo Médio de Resolução**: MTTR por tipo de ordem
@@ -123,7 +126,8 @@ def main():
                 - **Sistema de Pontos**: Recompensas por performance
                 - **Badges de Conquista**: Reconhecimento de especialização
                 - **Leaderboards**: Rankings motivacionais
-                """)
+                """
+                )
 
         except Exception as e:
             st.error(f"Erro ao carregar dados: {e!s}")
@@ -139,11 +143,9 @@ async def fetch_technician_data() -> list[dict]:
         if users:
             df = pd.DataFrame([user.model_dump() for user in users])
             df = DataValidator.validate_dataframe(
-                df,
-                required_columns=["id", "nome"],
-                name="Técnicos"
+                df, required_columns=["id", "nome"], name="Técnicos"
             )
-            return df.to_dict('records')
+            return df.to_dict("records")
 
         return []
 
@@ -165,16 +167,18 @@ def fetch_technician_data_cached() -> list[dict]:
 
         # Verificar estatísticas do banco
         stats = get_database_stats()
-        technicians_count = stats.get('technicians_count', 0)
+        technicians_count = stats.get("technicians_count", 0)
 
         # Se banco está vazio, avisar usuário para executar sincronização
         if technicians_count == 0:
-            st.warning("""
+            st.warning(
+                """
             📭 **Dados não encontrados no banco local**
             
             Para visualizar os dados de técnicos, é necessário executar a sincronização inicial.
             Use os controles na sidebar ou aguarde a sincronização automática.
-            """)
+            """
+            )
             return []
 
         # Buscar técnicos do SQLite
@@ -188,15 +192,21 @@ def fetch_technician_data_cached() -> list[dict]:
         technicians_list = []
         for _, row in technicians_df.iterrows():
             try:
-                payload = json.loads(row['payload']) if isinstance(row['payload'], str) else row['payload']
-                technicians_list.append({
-                    'id': payload.get('id'),
-                    'nome': payload.get('nome', ''),
-                    'email': payload.get('email', ''),
-                    'ativo': payload.get('ativo', True),
-                    'is_active': payload.get('ativo', True),  # Compatibilidade
-                    **payload  # Incluir todos os outros campos
-                })
+                payload = (
+                    json.loads(row["payload"])
+                    if isinstance(row["payload"], str)
+                    else row["payload"]
+                )
+                technicians_list.append(
+                    {
+                        "id": payload.get("id"),
+                        "nome": payload.get("nome", ""),
+                        "email": payload.get("email", ""),
+                        "ativo": payload.get("ativo", True),
+                        "is_active": payload.get("ativo", True),  # Compatibilidade
+                        **payload,  # Incluir todos os outros campos
+                    }
+                )
             except Exception as e:
                 app_logger.log_error(e, {"context": "processar_tecnico"})
                 continue
@@ -215,43 +225,28 @@ def render_technician_overview(users: list[dict]) -> None:
 
     # KPIs principais
     total_techs = len(users) if users else 0
-    active_techs = len([u for u in users if u.get('is_active', True)]) if users else 0
+    active_techs = len([u for u in users if u.get("is_active", True)]) if users else 0
     avg_experience = calculate_avg_experience(users)
 
     # Usar novos componentes KPI
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        KPICard.render(
-            title="Total de Técnicos",
-            value=total_techs,
-            icon="👷",
-            color="primary"
-        )
+        KPICard.render(title="Total de Técnicos", value=total_techs, icon="👷", color="primary")
 
     with col2:
-        KPICard.render(
-            title="Técnicos Ativos",
-            value=active_techs,
-            icon="✅",
-            color="success"
-        )
+        KPICard.render(title="Técnicos Ativos", value=active_techs, icon="✅", color="success")
 
     with col3:
-        rate = (active_techs/total_techs*100) if total_techs > 0 else 0
-        KPICard.render(
-            title="Taxa de Atividade",
-            value=f"{rate:.1f}%",
-            icon="📊",
-            color="info"
-        )
+        rate = (active_techs / total_techs * 100) if total_techs > 0 else 0
+        KPICard.render(title="Taxa de Atividade", value=f"{rate:.1f}%", icon="📊", color="info")
 
     with col4:
         KPICard.render(
             title="Experiência Média",
             value=f"{avg_experience:.1f} anos",
             icon="🎯",
-            color="warning"
+            color="warning",
         )
 
 
@@ -267,20 +262,20 @@ def render_technician_table(users: list[dict]) -> None:
 
     # Configurar colunas da tabela
     column_config = {
-        'name': st.column_config.TextColumn("Nome", width="medium"),
-        'email': st.column_config.TextColumn("Email", width="large"),
-        'role': st.column_config.TextColumn("Função", width="small"),
-        'is_active': st.column_config.CheckboxColumn("Ativo", width="small"),
-        'last_login': st.column_config.DatetimeColumn("Último Login", width="medium")
+        "name": st.column_config.TextColumn("Nome", width="medium"),
+        "email": st.column_config.TextColumn("Email", width="large"),
+        "role": st.column_config.TextColumn("Função", width="small"),
+        "is_active": st.column_config.CheckboxColumn("Ativo", width="small"),
+        "last_login": st.column_config.DatetimeColumn("Último Login", width="medium"),
     }
 
     # Usar novo componente DataTable
     DataTable.render(
         data=df,
         column_config=column_config,
-        searchable_columns=['name', 'email'],
-        filterable_columns=['role', 'is_active'],
-        height=400
+        searchable_columns=["name", "email"],
+        filterable_columns=["role", "is_active"],
+        height=400,
     )
 
 
@@ -292,7 +287,7 @@ def calculate_avg_experience(users: list[dict]) -> float:
     experiences = []
     for user in users:
         # Simular cálculo de experiência baseado em data de criação
-        created_date = user.get('date_joined')
+        created_date = user.get("date_joined")
         if created_date:
             # Lógica simplificada - em produção usar datas reais
             experiences.append(2.5)  # Média simulada

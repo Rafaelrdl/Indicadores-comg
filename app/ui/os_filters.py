@@ -1,4 +1,5 @@
 """Filtros específicos para a página de Ordem de Serviço."""
+
 from __future__ import annotations
 
 import time
@@ -19,10 +20,10 @@ def _get_estados_os(_client: ArkmedsClient) -> list[dict]:
 
 def render_os_filters(client: ArkmedsClient) -> dict:
     """Renderiza filtros específicos para Ordem de Serviço na sidebar.
-    
+
     Args:
         client: Cliente Arkmeds configurado
-        
+
     Returns:
         Dict com filtros selecionados: dt_ini, dt_fim, estado_ids
     """
@@ -52,14 +53,10 @@ def render_os_filters(client: ArkmedsClient) -> dict:
     # Date filters
     st.sidebar.markdown("#### 📅 Período")
     dt_ini = st.sidebar.date_input(
-        "Data início",
-        value=state.get("dt_ini", date.today().replace(day=1)),
-        key="os_dt_ini"
+        "Data início", value=state.get("dt_ini", date.today().replace(day=1)), key="os_dt_ini"
     )
     dt_fim = st.sidebar.date_input(
-        "Data fim",
-        value=state.get("dt_fim", date.today()),
-        key="os_dt_fim"
+        "Data fim", value=state.get("dt_fim", date.today()), key="os_dt_fim"
     )
 
     # Validation
@@ -78,7 +75,7 @@ def render_os_filters(client: ArkmedsClient) -> dict:
             list(est_map.keys()),
             default=[k for k, v in est_map.items() if v in state.get("estado_ids", [])],
             key="os_estados",
-            help="Deixe vazio para incluir todos os estados"
+            help="Deixe vazio para incluir todos os estados",
         )
         estado_ids = [est_map[d] for d in est_desc]
     else:

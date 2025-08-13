@@ -5,6 +5,7 @@ Esta página centraliza:
 - Gerenciamento de dados (migrado da página Ordem de Serviço)
 - Sistema de agendamento automático (migrado da main)
 """
+
 import sys
 from pathlib import Path
 
@@ -43,45 +44,42 @@ except ImportError:
         st.stop()
 
 # Configuração da página
-st.set_page_config(
-    page_title="Configurações",
-    page_icon="⚙️",
-    layout="wide"
-)
+st.set_page_config(page_title="Configurações", page_icon="⚙️", layout="wide")
 
 st.title("⚙️ Configurações")
 st.caption("Gerenciamento centralizado de dados e sistema de agendamento automático")
 
 # Abas principais
-tab_dados, tab_agendamento = st.tabs([
-    "📊 Gerenciamento de Dados",
-    "🕐 Agendamento Automático"
-])
+tab_dados, tab_agendamento = st.tabs(["📊 Gerenciamento de Dados", "🕐 Agendamento Automático"])
 
 # ========== ABA: GERENCIAMENTO DE DADOS ==========
 with tab_dados:
     st.subheader("📊 Gerenciamento de Dados")
-    st.caption("Atualize dados manualmente, visualize status das sincronizações e gerencie o cache local")
+    st.caption(
+        "Atualize dados manualmente, visualize status das sincronizações e gerencie o cache local"
+    )
 
     # Sub-abas para organização
     subtab_sync, subtab_status = st.tabs(["🔄 Sincronização", "📈 Status dos Dados"])
 
     with subtab_sync:
         st.markdown("#### Controles de Sincronização")
-        st.info("💡 **Dica:** Use sincronização incremental para updates rápidos ou backfill completo para reconstrução total dos dados")
+        st.info(
+            "💡 **Dica:** Use sincronização incremental para updates rápidos ou backfill completo para reconstrução total dos dados"
+        )
 
         # Controles completos de sincronização para todos os recursos
         render_refresh_controls(
-            resources=['orders', 'equipments', 'technicians'],
+            resources=["orders", "equipments", "technicians"],
             show_advanced=True,
-            compact_mode=False
+            compact_mode=False,
         )
 
     with subtab_status:
         st.markdown("#### Status Detalhado dos Dados")
 
         # Status compacto de sincronização
-        render_sync_status(['orders', 'equipments', 'technicians'], compact_mode=False)
+        render_sync_status(["orders", "equipments", "technicians"], compact_mode=False)
 
         # Estatísticas do banco de dados
         try:
@@ -94,25 +92,25 @@ with tab_dados:
                         st.metric(
                             "Ordens de Serviço",
                             f"{stats.get('orders_count', 0):,}",
-                            help="Total de registros na tabela de ordens"
+                            help="Total de registros na tabela de ordens",
                         )
 
                     with col2:
                         st.metric(
                             "Equipamentos",
                             f"{stats.get('equipments_count', 0):,}",
-                            help="Total de registros na tabela de equipamentos"
+                            help="Total de registros na tabela de equipamentos",
                         )
 
                     with col3:
                         st.metric(
                             "Técnicos",
                             f"{stats.get('technicians_count', 0):,}",
-                            help="Total de registros na tabela de técnicos"
+                            help="Total de registros na tabela de técnicos",
                         )
 
                     # Informações adicionais
-                    if stats.get('last_updated'):
+                    if stats.get("last_updated"):
                         st.info(f"🕐 Última atualização: {stats['last_updated']}")
 
                 else:
@@ -151,7 +149,8 @@ with tab_agendamento:
 
         # Informações adicionais sobre o scheduler
         with st.expander("ℹ️ Informações do Sistema"):
-            st.markdown("""
+            st.markdown(
+                """
             **Como funciona o agendamento automático:**
             
             - 🔄 **Sincronização Incremental**: Busca apenas dados novos/alterados
@@ -164,7 +163,8 @@ with tab_agendamento:
             - ▶️ **Executar Agora**: Força sincronização imediata
             - 📈 **Backfill Completo**: Reconstrói base de dados do zero
             - ⏸️ **Pausar/Retomar**: Controla execução automática
-            """)
+            """
+            )
 
             # Status técnico detalhado
             try:
@@ -192,7 +192,8 @@ with st.sidebar:
 # ========== RODAPÉ COM INFORMAÇÕES ==========
 st.markdown("---")
 with st.expander("📋 Sobre esta Página"):
-    st.markdown("""
+    st.markdown(
+        """
     **Configurações Centralizadas**
     
     Esta página centraliza todas as funcionalidades administrativas que antes estavam distribuídas:
@@ -205,4 +206,5 @@ with st.expander("📋 Sobre esta Página"):
     - ✅ Controles administrativos em local dedicado  
     - ✅ Melhor experiência para usuários finais
     - ✅ Facilita manutenção e expansão futura
-    """)
+    """
+    )

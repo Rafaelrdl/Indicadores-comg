@@ -4,6 +4,7 @@ Sistema de agendamento automático para sincronização periódica.
 Este módulo gerencia a execução automática de sincronizações incrementais
 em intervalos regulares usando APScheduler em modo session-aware.
 """
+
 import asyncio
 import threading
 from datetime import datetime
@@ -20,7 +21,7 @@ from app.services.sync_jobs import has_running_job
 class SyncScheduler:
     """
     Gerenciador de agendamento de sincronização automática.
-    
+
     Usa BackgroundScheduler para executar sincronizações periódicas
     enquanto a sessão Streamlit estiver ativa.
     """
@@ -28,7 +29,7 @@ class SyncScheduler:
     def __init__(self, interval_minutes: int = 15):
         """
         Initialize scheduler with specified interval.
-        
+
         Args:
             interval_minutes: Intervalo entre sincronizações em minutos
         """
@@ -45,10 +46,7 @@ class SyncScheduler:
             return
 
         try:
-            self.scheduler = BackgroundScheduler(
-                daemon=True,
-                timezone='America/Sao_Paulo'
-            )
+            self.scheduler = BackgroundScheduler(daemon=True, timezone="America/Sao_Paulo")
 
             # Adicionar job de sincronização
             self.scheduler.add_job(
@@ -58,23 +56,17 @@ class SyncScheduler:
                 id="incremental_sync",
                 name=f"Sync Incremental ({self.interval_minutes}m)",
                 max_instances=1,  # Evita sobreposição
-                coalesce=True     # Combina execuções atrasadas
+                coalesce=True,  # Combina execuções atrasadas
             )
 
             # Adicionar listeners para logs
-            self.scheduler.add_listener(
-                self._job_executed_listener,
-                EVENT_JOB_EXECUTED
-            )
-            self.scheduler.add_listener(
-                self._job_error_listener,
-                EVENT_JOB_ERROR
-            )
+            self.scheduler.add_listener(self._job_executed_listener, EVENT_JOB_EXECUTED)
+            self.scheduler.add_listener(self._job_error_listener, EVENT_JOB_ERROR)
 
             self.scheduler.start()
             app_logger.log_info(
                 f"🕐 Scheduler iniciado - sincronização automática a cada {self.interval_minutes} minutos",
-                scheduler_id="incremental_sync"
+                scheduler_id="incremental_sync",
             )
 
         except Exception as e:
@@ -99,8 +91,10 @@ class SyncScheduler:
         with self._lock:
             try:
                 # Evitar jobs concorrentes
-                if has_running_job('delta'):
-                    app_logger.log_info("⏸️ Job delta já em execução, pulando sincronização agendada")
+                if has_running_job("delta"):
+                    app_logger.log_info(
+                        "⏸️ Job delta já em execução, pulando sincronização agendada"
+                    )
                     return
 
                 app_logger.log_info("🔄 Iniciando sincronização automática agendada")
@@ -122,20 +116,20 @@ class SyncScheduler:
 
                 # Verificar se as credenciais estão disponíveis
                 if not settings.arkmeds_email or not settings.arkmeds_password:
-                    raise ValueError("Credenciais da API não configuradas. Verifique ARKMEDS_EMAIL e ARKMEDS_PASSWORD no .env")
+                    raise ValueError(
+                        "Credenciais da API não configuradas. Verifique ARKMEDS_EMAIL e ARKMEDS_PASSWORD no .env"
+                    )
 
                 auth = ArkmedsAuth(
                     email=settings.arkmeds_email,
                     password=settings.arkmeds_password,
                     base_url=settings.arkmeds_base_url,
-                    token=settings.arkmeds_token
+                    token=settings.arkmeds_token,
                 )
                 client = ArkmedsClient(auth)
 
                 # Executar sincronização com progresso
-                result = loop.run_until_complete(
-                    run_delta_sync_with_progress(client, ['orders'])
-                )
+                result = loop.run_until_complete(run_delta_sync_with_progress(client, ["orders"]))
 
                 self.last_run = datetime.now()
                 self.last_result = "sucesso" if result > 0 else "sem dados"
@@ -143,18 +137,14 @@ class SyncScheduler:
                 app_logger.log_info(
                     f"✅ Sincronização automática concluída: {result:,} registros - {self.last_result}",
                     result=result,
-                    timestamp=self.last_run.isoformat()
+                    timestamp=self.last_run.isoformat(),
                 )
 
             except Exception as e:
                 self.last_run = datetime.now()
                 self.last_result = f"erro: {e!s}"
                 app_logger.log_error(
-                    e,
-                    {
-                        "context": "scheduled_sync",
-                        "timestamp": self.last_run.isoformat()
-                    }
+                    e, {"context": "scheduled_sync", "timestamp": self.last_run.isoformat()}
                 )
 
     def _job_executed_listener(self, event) -> None:
@@ -162,15 +152,15 @@ class SyncScheduler:
         # JobExecutionEvent não tem atributo 'duration' nas versões mais recentes do APScheduler
         # Usar scheduled_run_time e finished_time se disponíveis
         duration_info = {}
-        if hasattr(event, 'scheduled_run_time') and hasattr(event, 'finished_time'):
+        if hasattr(event, "scheduled_run_time") and hasattr(event, "finished_time"):
             if event.finished_time and event.scheduled_run_time:
                 duration = event.finished_time - event.scheduled_run_time
-                duration_info['duration_seconds'] = duration.total_seconds()
+                duration_info["duration_seconds"] = duration.total_seconds()
 
         app_logger.log_info(
             f"📋 Job executado: {event.job_id}",
             retval=str(event.retval) if event.retval else "None",
-            **duration_info
+            **duration_info,
         )
 
     def _job_error_listener(self, event) -> None:
@@ -180,8 +170,8 @@ class SyncScheduler:
             {
                 "context": "scheduled_job_error",
                 "job_id": event.job_id,
-                "traceback": event.traceback
-            }
+                "traceback": event.traceback,
+            },
         )
 
     def get_status(self) -> dict:
@@ -191,7 +181,7 @@ class SyncScheduler:
             "interval_minutes": self.interval_minutes,
             "last_run": self.last_run,
             "last_result": self.last_result,
-            "next_run": self._get_next_run_time()
+            "next_run": self._get_next_run_time(),
         }
 
     def _get_next_run_time(self) -> datetime | None:
@@ -210,7 +200,7 @@ class SyncScheduler:
 def get_scheduler() -> SyncScheduler:
     """
     Retorna instância singleton do scheduler com cache de resource.
-    
+
     O cache_resource garante que o scheduler seja compartilhado entre
     sessões e mantido enquanto o app estiver ativo.
     """
@@ -220,6 +210,7 @@ def get_scheduler() -> SyncScheduler:
     except Exception:
         # Fallback para variável de ambiente ou padrão
         import os
+
         interval = int(os.environ.get("SYNC_INTERVAL_MINUTES", 15))
 
     # Criar e iniciar scheduler
@@ -238,7 +229,7 @@ def get_scheduler() -> SyncScheduler:
 def initialize_scheduler() -> SyncScheduler | None:
     """
     Inicializa o scheduler de forma segura.
-    
+
     Returns:
         Instância do scheduler ou None se houver erro
     """
@@ -254,7 +245,7 @@ def initialize_scheduler() -> SyncScheduler | None:
 def get_scheduler_status() -> dict:
     """
     Retorna status do scheduler de forma segura.
-    
+
     Returns:
         Dict com informações de status
     """
@@ -269,5 +260,5 @@ def get_scheduler_status() -> dict:
             "interval_minutes": None,
             "last_run": None,
             "last_result": None,
-            "next_run": None
+            "next_run": None,
         }

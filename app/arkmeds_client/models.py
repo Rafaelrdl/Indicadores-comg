@@ -23,15 +23,16 @@ class ArkBase(BaseModel):
 
 class OSEstado(Enum):
     """Estados possíveis de Ordem de Serviço.
-    
+
     ⚡ AUDITORIA REALIZADA: 24/07/2025
     📡 Fonte: Consulta à API /api/v3/estado_ordem_servico/
     📊 Total encontrado: 22 estados únicos
     🔍 Método: Consulta direta + análise de OSs em produção
-    
-    NOTA: Alguns estados (IDs 20, 21, 22) têm descrição apenas "." 
+
+    NOTA: Alguns estados (IDs 20, 21, 22) têm descrição apenas "."
     na API, possivelmente estados de teste ou reservados.
     """
+
     # Estados principais
     ABERTA = 1
     FECHADA = 2
@@ -131,14 +132,15 @@ class OSEstado(Enum):
 
 class TipoOS(Enum):
     """Tipos possíveis de Ordem de Serviço.
-    
+
     ⚡ AUDITORIA REALIZADA: 24/07/2025
     📡 Fonte: Consulta à API /api/v3/tipo_servico/
     📊 Total encontrado: 18 tipos únicos
     🔍 Método: Consulta direta à API
-    
+
     NOTA: IDs 18 e 19 ambos são "Vistoria Diária" - possível duplicação na API
     """
+
     # Tipos principais de manutenção
     MANUTENCAO_PREVENTIVA = 1
     CALIBRACAO = 2
@@ -239,13 +241,14 @@ class TipoOS(Enum):
 
 class ResponsavelTecnico(ArkBase):
     """Modelo para responsável técnico baseado na API /api/v5/chamado/.
-    
+
     ⚡ AUDITORIA REALIZADA: 24/07/2025
     📡 Fonte: Consulta à API /api/v5/chamado/ campo 'get_resp_tecnico'
     🔍 Estrutura real descoberta nos dados de chamados
-    
+
     CORREÇÃO: Campos tornados flexíveis para lidar com dados incompletos
     """
+
     id: str | None = None  # Vem como string na API (ex: "1", "6", "7"), pode ser None
     nome: str | None = None  # Pode estar vazio em casos raros
     email: str | None = None  # Pode estar vazio em casos raros
@@ -300,12 +303,13 @@ class ResponsavelTecnico(ArkBase):
 
 class Company(ArkBase):
     """Modelo para empresas baseado na API /api/v5/company/equipaments/.
-    
+
     ⚡ AUDITORIA REALIZADA: 24/07/2025
     📡 Fonte: Consulta à API /api/v5/company/equipaments/
     📊 Total encontrado: 484 empresas
     🔍 Estrutura completa com equipamentos aninhados
     """
+
     id: int
     has_permission: bool = True
     tipo: int | None = None
@@ -375,11 +379,12 @@ class Company(ArkBase):
 
 class Equipment(ArkBase):
     """Modelo para equipamentos baseado na API /api/v5/company/equipaments/ e /api/v5/equipament/{id}/.
-    
+
     ⚡ AUDITORIA REALIZADA: 24/07/2025
     📡 Fonte: Consulta às APIs de equipamentos
     🔍 Estrutura real descoberta nos dados de equipamentos
     """
+
     id: int
     fabricante: str | None = None
     modelo: str | None = None
@@ -444,13 +449,7 @@ class Equipment(ArkBase):
             return "Não definida"
 
         # Mapping baseado nos valores comuns encontrados
-        niveis = {
-            1: "Baixa",
-            2: "Média",
-            3: "Alta",
-            4: "Crítica",
-            5: "Emergencial"
-        }
+        niveis = {1: "Baixa", 2: "Média", 3: "Alta", 4: "Crítica", 5: "Emergencial"}
         return niveis.get(self.tipo_criticidade, f"Nível {self.tipo_criticidade}")
 
     @property
@@ -460,13 +459,7 @@ class Equipment(ArkBase):
             return "Não definida"
 
         # Mapping baseado nos valores comuns
-        niveis = {
-            1: "Baixa",
-            2: "Normal",
-            3: "Alta",
-            4: "Urgente",
-            5: "Emergencial"
-        }
+        niveis = {1: "Baixa", 2: "Normal", 3: "Alta", 4: "Urgente", 5: "Emergencial"}
         return niveis.get(self.prioridade, f"Prioridade {self.prioridade}")
 
     def __str__(self) -> str:
@@ -476,17 +469,18 @@ class Equipment(ArkBase):
 
 class Chamado(ArkBase):
     """Modelo para Chamados baseado na API /api/v5/chamado/.
-    
+
     ⚡ AUDITORIA REALIZADA: 24/07/2025
     📡 Fonte: Consulta à API /api/v5/chamado/
     📊 Total de registros: 5,049 chamados
     🔍 Estrutura completa com tempo, responsável e ordem de serviço
-    
+
     CORREÇÃO: Campos opcionais para lidar com dados incompletos:
     - ordem_servico: ~2% dos registros não possuem OS
     - responsavel_id: ~0.25% dos registros não possuem responsável
     - get_resp_tecnico: Alguns chamados têm has_resp_tecnico=False
     """
+
     id: int
     chamados: int  # Número sequencial do chamado
     chamado_arquivado: bool = False
@@ -537,12 +531,18 @@ class Chamado(ArkBase):
     @property
     def finalizado_sem_atraso(self) -> bool:
         """Verifica se foi finalizado sem atraso."""
-        return self.status_tempo == "finalizado sem atraso" or self.status_fechamento == "finalizado sem atraso"
+        return (
+            self.status_tempo == "finalizado sem atraso"
+            or self.status_fechamento == "finalizado sem atraso"
+        )
 
     @property
     def finalizado_com_atraso(self) -> bool:
         """Verifica se foi finalizado com atraso."""
-        return self.status_tempo == "finalizado com atraso" or self.status_fechamento == "finalizado com atraso"
+        return (
+            self.status_tempo == "finalizado com atraso"
+            or self.status_fechamento == "finalizado com atraso"
+        )
 
     @property
     def responsavel_nome(self) -> str:

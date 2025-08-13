@@ -22,21 +22,19 @@ class DataValidator:
 
     @staticmethod
     def validate_dataframe(
-        df: pd.DataFrame,
-        required_columns: list[str],
-        name: str = "DataFrame"
+        df: pd.DataFrame, required_columns: list[str], name: str = "DataFrame"
     ) -> pd.DataFrame:
         """
         Validate DataFrame structure and required columns.
-        
+
         Args:
             df: DataFrame to validate
             required_columns: List of required column names
             name: Name for error messages
-        
+
         Returns:
             Validated DataFrame
-        
+
         Raises:
             DataValidationError: If validation fails
         """
@@ -50,32 +48,27 @@ class DataValidator:
         # Check required columns
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
-            raise DataValidationError(
-                f"{name} missing required columns: {missing_columns}"
-            )
+            raise DataValidationError(f"{name} missing required columns: {missing_columns}")
 
         logger.info(f"{name} validation passed: {len(df)} rows, {len(df.columns)} columns")
         return df
 
     @staticmethod
     def validate_date_column(
-        df: pd.DataFrame,
-        column: str,
-        date_format: str | None = None,
-        allow_null: bool = True
+        df: pd.DataFrame, column: str, date_format: str | None = None, allow_null: bool = True
     ) -> pd.DataFrame:
         """
         Validate and convert date column.
-        
+
         Args:
             df: DataFrame containing the date column
             column: Name of the date column
             date_format: Expected date format (None for auto-detection)
             allow_null: Whether to allow null values
-        
+
         Returns:
             DataFrame with validated date column
-        
+
         Raises:
             DataValidationError: If date validation fails
         """
@@ -85,9 +78,9 @@ class DataValidator:
         try:
             # Convert to datetime
             if date_format:
-                df[column] = pd.to_datetime(df[column], format=date_format, errors='coerce')
+                df[column] = pd.to_datetime(df[column], format=date_format, errors="coerce")
             else:
-                df[column] = pd.to_datetime(df[column], errors='coerce')
+                df[column] = pd.to_datetime(df[column], errors="coerce")
 
             # Check for null values
             null_count = df[column].isnull().sum()
@@ -110,21 +103,21 @@ class DataValidator:
         column: str,
         min_value: float | None = None,
         max_value: float | None = None,
-        allow_null: bool = True
+        allow_null: bool = True,
     ) -> pd.DataFrame:
         """
         Validate numeric column values.
-        
+
         Args:
             df: DataFrame containing the numeric column
             column: Name of the numeric column
             min_value: Minimum allowed value
             max_value: Maximum allowed value
             allow_null: Whether to allow null values
-        
+
         Returns:
             DataFrame with validated numeric column
-        
+
         Raises:
             DataValidationError: If validation fails
         """
@@ -132,7 +125,7 @@ class DataValidator:
             raise DataValidationError(f"Numeric column '{column}' not found")
 
         # Convert to numeric
-        df[column] = pd.to_numeric(df[column], errors='coerce')
+        df[column] = pd.to_numeric(df[column], errors="coerce")
 
         # Check for null values
         null_count = df[column].isnull().sum()
@@ -165,20 +158,20 @@ class DataValidator:
         df: pd.DataFrame,
         column: str,
         allowed_values: list[Any] | None = None,
-        case_sensitive: bool = True
+        case_sensitive: bool = True,
     ) -> pd.DataFrame:
         """
         Validate categorical column values.
-        
+
         Args:
             df: DataFrame containing the categorical column
             column: Name of the categorical column
             allowed_values: List of allowed values (None for no restriction)
             case_sensitive: Whether validation should be case sensitive
-        
+
         Returns:
             DataFrame with validated categorical column
-        
+
         Raises:
             DataValidationError: If validation fails
         """
@@ -204,20 +197,17 @@ class DataValidator:
         return df
 
     @staticmethod
-    def validate_pydantic_model(
-        data: dict[str, Any],
-        model_class: type[BaseModel]
-    ) -> BaseModel:
+    def validate_pydantic_model(data: dict[str, Any], model_class: type[BaseModel]) -> BaseModel:
         """
         Validate data against Pydantic model.
-        
+
         Args:
             data: Data to validate
             model_class: Pydantic model class
-        
+
         Returns:
             Validated model instance
-        
+
         Raises:
             DataValidationError: If validation fails
         """
@@ -236,18 +226,18 @@ class DataCleaner:
         column: str,
         strip_whitespace: bool = True,
         remove_empty: bool = True,
-        normalize_case: str | None = None
+        normalize_case: str | None = None,
     ) -> pd.DataFrame:
         """
         Clean string column values.
-        
+
         Args:
             df: DataFrame to clean
             column: Column name to clean
             strip_whitespace: Whether to strip leading/trailing whitespace
             remove_empty: Whether to replace empty strings with NaN
             normalize_case: Case normalization ('upper', 'lower', 'title')
-        
+
         Returns:
             DataFrame with cleaned string column
         """
@@ -263,32 +253,30 @@ class DataCleaner:
 
         # Remove empty strings
         if remove_empty:
-            df[column] = df[column].replace('', np.nan)
+            df[column] = df[column].replace("", np.nan)
 
         # Normalize case
-        if normalize_case == 'upper':
+        if normalize_case == "upper":
             df[column] = df[column].str.upper()
-        elif normalize_case == 'lower':
+        elif normalize_case == "lower":
             df[column] = df[column].str.lower()
-        elif normalize_case == 'title':
+        elif normalize_case == "title":
             df[column] = df[column].str.title()
 
         return df
 
     @staticmethod
     def remove_duplicates(
-        df: pd.DataFrame,
-        subset: list[str] | None = None,
-        keep: str = 'first'
+        df: pd.DataFrame, subset: list[str] | None = None, keep: str = "first"
     ) -> pd.DataFrame:
         """
         Remove duplicate rows from DataFrame.
-        
+
         Args:
             df: DataFrame to clean
             subset: Columns to consider for identifying duplicates
             keep: Which duplicates to keep ('first', 'last', False)
-        
+
         Returns:
             DataFrame with duplicates removed
         """
@@ -303,27 +291,24 @@ class DataCleaner:
 
     @staticmethod
     def handle_outliers(
-        df: pd.DataFrame,
-        column: str,
-        method: str = 'iqr',
-        threshold: float = 1.5
+        df: pd.DataFrame, column: str, method: str = "iqr", threshold: float = 1.5
     ) -> pd.DataFrame:
         """
         Handle outliers in numeric column.
-        
+
         Args:
             df: DataFrame to process
             column: Numeric column name
             method: Outlier detection method ('iqr', 'zscore')
             threshold: Threshold for outlier detection
-        
+
         Returns:
             DataFrame with outliers handled
         """
-        if column not in df.columns or df[column].dtype not in ['int64', 'float64']:
+        if column not in df.columns or df[column].dtype not in ["int64", "float64"]:
             return df
 
-        if method == 'iqr':
+        if method == "iqr":
             Q1 = df[column].quantile(0.25)
             Q3 = df[column].quantile(0.75)
             IQR = Q3 - Q1
@@ -332,7 +317,7 @@ class DataCleaner:
 
             outlier_mask = (df[column] < lower_bound) | (df[column] > upper_bound)
 
-        elif method == 'zscore':
+        elif method == "zscore":
             mean = df[column].mean()
             std = df[column].std()
             z_scores = np.abs((df[column] - mean) / std)
@@ -355,15 +340,13 @@ class DataTransformer:
     """Data transformation utilities."""
 
     @staticmethod
-    def parse_arkmeds_datetime(
-        datetime_str: str
-    ) -> datetime | None:
+    def parse_arkmeds_datetime(datetime_str: str) -> datetime | None:
         """
         Parse Arkmeds datetime format (DD/MM/YY - HH:MM).
-        
+
         Args:
             datetime_str: Datetime string from Arkmeds API
-        
+
         Returns:
             Parsed datetime object or None if parsing fails
         """
@@ -378,7 +361,7 @@ class DataTransformer:
                 "%d/%m/%y %H:%M",
                 "%d/%m/%Y %H:%M",
                 "%d/%m/%Y",
-                "%d/%m/%y"
+                "%d/%m/%y",
             ]
 
             for fmt in formats:
@@ -388,22 +371,20 @@ class DataTransformer:
                     continue
 
             # If all formats fail, try pandas
-            return pd.to_datetime(datetime_str, errors='coerce')
+            return pd.to_datetime(datetime_str, errors="coerce")
 
         except Exception as e:
             logger.warning(f"Failed to parse datetime '{datetime_str}': {e!s}")
             return None
 
     @staticmethod
-    def normalize_os_type(
-        tipo_id: Any
-    ) -> OSType | None:
+    def normalize_os_type(tipo_id: Any) -> OSType | None:
         """
         Normalize OS type ID to OSType enum.
-        
+
         Args:
             tipo_id: Type ID from API
-        
+
         Returns:
             OSType enum value or None
         """
@@ -425,17 +406,14 @@ class DataTransformer:
             return None
 
     @staticmethod
-    def calculate_duration_hours(
-        start_datetime: datetime,
-        end_datetime: datetime
-    ) -> float | None:
+    def calculate_duration_hours(start_datetime: datetime, end_datetime: datetime) -> float | None:
         """
         Calculate duration in hours between two datetimes.
-        
+
         Args:
             start_datetime: Start datetime
             end_datetime: End datetime
-        
+
         Returns:
             Duration in hours or None if calculation fails
         """
@@ -455,19 +433,19 @@ class DataTransformer:
         df: pd.DataFrame,
         date_column: str,
         value_columns: list[str],
-        period: str = 'M',
-        agg_functions: dict[str, str] = None
+        period: str = "M",
+        agg_functions: dict[str, str] = None,
     ) -> pd.DataFrame:
         """
         Aggregate data by time period.
-        
+
         Args:
             df: DataFrame to aggregate
             date_column: Date column for grouping
             value_columns: Columns to aggregate
             period: Aggregation period ('D', 'W', 'M', 'Q', 'Y')
             agg_functions: Custom aggregation functions per column
-        
+
         Returns:
             Aggregated DataFrame
         """
@@ -476,7 +454,7 @@ class DataTransformer:
 
         # Default aggregation functions
         if agg_functions is None:
-            agg_functions = dict.fromkeys(value_columns, 'mean')
+            agg_functions = dict.fromkeys(value_columns, "mean")
 
         try:
             # Set date as index for resampling
@@ -504,14 +482,14 @@ class SchemaValidator:
     def validate_os_response(data: dict[str, Any]) -> bool:
         """
         Validate OS (Ordem de Serviço) response structure.
-        
+
         Args:
             data: API response data
-        
+
         Returns:
             True if valid, False otherwise
         """
-        required_fields = ['id', 'tipo', 'estado', 'data_abertura']
+        required_fields = ["id", "tipo", "estado", "data_abertura"]
 
         return all(field in data for field in required_fields)
 
@@ -519,14 +497,14 @@ class SchemaValidator:
     def validate_equipment_response(data: dict[str, Any]) -> bool:
         """
         Validate equipment response structure.
-        
+
         Args:
             data: API response data
-        
+
         Returns:
             True if valid, False otherwise
         """
-        required_fields = ['id', 'nome', 'status']
+        required_fields = ["id", "nome", "status"]
 
         return all(field in data for field in required_fields)
 
@@ -534,13 +512,13 @@ class SchemaValidator:
     def validate_user_response(data: dict[str, Any]) -> bool:
         """
         Validate user response structure.
-        
+
         Args:
             data: API response data
-        
+
         Returns:
             True if valid, False otherwise
         """
-        required_fields = ['id', 'nome']
+        required_fields = ["id", "nome"]
 
         return all(field in data for field in required_fields)

@@ -4,6 +4,7 @@ Módulo de conexão e configuração do banco SQLite.
 Este módulo fornece conexão singleton para SQLite com configurações
 otimizadas para performance e confiabilidade.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -21,7 +22,7 @@ DB_TIMEOUT = 30.0  # Timeout em segundos
 def get_conn() -> sqlite3.Connection:
     """
     Retorna conexão singleton com SQLite configurada para performance.
-    
+
     Configurações aplicadas:
     - WAL mode: melhor concorrência e performance
     - NORMAL synchronous: balanceio entre performance e segurança
@@ -31,11 +32,7 @@ def get_conn() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(exist_ok=True)
 
     # Criar conexão com configurações otimizadas
-    conn = sqlite3.connect(
-        str(DB_PATH),
-        check_same_thread=False,
-        timeout=DB_TIMEOUT
-    )
+    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=DB_TIMEOUT)
 
     # Configurações de performance e confiabilidade
     conn.execute("PRAGMA journal_mode=WAL;")
@@ -55,7 +52,8 @@ def get_conn() -> sqlite3.Connection:
 def _initialize_sync_jobs_schema(conn: sqlite3.Connection) -> None:
     """Inicializa o schema da tabela sync_jobs se não existir."""
     try:
-        conn.executescript("""
+        conn.executescript(
+            """
             -- Tabela para rastrear progresso de jobs de sincronização
             CREATE TABLE IF NOT EXISTS sync_jobs (
                 job_id TEXT PRIMARY KEY,
@@ -87,7 +85,8 @@ def _initialize_sync_jobs_schema(conn: sqlite3.Connection) -> None:
                 updated_at = datetime('now')
                 WHERE job_id = NEW.job_id;
             END;
-        """)
+        """
+        )
         conn.commit()
     except Exception as e:
         print(f"Erro ao inicializar schema sync_jobs: {e}")
@@ -106,7 +105,8 @@ def init_database() -> None:
 
     try:
         # Tabela de ordens de serviço/chamados
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY,
                 payload TEXT NOT NULL,  -- JSON serializado
@@ -114,10 +114,12 @@ def init_database() -> None:
                 fetched_at INTEGER NOT NULL,  -- Timestamp da busca
                 created_at INTEGER DEFAULT (strftime('%s', 'now'))
             )
-        """)
+        """
+        )
 
         # Tabela de equipamentos
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS equipments (
                 id INTEGER PRIMARY KEY,
                 payload TEXT NOT NULL,  -- JSON serializado
@@ -125,10 +127,12 @@ def init_database() -> None:
                 fetched_at INTEGER NOT NULL,  -- Timestamp da busca
                 created_at INTEGER DEFAULT (strftime('%s', 'now'))
             )
-        """)
+        """
+        )
 
         # Tabela de responsáveis técnicos
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS technicians (
                 id TEXT PRIMARY KEY,
                 payload TEXT NOT NULL,  -- JSON serializado
@@ -136,10 +140,12 @@ def init_database() -> None:
                 fetched_at INTEGER NOT NULL,  -- Timestamp da busca
                 created_at INTEGER DEFAULT (strftime('%s', 'now'))
             )
-        """)
+        """
+        )
 
         # Tabela de estado de sincronização
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS sync_state (
                 resource TEXT PRIMARY KEY,     -- Nome do recurso (orders, equipments, etc)
                 last_updated_at TEXT,          -- Última data de atualização processada
@@ -151,17 +157,26 @@ def init_database() -> None:
                 created_at INTEGER DEFAULT (strftime('%s', 'now')),
                 updated_at INTEGER DEFAULT (strftime('%s', 'now'))
             )
-        """)
+        """
+        )
 
         # Criar índices para performance
         conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_updated_at ON orders(updated_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_fetched_at ON orders(fetched_at)")
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_equipments_updated_at ON equipments(updated_at)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_equipments_fetched_at ON equipments(fetched_at)")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_equipments_updated_at ON equipments(updated_at)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_equipments_fetched_at ON equipments(fetched_at)"
+        )
 
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_technicians_updated_at ON technicians(updated_at)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_technicians_fetched_at ON technicians(fetched_at)")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_technicians_updated_at ON technicians(updated_at)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_technicians_fetched_at ON technicians(fetched_at)"
+        )
 
         conn.execute("CREATE INDEX IF NOT EXISTS idx_sync_state_resource ON sync_state(resource)")
 
@@ -192,10 +207,10 @@ def migrate_database() -> None:
 
         # Definir colunas obrigatórias
         required_columns = {
-            'synced_at': 'TEXT',
-            'last_id': 'INTEGER',
-            'last_full_sync': 'TEXT',
-            'sync_type': 'TEXT DEFAULT "unknown"'
+            "synced_at": "TEXT",
+            "last_id": "INTEGER",
+            "last_full_sync": "TEXT",
+            "sync_type": 'TEXT DEFAULT "unknown"',
         }
 
         # Adicionar colunas faltantes
@@ -239,7 +254,7 @@ def get_database_info() -> dict:
 
         # Contar registros em cada tabela
         tables_info = {}
-        tables = ['orders', 'equipments', 'technicians', 'sync_state']
+        tables = ["orders", "equipments", "technicians", "sync_state"]
 
         for table in tables:
             try:
@@ -254,24 +269,21 @@ def get_database_info() -> dict:
             "database_exists": db_exists,
             "database_size_bytes": db_size,
             "database_size_mb": round(db_size / (1024 * 1024), 2),
-            "tables": tables_info
+            "tables": tables_info,
         }
 
     except Exception as e:
-        return {
-            "error": str(e),
-            "database_path": str(DB_PATH)
-        }
+        return {"error": str(e), "database_path": str(DB_PATH)}
 
 
 def execute_query(query: str, params: tuple | None = None) -> list[sqlite3.Row]:
     """
     Executa uma query SELECT e retorna os resultados.
-    
+
     Args:
         query: Query SQL para executar
         params: Parâmetros para a query (opcional)
-    
+
     Returns:
         Lista de registros como sqlite3.Row
     """
@@ -283,11 +295,11 @@ def execute_query(query: str, params: tuple | None = None) -> list[sqlite3.Row]:
 def execute_update(query: str, params: tuple | None = None) -> int:
     """
     Executa uma query de modificação (INSERT, UPDATE, DELETE).
-    
+
     Args:
         query: Query SQL para executar
         params: Parâmetros para a query (opcional)
-    
+
     Returns:
         Número de linhas afetadas
     """
@@ -306,11 +318,11 @@ def close_connection() -> None:
     Fecha a conexão com o banco de dados.
     Útil para cleanup em testes ou shutdown da aplicação.
     """
-    if 'get_conn' in st.session_state:
+    if "get_conn" in st.session_state:
         try:
-            conn = st.session_state['get_conn']
+            conn = st.session_state["get_conn"]
             conn.close()
-            del st.session_state['get_conn']
+            del st.session_state["get_conn"]
             print("🔒 Conexão com banco fechada")
         except Exception as e:
             print(f"⚠️ Erro ao fechar conexão: {e}")

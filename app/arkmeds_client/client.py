@@ -48,7 +48,7 @@ class ArkmedsClient:
                 base_url=self.auth.base_url,
                 timeout=httpx.Timeout(self.timeout),
                 headers=headers,
-                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
             )
         return self._client
 
@@ -124,13 +124,13 @@ class ArkmedsClient:
     async def list_os(self, **filters: Any) -> list[Chamado]:
         """
         Lista ordens de serviço (agora usando endpoint de chamados com paginação completa).
-        
-        CORREÇÃO IMPLEMENTADA: Este método agora usa list_chamados que busca 
+
+        CORREÇÃO IMPLEMENTADA: Este método agora usa list_chamados que busca
         TODAS as páginas de resultados, não apenas os primeiros 25 registros.
-        
+
         Args:
             **filters: Parâmetros de filtro para a API (ex: data_criacao__gte).
-            
+
         Returns:
             Lista completa de todos os chamados encontrados.
         """
@@ -148,7 +148,7 @@ class ArkmedsClient:
 
     async def list_equipment(self, **filters: Any) -> list[Equipment]:
         """Lista todos os equipamentos extraindo-os das empresas.
-        
+
         O endpoint /api/v5/company/equipaments/ retorna empresas com equipamentos aninhados.
         Esta função extrai todos os equipamentos de todas as empresas.
         """
@@ -168,14 +168,14 @@ class ArkmedsClient:
 
     async def list_users(self, **filters: Any) -> list[ResponsavelTecnico]:
         """Lista usuários disponíveis.
-        
+
         MIGRAÇÃO: Agora retorna ResponsavelTecnico extraídos dos chamados.
         """
         return await self.list_responsaveis_tecnicos(dict(filters) if filters else {})
 
     async def list_tipos(self, **filters: Any) -> list[dict]:
         """Lista tipos de OS disponíveis.
-        
+
         Retorna lista de dicts para manter compatibilidade com UI.
         Use TipoOS enum para validação e type safety.
         """
@@ -203,7 +203,7 @@ class ArkmedsClient:
 
     async def list_estados(self, **filters: Any) -> list[dict]:
         """Lista estados de OS disponíveis.
-        
+
         Retorna lista de dicts para manter compatibilidade com UI.
         Use OSEstado enum para validação e type safety.
         """
@@ -230,11 +230,11 @@ class ArkmedsClient:
     async def list_chamados(self, filters: dict[str, Any] | None = None) -> list[Chamado]:
         """
         Lista chamados da API /api/v5/chamado/ com paginação completa.
-        
+
         ⚡ CORREÇÃO IMPLEMENTADA: Agora busca TODAS as páginas de resultados
         📡 Fonte: API /api/v5/chamado/
         📊 Retorna lista completa de objetos Chamado com dados estruturados
-        
+
         IMPORTANTE: Esta função agora implementa paginação completa para resolver
         o problema dos KPIs mostrando apenas 25 registros.
         """
@@ -308,7 +308,11 @@ class ArkmedsClient:
             print(f"✅ Total de páginas processadas: {total_pages}")
             print(f"✅ Total de registros brutos obtidos: {len(all_results)}")
             print(f"✅ Tempo total: {total_time:.2f}s")
-            print(f"✅ Tempo médio por página: {total_time/total_pages:.2f}s" if total_pages > 0 else "N/A")
+            print(
+                f"✅ Tempo médio por página: {total_time/total_pages:.2f}s"
+                if total_pages > 0
+                else "N/A"
+            )
             print("=" * 60)
 
             # Converter para objetos Chamado
@@ -328,8 +332,10 @@ class ArkmedsClient:
                         continue
 
                     # Verificar se tem responsável técnico
-                    if (item.get("responsavel_id") is None and
-                        item.get("get_resp_tecnico", {}).get("has_resp_tecnico") is False):
+                    if (
+                        item.get("responsavel_id") is None
+                        and item.get("get_resp_tecnico", {}).get("has_resp_tecnico") is False
+                    ):
                         sem_responsavel_count += 1
 
                     chamado = Chamado.model_validate(item)
@@ -338,10 +344,10 @@ class ArkmedsClient:
                     if local_filter_estados and chamado.ordem_servico:
                         # Verificar se a OS tem um estado nos filtros especificados
                         estado_id = None
-                        if hasattr(chamado.ordem_servico.get('estado'), 'id'):
-                            estado_id = chamado.ordem_servico.get('estado').id
-                        elif isinstance(chamado.ordem_servico.get('estado'), int):
-                            estado_id = chamado.ordem_servico.get('estado')
+                        if hasattr(chamado.ordem_servico.get("estado"), "id"):
+                            estado_id = chamado.ordem_servico.get("estado").id
+                        elif isinstance(chamado.ordem_servico.get("estado"), int):
+                            estado_id = chamado.ordem_servico.get("estado")
 
                         if estado_id is not None and estado_id not in local_filter_estados:
                             continue
@@ -380,10 +386,12 @@ class ArkmedsClient:
             print(f"❌ Erro de conexão: {e!s}")
             return []
 
-    async def list_responsaveis_tecnicos(self, filters: dict[str, Any] | None = None) -> list[ResponsavelTecnico]:
+    async def list_responsaveis_tecnicos(
+        self, filters: dict[str, Any] | None = None
+    ) -> list[ResponsavelTecnico]:
         """
         Lista responsáveis técnicos únicos extraídos dos chamados.
-        
+
         Esta função extrai a lista de responsáveis técnicos únicos
         dos dados de chamados, já que não existe endpoint específico.
         """
@@ -406,10 +414,10 @@ class ArkmedsClient:
 
     async def list_companies_equipamentos(self) -> list[Company]:
         """Lista todas as empresas com seus equipamentos.
-        
+
         Returns:
             Lista de empresas com equipamentos aninhados
-            
+
         Raises:
             ArkmedsClientError: Se houver erro na requisição
         """
@@ -429,18 +437,19 @@ class ArkmedsClient:
         except Exception as e:
             print(f"Erro ao listar empresas: {e}")
             import traceback
+
             traceback.print_exc()
             return []
 
     async def list_equipamentos(self, filters: dict[str, Any] | None = None) -> list[Equipment]:
         """Lista todos os equipamentos de todas as empresas.
-        
+
         Args:
             filters: Filtros opcionais para aplicar
-            
+
         Returns:
             Lista de equipamentos de todas as empresas
-            
+
         Raises:
             ArkmedsClientError: Se houver erro na requisição
         """
@@ -459,18 +468,19 @@ class ArkmedsClient:
         except Exception as e:
             print(f"Erro ao listar equipamentos: {e}")
             import traceback
+
             traceback.print_exc()
             return []
 
     async def get_equipamento(self, equipamento_id: int) -> Equipment | None:
         """Busca um equipamento específico pelo ID.
-        
+
         Args:
             equipamento_id: ID do equipamento
-            
+
         Returns:
             Equipamento encontrado ou None se não existir
-            
+
         Raises:
             ArkmedsClientError: Se houver erro na requisição
         """
@@ -483,5 +493,6 @@ class ArkmedsClient:
         except Exception as e:
             print(f"Erro ao buscar equipamento {equipamento_id}: {e}")
             import traceback
+
             traceback.print_exc()
             return None

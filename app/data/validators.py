@@ -11,19 +11,21 @@ logger = logging.getLogger(__name__)
 
 def validate_input_data(data: Any, expected_type: type, error_message: str) -> None:
     """Validate input data type and raise ValidationError if invalid.
-    
+
     Args:
         data: Data to validate
         expected_type: Expected data type
         error_message: Error message to show if validation fails
-        
+
     Raises:
         ValidationError: If data doesn't match expected type
     """
     from app.core.exceptions import ValidationError
 
     if not isinstance(data, expected_type):
-        logger.error(f"Validation failed: {error_message}. Got {type(data)}, expected {expected_type}")
+        logger.error(
+            f"Validation failed: {error_message}. Got {type(data)}, expected {expected_type}"
+        )
         raise ValidationError(error_message)
 
 
@@ -56,7 +58,9 @@ class DataValidator:
         return data
 
     @staticmethod
-    def validate_dataframe(df: pd.DataFrame, required_columns: list[str], name: str = "DataFrame") -> pd.DataFrame:
+    def validate_dataframe(
+        df: pd.DataFrame, required_columns: list[str], name: str = "DataFrame"
+    ) -> pd.DataFrame:
         """Validate DataFrame has required columns."""
         if df is None or df.empty:
             logger.warning(f"{name} is empty or None")
@@ -69,14 +73,16 @@ class DataValidator:
         return df
 
     @staticmethod
-    def validate_date_column(df: pd.DataFrame, column: str, allow_null: bool = True) -> pd.DataFrame:
+    def validate_date_column(
+        df: pd.DataFrame, column: str, allow_null: bool = True
+    ) -> pd.DataFrame:
         """Validate and convert date column."""
         if column not in df.columns:
             logger.warning(f"Date column '{column}' not found")
             return df
 
         try:
-            df[column] = pd.to_datetime(df[column], errors='coerce')
+            df[column] = pd.to_datetime(df[column], errors="coerce")
             if not allow_null:
                 df = df.dropna(subset=[column])
         except Exception as e:
@@ -89,8 +95,12 @@ class DataCleaner:
     """Data cleaning utilities."""
 
     @staticmethod
-    def clean_string_column(df: pd.DataFrame, column: str, strip_whitespace: bool = True,
-                           normalize_case: str | None = None) -> pd.DataFrame:
+    def clean_string_column(
+        df: pd.DataFrame,
+        column: str,
+        strip_whitespace: bool = True,
+        normalize_case: str | None = None,
+    ) -> pd.DataFrame:
         """Clean string column."""
         if column not in df.columns:
             return df

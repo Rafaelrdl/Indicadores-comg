@@ -46,7 +46,11 @@ def render_filters(client: ArkmedsClient) -> dict:
     tipo_desc = st.sidebar.selectbox(
         "🏷️ Tipo de OS",
         list(tipo_map.keys()),
-        index=list(tipo_map.values()).index(state.get("tipo_id")) if state.get("tipo_id") in tipo_map.values() else 0,
+        index=(
+            list(tipo_map.values()).index(state.get("tipo_id"))
+            if state.get("tipo_id") in tipo_map.values()
+            else 0
+        ),
     )
     tipo_id = tipo_map[tipo_desc]
 
@@ -62,7 +66,11 @@ def render_filters(client: ArkmedsClient) -> dict:
     user_desc = st.sidebar.selectbox(
         "👤 Responsável",
         list(user_map.keys()),
-        index=list(user_map.values()).index(state.get("responsavel_id")) if state.get("responsavel_id") in user_map.values() else 0,
+        index=(
+            list(user_map.values()).index(state.get("responsavel_id"))
+            if state.get("responsavel_id") in user_map.values()
+            else 0
+        ),
     )
     responsavel_id = user_map[user_desc]
 
@@ -95,9 +103,7 @@ def show_active_filters(client: ArkmedsClient) -> None:
     filters = st.session_state.get("filters")
     if not filters:
         return
-    parts = [
-        f"🗓️ {filters['dt_ini']:%d/%m} – {filters['dt_fim']:%d/%m}"
-    ]
+    parts = [f"🗓️ {filters['dt_ini']:%d/%m} – {filters['dt_fim']:%d/%m}"]
     if filters.get("tipo_id"):
         tipos = _get_tipos(client)
         desc = next((t.descricao for t in tipos if t.id == filters["tipo_id"]), None)

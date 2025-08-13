@@ -109,15 +109,15 @@ def calcular_stats_equipamentos(_client: ArkmedsClient) -> EquipmentStats:
                 prioridades[None] += 1
 
             # Contar status (assumindo que 'ativo' existe no modelo)
-            if getattr(equip, 'ativo', True):  # Default True se não existir
+            if getattr(equip, "ativo", True):  # Default True se não existir
                 ativos += 1
             else:
                 desativados += 1
 
         # Para em_manutencao, precisamos verificar chamados abertos
-        chamados_abertos = await _client.list_chamados({
-            "estado__in": [e.value for e in OSEstado.estados_abertos()]
-        })
+        chamados_abertos = await _client.list_chamados(
+            {"estado__in": [e.value for e in OSEstado.estados_abertos()]}
+        )
 
         equipamentos_em_manut = set()
         for chamado in chamados_abertos:
@@ -138,13 +138,16 @@ def calcular_stats_equipamentos(_client: ArkmedsClient) -> EquipmentStats:
 
     # Usar run_async_safe para compatibilidade com Streamlit
     from app.ui.utils import run_async_safe
+
     return run_async_safe(_async_calc())
 
 
 @st.cache_data(ttl=1800)  # Cache por 30 min (é mais pesado)
-def calcular_mttf_mtbf_top(_client: ArkmedsClient, limit: int = 25) -> tuple[list[EquipmentMTTFBF], list[EquipmentMTTFBF]]:
+def calcular_mttf_mtbf_top(
+    _client: ArkmedsClient, limit: int = 25
+) -> tuple[list[EquipmentMTTFBF], list[EquipmentMTTFBF]]:
     """Calcula MTTF/MTBF para equipamentos e retorna top rankings.
-    
+
     Returns:
         Tuple com (top_mttf, top_mtbf) - listas ordenadas
     """
@@ -156,11 +159,10 @@ def calcular_mttf_mtbf_top(_client: ArkmedsClient, limit: int = 25) -> tuple[lis
 
         # 2. Buscar chamados dos últimos 2 anos para ter dados suficientes
         from datetime import timedelta
+
         data_limite = date.today() - timedelta(days=730)
 
-        chamados = await _client.list_chamados({
-            "tipo_id": 3  # Apenas manutenções corretivas
-        })
+        chamados = await _client.list_chamados({"tipo_id": 3})  # Apenas manutenções corretivas
 
         print(f"📈 Analisando {len(chamados)} chamados de manutenção...")
 
@@ -179,7 +181,7 @@ def calcular_mttf_mtbf_top(_client: ArkmedsClient, limit: int = 25) -> tuple[lis
 
             chamados_equip = sorted(
                 chamados_por_equip[equip.id],
-                key=lambda c: datetime.strptime(c.data_criacao_os, "%d/%m/%y - %H:%M")
+                key=lambda c: datetime.strptime(c.data_criacao_os, "%d/%m/%y - %H:%M"),
             )
 
             if len(chamados_equip) < 2:
@@ -200,7 +202,7 @@ def calcular_mttf_mtbf_top(_client: ArkmedsClient, limit: int = 25) -> tuple[lis
                     chamados_equip[i].data_criacao_os, "%d/%m/%y - %H:%M"
                 )
                 data_anterior = datetime.strptime(
-                    chamados_equip[i-1].data_criacao_os, "%d/%m/%y - %H:%M"
+                    chamados_equip[i - 1].data_criacao_os, "%d/%m/%y - %H:%M"
                 )
                 intervalo = (data_atual - data_anterior).total_seconds() / 3600
                 intervalos.append(intervalo)
@@ -226,16 +228,12 @@ def calcular_mttf_mtbf_top(_client: ArkmedsClient, limit: int = 25) -> tuple[lis
         # 5. Ordenar e retornar tops
         # MTTF alto = mais confiável (demora mais para falhar)
         top_mttf = sorted(
-            [r for r in resultados if r.mttf_horas > 0],
-            key=lambda x: x.mttf_horas,
-            reverse=True
+            [r for r in resultados if r.mttf_horas > 0], key=lambda x: x.mttf_horas, reverse=True
         )[:limit]
 
         # MTBF alto = mais confiável (maior intervalo entre falhas)
         top_mtbf = sorted(
-            [r for r in resultados if r.mtbf_horas > 0],
-            key=lambda x: x.mtbf_horas,
-            reverse=True
+            [r for r in resultados if r.mtbf_horas > 0], key=lambda x: x.mtbf_horas, reverse=True
         )[:limit]
 
         print(f"✅ Processamento concluído: {len(top_mttf)} MTTF, {len(top_mtbf)} MTBF")
@@ -243,6 +241,7 @@ def calcular_mttf_mtbf_top(_client: ArkmedsClient, limit: int = 25) -> tuple[lis
 
     # Usar run_async_safe para compatibilidade com Streamlit
     from app.ui.utils import run_async_safe
+
     return run_async_safe(_async_calc())
 
 
@@ -252,20 +251,19 @@ def exibir_distribuicao_prioridade(stats: EquipmentStats):
     import plotly.express as px
 
     df = pd.DataFrame(
-        list(stats.distribuicao_prioridade.items()),
-        columns=['Prioridade', 'Quantidade']
+        list(stats.distribuicao_prioridade.items()), columns=["Prioridade", "Quantidade"]
     )
 
     # Filtrar apenas valores > 0 para melhor visualização
-    df = df[df['Quantidade'] > 0]
+    df = df[df["Quantidade"] > 0]
 
     if len(df) > 0:
         fig = px.pie(
             df,
-            values='Quantidade',
-            names='Prioridade',
+            values="Quantidade",
+            names="Prioridade",
             title="📊 Distribuição de Prioridade dos Equipamentos",
-            hole=0.3  # Donut chart
+            hole=0.3,  # Donut chart
         )
         st.plotly_chart(fig, use_container_width=True)
     else:
@@ -280,21 +278,33 @@ def exibir_distribuicao_status(stats: EquipmentStats):
         st.metric(
             "🟢 Ativos",
             stats.ativos,
-            delta=f"{stats.ativos / stats.total_equipamentos * 100:.1f}%" if stats.total_equipamentos > 0 else "0%"
+            delta=(
+                f"{stats.ativos / stats.total_equipamentos * 100:.1f}%"
+                if stats.total_equipamentos > 0
+                else "0%"
+            ),
         )
 
     with col2:
         st.metric(
             "🔴 Desativados",
             stats.desativados,
-            delta=f"{stats.desativados / stats.total_equipamentos * 100:.1f}%" if stats.total_equipamentos > 0 else "0%"
+            delta=(
+                f"{stats.desativados / stats.total_equipamentos * 100:.1f}%"
+                if stats.total_equipamentos > 0
+                else "0%"
+            ),
         )
 
     with col3:
         st.metric(
             "🟡 Em Manutenção",
             stats.em_manutencao,
-            delta=f"{stats.em_manutencao / stats.total_equipamentos * 100:.1f}%" if stats.total_equipamentos > 0 else "0%"
+            delta=(
+                f"{stats.em_manutencao / stats.total_equipamentos * 100:.1f}%"
+                if stats.total_equipamentos > 0
+                else "0%"
+            ),
         )
 
 
@@ -309,15 +319,21 @@ def exibir_top_mttf_mtbf(top_mttf: list[EquipmentMTTFBF], top_mtbf: list[Equipme
         st.caption("Equipamentos que demoram mais para falhar pela primeira vez")
 
         if top_mttf:
-            df_mttf = pd.DataFrame([
-                {
-                    "Equipamento": r.nome,
-                    "MTTF (dias)": r.mttf_dias,
-                    "Total Chamados": r.total_chamados,
-                    "Última Manutenção": r.ultima_manutencao.strftime("%d/%m/%Y") if r.ultima_manutencao else "N/A"
-                }
-                for r in top_mttf
-            ])
+            df_mttf = pd.DataFrame(
+                [
+                    {
+                        "Equipamento": r.nome,
+                        "MTTF (dias)": r.mttf_dias,
+                        "Total Chamados": r.total_chamados,
+                        "Última Manutenção": (
+                            r.ultima_manutencao.strftime("%d/%m/%Y")
+                            if r.ultima_manutencao
+                            else "N/A"
+                        ),
+                    }
+                    for r in top_mttf
+                ]
+            )
             st.dataframe(df_mttf, use_container_width=True, height=400)
         else:
             st.info("Dados insuficientes para calcular MTTF")
@@ -327,15 +343,21 @@ def exibir_top_mttf_mtbf(top_mttf: list[EquipmentMTTFBF], top_mtbf: list[Equipme
         st.caption("Equipamentos com maior intervalo entre falhas")
 
         if top_mtbf:
-            df_mtbf = pd.DataFrame([
-                {
-                    "Equipamento": r.nome,
-                    "MTBF (dias)": r.mtbf_dias,
-                    "Total Chamados": r.total_chamados,
-                    "Última Manutenção": r.ultima_manutencao.strftime("%d/%m/%Y") if r.ultima_manutencao else "N/A"
-                }
-                for r in top_mtbf
-            ])
+            df_mtbf = pd.DataFrame(
+                [
+                    {
+                        "Equipamento": r.nome,
+                        "MTBF (dias)": r.mtbf_dias,
+                        "Total Chamados": r.total_chamados,
+                        "Última Manutenção": (
+                            r.ultima_manutencao.strftime("%d/%m/%Y")
+                            if r.ultima_manutencao
+                            else "N/A"
+                        ),
+                    }
+                    for r in top_mtbf
+                ]
+            )
             st.dataframe(df_mtbf, use_container_width=True, height=400)
         else:
             st.info("Dados insuficientes para calcular MTBF")

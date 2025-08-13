@@ -109,6 +109,7 @@ async def calculate_equipment_status(equipment_list: list) -> tuple[int, int]:
     """
     # Validar dados usando helpers de data/validators.py
     from app.data.validators import validate_input_data
+
     validate_input_data(equipment_list, list, "equipment_list must be a list")
 
     active = sum(1 for eq in equipment_list if getattr(eq, "ativo", True))
@@ -126,16 +127,17 @@ async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, floa
     """
     # Validar dados usando helpers de data/validators.py
     from app.data.validators import validate_input_data
+
     validate_input_data(os_list, list, "os_list must be a list")
 
     # Filter active maintenance orders
     def _resolve_id(os_obj: Any) -> int | None:
         # Primeiro, verificar se equipamento_id está disponível diretamente
-        if hasattr(os_obj, 'equipamento_id') and os_obj.equipamento_id is not None:
+        if hasattr(os_obj, "equipamento_id") and os_obj.equipamento_id is not None:
             return os_obj.equipamento_id
 
         # Caso seja um objeto Chamado com ordem_servico aninhada
-        if hasattr(os_obj, 'ordem_servico') and os_obj.ordem_servico:
+        if hasattr(os_obj, "ordem_servico") and os_obj.ordem_servico:
             if isinstance(os_obj.ordem_servico, dict):
                 return os_obj.ordem_servico.get("equipamento")
 
@@ -145,7 +147,7 @@ async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, floa
         _resolve_id(os_obj)
         for os_obj in os_list
         if _resolve_id(os_obj) is not None
-        and hasattr(os_obj, 'ordem_servico')
+        and hasattr(os_obj, "ordem_servico")
         and os_obj.ordem_servico
         and isinstance(os_obj.ordem_servico, dict)
         and os_obj.ordem_servico.get("estado") != OSEstado.FECHADA.value
@@ -154,9 +156,11 @@ async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, floa
     # Calculate MTTR (Mean Time To Repair) usando dados da ordem_servico
     closed_durations = []
     for os_obj in os_list:
-        if (hasattr(os_obj, 'ordem_servico')
+        if (
+            hasattr(os_obj, "ordem_servico")
             and os_obj.ordem_servico
-            and isinstance(os_obj.ordem_servico, dict)):
+            and isinstance(os_obj.ordem_servico, dict)
+        ):
 
             # Verificar se está fechada e tem datas
             estado = os_obj.ordem_servico.get("estado")
@@ -176,11 +180,13 @@ async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, floa
     by_equipment = defaultdict(list)
     for os_obj in os_list:
         equip_id = _resolve_id(os_obj)
-        if (equip_id is not None
-            and hasattr(os_obj, 'ordem_servico')
+        if (
+            equip_id is not None
+            and hasattr(os_obj, "ordem_servico")
             and os_obj.ordem_servico
             and isinstance(os_obj.ordem_servico, dict)
-            and os_obj.ordem_servico.get("estado") == OSEstado.FECHADA.value):
+            and os_obj.ordem_servico.get("estado") == OSEstado.FECHADA.value
+        ):
             by_equipment[equip_id].append(os_obj)
 
     intervals = []
@@ -197,6 +203,7 @@ async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, floa
                     if isinstance(data_criacao, str):
                         # Assumindo formato DD/MM/YY - HH:MM
                         from datetime import datetime
+
                         data_criacao = datetime.strptime(data_criacao, "%d/%m/%y - %H:%M")
                     valid_items.append((item, data_criacao))
                 except Exception:
@@ -207,7 +214,7 @@ async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, floa
 
         valid_items.sort(key=lambda x: x[1])  # Ordenar por data
         for i in range(1, len(valid_items)):
-            intervals.append((valid_items[i][1] - valid_items[i-1][1]).total_seconds())
+            intervals.append((valid_items[i][1] - valid_items[i - 1][1]).total_seconds())
 
     mtbf_h = mean(intervals) / 3600 if intervals else 0.0
 
@@ -292,9 +299,11 @@ async def compute_metrics(
     # Se ainda são None, usar período padrão
     if start_date is None:
         from datetime import date
+
         start_date = date.today().replace(day=1)
     if end_date is None:
         from datetime import date
+
         end_date = date.today()
 
     frozen = tuple(sorted(filters.items()))

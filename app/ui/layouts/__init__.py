@@ -19,11 +19,11 @@ class PageLayout:
         title: str,
         description: str | None = None,
         icon: str | None = None,
-        layout: str = "wide"
+        layout: str = "wide",
     ):
         """
         Initialize page layout.
-        
+
         Args:
             title: Page title
             description: Optional page description
@@ -64,7 +64,7 @@ class PageLayout:
     def render_footer(self, additional_info: str | None = None) -> None:
         """
         Render page footer.
-        
+
         Args:
             additional_info: Optional additional information to display
         """
@@ -86,14 +86,11 @@ class SectionLayout:
     @staticmethod
     @contextmanager
     def section(
-        title: str,
-        description: str | None = None,
-        expanded: bool = True,
-        border: bool = False
+        title: str, description: str | None = None, expanded: bool = True, border: bool = False
     ):
         """
         Create a collapsible section.
-        
+
         Args:
             title: Section title
             description: Optional section description
@@ -116,7 +113,7 @@ class SectionLayout:
     def metric_section(title: str, columns: int = 3):
         """
         Create a section optimized for metrics display.
-        
+
         Args:
             title: Section title
             columns: Number of metric columns
@@ -131,7 +128,7 @@ class SectionLayout:
     def chart_section(title: str, full_width: bool = True):
         """
         Create a section optimized for charts.
-        
+
         Args:
             title: Section title
             full_width: Whether to use full width
@@ -153,7 +150,7 @@ class SectionLayout:
     def data_section(title: str, show_summary: bool = True):
         """
         Create a section optimized for data tables.
-        
+
         Args:
             title: Section title
             show_summary: Whether to show data summary
@@ -172,13 +169,11 @@ class GridLayout:
 
     @staticmethod
     def two_column_layout(
-        left_content: Callable,
-        right_content: Callable,
-        ratio: list[int] = [1, 1]
+        left_content: Callable, right_content: Callable, ratio: list[int] = [1, 1]
     ) -> None:
         """
         Create a two-column layout.
-        
+
         Args:
             left_content: Function to render left column content
             right_content: Function to render right column content
@@ -197,11 +192,11 @@ class GridLayout:
         left_content: Callable,
         center_content: Callable,
         right_content: Callable,
-        ratio: list[int] = [1, 1, 1]
+        ratio: list[int] = [1, 1, 1],
     ) -> None:
         """
         Create a three-column layout.
-        
+
         Args:
             left_content: Function to render left column content
             center_content: Function to render center column content
@@ -221,13 +216,11 @@ class GridLayout:
 
     @staticmethod
     def responsive_grid(
-        content_functions: list[Callable],
-        max_columns: int = 3,
-        equal_width: bool = True
+        content_functions: list[Callable], max_columns: int = 3, equal_width: bool = True
     ) -> None:
         """
         Create a responsive grid that adapts to content.
-        
+
         Args:
             content_functions: List of functions to render content
             max_columns: Maximum number of columns
@@ -257,11 +250,11 @@ class CardLayout:
         subtitle: str | None = None,
         background_color: str = "rgba(255, 255, 255, 0.05)",
         border_radius: str = "10px",
-        padding: str = "20px"
+        padding: str = "20px",
     ):
         """
         Create a card container with styling.
-        
+
         Args:
             title: Optional card title
             subtitle: Optional card subtitle
@@ -299,11 +292,11 @@ class CardLayout:
         delta: int | float | str | None = None,
         delta_color: str | None = None,
         icon: str | None = None,
-        color: str = COLORS['primary']
+        color: str = COLORS["primary"],
     ) -> None:
         """
         Create a styled metric card.
-        
+
         Args:
             title: Metric title
             value: Metric value
@@ -318,23 +311,13 @@ class CardLayout:
             else:
                 st.markdown(f"### {title}")
 
-            st.metric(
-                label="",
-                value=value,
-                delta=delta,
-                delta_color=delta_color
-            )
+            st.metric(label="", value=value, delta=delta, delta_color=delta_color)
 
     @staticmethod
-    def info_card(
-        title: str,
-        content: str,
-        icon: str | None = None,
-        type: str = "info"
-    ) -> None:
+    def info_card(title: str, content: str, icon: str | None = None, type: str = "info") -> None:
         """
         Create an information card.
-        
+
         Args:
             title: Card title
             content: Card content
@@ -358,14 +341,10 @@ class ModalLayout:
 
     @staticmethod
     @contextmanager
-    def modal(
-        title: str,
-        key: str,
-        max_width: str = "700px"
-    ):
+    def modal(title: str, key: str, max_width: str = "700px"):
         """
         Create a modal dialog using Streamlit's dialog decorator.
-        
+
         Args:
             title: Modal title
             key: Unique key for the modal
@@ -381,17 +360,17 @@ class ModalLayout:
         message: str,
         confirm_label: str = "Confirmar",
         cancel_label: str = "Cancelar",
-        key: str = "confirm"
+        key: str = "confirm",
     ) -> bool | None:
         """
         Create a confirmation dialog.
-        
+
         Args:
             message: Confirmation message
             confirm_label: Confirm button label
             cancel_label: Cancel button label
             key: Unique key for the dialog
-        
+
         Returns:
             True if confirmed, False if cancelled, None if no action
         """
@@ -418,7 +397,7 @@ class ProgressLayout:
     def loading_spinner(message: str = "Carregando..."):
         """
         Show loading spinner during operation.
-        
+
         Args:
             message: Loading message
         """
@@ -426,14 +405,10 @@ class ProgressLayout:
             yield
 
     @staticmethod
-    def progress_bar(
-        current: int,
-        total: int,
-        message: str = "Processando..."
-    ) -> None:
+    def progress_bar(current: int, total: int, message: str = "Processando...") -> None:
         """
         Show progress bar.
-        
+
         Args:
             current: Current progress value
             total: Total value
@@ -447,7 +422,7 @@ class ProgressLayout:
     def step_progress(steps: list[str], current_step: int = 0):
         """
         Show step-by-step progress.
-        
+
         Args:
             steps: List of step descriptions
             current_step: Current step index (0-based)

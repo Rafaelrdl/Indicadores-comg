@@ -3,6 +3,7 @@ Componente de status do scheduler automático.
 
 Exibe informações sobre o agendamento de sincronizações e permite controle manual.
 """
+
 from datetime import datetime
 
 import streamlit as st
@@ -11,13 +12,10 @@ from app.core.logging import app_logger
 from app.core.scheduler import get_scheduler_status, initialize_scheduler
 
 
-def render_scheduler_status(
-    compact: bool = False,
-    show_controls: bool = True
-) -> None:
+def render_scheduler_status(compact: bool = False, show_controls: bool = True) -> None:
     """
     Renderiza status do scheduler automático.
-    
+
     Args:
         compact: Se True, exibe versão compacta
         show_controls: Se deve mostrar controles de start/stop
@@ -40,20 +38,17 @@ def _render_compact_status(status: dict) -> None:
     col1, col2 = st.columns([3, 1])
 
     with col1:
-        if status['running']:
-            st.success(
-                f"🕐 Auto-sync ativo ({status['interval_minutes']}min)",
-                icon="✅"
-            )
+        if status["running"]:
+            st.success(f"🕐 Auto-sync ativo ({status['interval_minutes']}min)", icon="✅")
         else:
             st.warning("⏸️ Auto-sync pausado", icon="⚠️")
 
     with col2:
-        if status['last_run']:
-            last_run = status['last_run']
+        if status["last_run"]:
+            last_run = status["last_run"]
             if isinstance(last_run, str):
                 try:
-                    last_run = datetime.fromisoformat(last_run.replace('Z', '+00:00'))
+                    last_run = datetime.fromisoformat(last_run.replace("Z", "+00:00"))
                 except:
                     pass
 
@@ -80,26 +75,26 @@ def _render_full_status(status: dict, show_controls: bool) -> None:
     col1, col2, col3 = st.columns([2, 2, 2])
 
     with col1:
-        if status['running']:
+        if status["running"]:
             st.success("✅ **Status:** Ativo")
-            if status['interval_minutes']:
+            if status["interval_minutes"]:
                 st.info(f"🔄 **Intervalo:** {status['interval_minutes']} minutos")
         else:
             st.error("❌ **Status:** Inativo")
-            if 'error' in status:
+            if "error" in status:
                 st.error(f"**Erro:** {status['error']}")
 
     with col2:
-        if status['last_run']:
-            last_run = _parse_datetime(status['last_run'])
+        if status["last_run"]:
+            last_run = _parse_datetime(status["last_run"])
             if last_run:
                 st.write("⏰ **Última execução:**")
                 st.write(last_run.strftime("%d/%m %H:%M"))
 
-                if status['last_result']:
-                    if "sucesso" in str(status['last_result']).lower():
+                if status["last_result"]:
+                    if "sucesso" in str(status["last_result"]).lower():
                         st.success(f"✅ {status['last_result']}")
-                    elif "erro" in str(status['last_result']).lower():
+                    elif "erro" in str(status["last_result"]).lower():
                         st.error(f"❌ {status['last_result']}")
                     else:
                         st.warning(f"⚠️ {status['last_result']}")
@@ -107,8 +102,8 @@ def _render_full_status(status: dict, show_controls: bool) -> None:
             st.write("⏰ **Última execução:** Nunca")
 
     with col3:
-        if status['next_run']:
-            next_run = _parse_datetime(status['next_run'])
+        if status["next_run"]:
+            next_run = _parse_datetime(status["next_run"])
             if next_run:
                 st.write("⏭️ **Próxima execução:**")
                 st.write(next_run.strftime("%d/%m %H:%M"))
@@ -139,7 +134,7 @@ def _render_full_status(status: dict, show_controls: bool) -> None:
         st.write("• Em caso de sobreposição, execuções são combinadas (coalesce=True)")
         st.write("• O intervalo é configurável via secrets.toml ou variável de ambiente")
 
-        if status.get('interval_minutes'):
+        if status.get("interval_minutes"):
             st.write(f"• **Intervalo atual:** {status['interval_minutes']} minutos")
 
 
@@ -177,7 +172,7 @@ def _render_scheduler_controls(status: dict) -> None:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
 
-                    result = loop.run_until_complete(run_incremental_sync(client, ['orders']))
+                    result = loop.run_until_complete(run_incremental_sync(client, ["orders"]))
 
                     if result:
                         st.success("✅ Sincronização executada com sucesso!")
@@ -206,7 +201,7 @@ def _parse_datetime(dt_value) -> datetime | None:
     if isinstance(dt_value, str):
         try:
             # Tentar ISO format
-            return datetime.fromisoformat(dt_value.replace('Z', '+00:00')).replace(tzinfo=None)
+            return datetime.fromisoformat(dt_value.replace("Z", "+00:00")).replace(tzinfo=None)
         except:
             try:
                 # Tentar formato padrão
@@ -222,15 +217,12 @@ def render_scheduler_badge() -> None:
     try:
         status = get_scheduler_status()
 
-        if status['running']:
-            st.sidebar.success(
-                f"🕐 Auto-sync ({status['interval_minutes']}m)",
-                icon="✅"
-            )
+        if status["running"]:
+            st.sidebar.success(f"🕐 Auto-sync ({status['interval_minutes']}m)", icon="✅")
 
             # Mostrar próxima execução se disponível
-            if status['next_run']:
-                next_run = _parse_datetime(status['next_run'])
+            if status["next_run"]:
+                next_run = _parse_datetime(status["next_run"])
                 if next_run:
                     delta = next_run - datetime.now()
                     if delta.total_seconds() > 0:

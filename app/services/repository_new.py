@@ -4,6 +4,7 @@ Repositório de dados para acesso ao SQLite local.
 Este módulo fornece acesso otimizado aos dados locais,
 substituindo chamadas diretas à API durante navegação.
 """
+
 import json
 from typing import Any
 
@@ -16,14 +17,15 @@ from app.core.logging import app_logger
 
 # ========== FUNÇÕES DE QUERY GENÉRICAS ==========
 
+
 def query_df(sql: str, params: tuple = ()) -> pd.DataFrame:
     """
     Executa query SQL e retorna DataFrame.
-    
+
     Args:
         sql: Query SQL para executar
         params: Parâmetros para a query
-    
+
     Returns:
         DataFrame com resultados
     """
@@ -38,11 +40,11 @@ def query_df(sql: str, params: tuple = ()) -> pd.DataFrame:
 def query_single_value(sql: str, params: tuple = ()) -> Any:
     """
     Executa query e retorna valor único.
-    
+
     Args:
         sql: Query SQL
         params: Parâmetros
-    
+
     Returns:
         Valor único ou None
     """
@@ -58,22 +60,23 @@ def query_single_value(sql: str, params: tuple = ()) -> Any:
 
 # ========== FUNÇÕES CACHED PARA PÁGINAS ==========
 
+
 @st.cache_data(ttl=60)  # Cache de 1 minuto para reduzir I/O
 def get_orders_df(
     start_date: str | None = None,
     end_date: str | None = None,
     estados: list[int] | None = None,
-    limit: int | None = None
+    limit: int | None = None,
 ) -> pd.DataFrame:
     """
     Busca ordens de serviço do banco local com filtros.
-    
+
     Args:
         start_date: Data inicial (ISO format)
-        end_date: Data final (ISO format)  
+        end_date: Data final (ISO format)
         estados: Lista de estados para filtrar
         limit: Limite de registros
-    
+
     Returns:
         DataFrame com ordens formatadas para UI
     """
@@ -108,7 +111,7 @@ def get_orders_df(
         params.append(end_date)
 
     if estados:
-        placeholders = ','.join(['?' for _ in estados])
+        placeholders = ",".join(["?" for _ in estados])
         sql += f" AND json_extract(payload, '$.ordem_servico.estado') IN ({placeholders})"
         params.extend(estados)
 
@@ -123,8 +126,8 @@ def get_orders_df(
     # Processar colunas JSON se necessário
     if not df.empty:
         # Parse ordem_servico JSON se for string
-        if 'ordem_servico' in df.columns:
-            df['ordem_servico'] = df['ordem_servico'].apply(
+        if "ordem_servico" in df.columns:
+            df["ordem_servico"] = df["ordem_servico"].apply(
                 lambda x: json.loads(x) if isinstance(x, str) else x
             )
 
@@ -133,17 +136,14 @@ def get_orders_df(
 
 
 @st.cache_data(ttl=60)
-def get_equipments_df(
-    limit: int | None = None,
-    search: str | None = None
-) -> pd.DataFrame:
+def get_equipments_df(limit: int | None = None, search: str | None = None) -> pd.DataFrame:
     """
     Busca equipamentos do banco local.
-    
+
     Args:
         limit: Limite de registros
         search: Termo para buscar na descrição
-    
+
     Returns:
         DataFrame com equipamentos
     """
@@ -181,10 +181,10 @@ def get_equipments_df(
 def get_technicians_df(limit: int | None = None) -> pd.DataFrame:
     """
     Busca técnicos do banco local.
-    
+
     Args:
         limit: Limite de registros
-    
+
     Returns:
         DataFrame com técnicos
     """
@@ -212,11 +212,12 @@ def get_technicians_df(limit: int | None = None) -> pd.DataFrame:
 
 # ========== QUERIES ESPECÍFICAS PARA MÉTRICAS ==========
 
+
 @st.cache_data(ttl=30)  # Cache mais curto para métricas
 def get_orders_by_state_counts() -> dict[int, int]:
     """
     Conta ordens por estado.
-    
+
     Returns:
         Dict {estado: contagem}
     """
@@ -233,16 +234,16 @@ def get_orders_by_state_counts() -> dict[int, int]:
     if df.empty:
         return {}
 
-    return dict(zip(df['estado'].astype(int), df['total'], strict=False))
+    return dict(zip(df["estado"].astype(int), df["total"], strict=False))
 
 
 @st.cache_data(ttl=30)
 def get_orders_by_type_counts() -> dict[int, int]:
     """
     Conta ordens por tipo de serviço.
-    
+
     Returns:
-        Dict {tipo: contagem}  
+        Dict {tipo: contagem}
     """
     sql = """
         SELECT 
@@ -257,21 +258,20 @@ def get_orders_by_type_counts() -> dict[int, int]:
     if df.empty:
         return {}
 
-    return dict(zip(df['tipo'].astype(int), df['total'], strict=False))
+    return dict(zip(df["tipo"].astype(int), df["total"], strict=False))
 
 
 @st.cache_data(ttl=30)
 def get_orders_timeline_data(
-    start_date: str | None = None,
-    end_date: str | None = None
+    start_date: str | None = None, end_date: str | None = None
 ) -> pd.DataFrame:
     """
     Dados para timeline de ordens (gráficos temporais).
-    
+
     Args:
         start_date: Data inicial
         end_date: Data final
-    
+
     Returns:
         DataFrame com dados agrupados por data
     """
@@ -310,20 +310,21 @@ def get_orders_timeline_data(
 
 # ========== FUNÇÕES DE ESTATÍSTICAS ==========
 
+
 @st.cache_data(ttl=30)
 def get_database_stats() -> dict[str, Any]:
     """
     Estatísticas do banco de dados local.
-    
+
     Returns:
         Dict com estatísticas
     """
     stats = {}
 
     # Contar registros por tabela
-    for table in ['orders', 'equipments', 'technicians']:
+    for table in ["orders", "equipments", "technicians"]:
         count = query_single_value(f"SELECT COUNT(*) FROM {table}")
-        stats[f'{table}_count'] = count or 0
+        stats[f"{table}_count"] = count or 0
 
     # Última sincronização
     last_sync_sql = """
@@ -334,17 +335,20 @@ def get_database_stats() -> dict[str, Any]:
     """
 
     sync_df = query_df(last_sync_sql)
-    stats['last_syncs'] = sync_df.to_dict('records') if not sync_df.empty else []
+    stats["last_syncs"] = sync_df.to_dict("records") if not sync_df.empty else []
 
     # Tamanho do banco
-    db_size = query_single_value("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
-    stats['database_size_bytes'] = db_size or 0
-    stats['database_size_mb'] = round((db_size or 0) / 1024 / 1024, 2)
+    db_size = query_single_value(
+        "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()"
+    )
+    stats["database_size_bytes"] = db_size or 0
+    stats["database_size_mb"] = round((db_size or 0) / 1024 / 1024, 2)
 
     return stats
 
 
 # ========== COMPATIBILIDADE COM SISTEMA ANTIGO ==========
+
 
 class Repository:
     """Classe de compatibilidade com sistema antigo."""
@@ -368,27 +372,31 @@ class Repository:
     def save_orders(records: list[dict[str, Any]]) -> int:
         """Compatibilidade - usar sync system."""
         from app.services.sync._upsert import upsert_records
+
         conn = get_conn()
-        return upsert_records(conn, 'orders', records)
+        return upsert_records(conn, "orders", records)
 
     @staticmethod
     def save_equipments(records: list[dict[str, Any]]) -> int:
         """Compatibilidade - usar sync system."""
         from app.services.sync._upsert import upsert_records
+
         conn = get_conn()
-        return upsert_records(conn, 'equipments', records)
+        return upsert_records(conn, "equipments", records)
 
     @staticmethod
     def save_technicians(records: list[dict[str, Any]]) -> int:
         """Compatibilidade - usar sync system."""
         from app.services.sync._upsert import upsert_records
+
         conn = get_conn()
-        return upsert_records(conn, 'technicians', records)
+        return upsert_records(conn, "technicians", records)
 
     @staticmethod
     def update_sync_state(resource: str, **kwargs) -> None:
         """Compatibilidade - usar sync system."""
         from app.services.sync._upsert import update_sync_state
+
         conn = get_conn()
         update_sync_state(conn, resource, **kwargs)
 
@@ -396,6 +404,7 @@ class Repository:
     def get_sync_state(resource: str) -> dict[str, Any] | None:
         """Compatibilidade - usar sync system."""
         from app.services.sync._upsert import get_last_sync_info
+
         conn = get_conn()
         return get_last_sync_info(conn, resource)
 
@@ -403,4 +412,5 @@ class Repository:
     def is_data_fresh(resource: str, max_age_hours: int = 2) -> bool:
         """Compatibilidade - usar sync system."""
         from app.services.sync.delta import should_run_incremental_sync
+
         return not should_run_incremental_sync(resource, max_age_hours)

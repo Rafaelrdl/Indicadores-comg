@@ -4,6 +4,7 @@ Componente de controles de refresh para sincronização de dados.
 Este módulo fornece interface visual para controlar a sincronização
 de dados com feedback visual e controles granulares.
 """
+
 import asyncio
 from datetime import datetime
 
@@ -16,20 +17,18 @@ from app.services.sync.ingest import BackfillSync
 
 
 def render_refresh_controls(
-    resources: list[str] = None,
-    show_advanced: bool = True,
-    compact_mode: bool = False
+    resources: list[str] = None, show_advanced: bool = True, compact_mode: bool = False
 ) -> None:
     """
     Renderiza controles de sincronização com status visual.
-    
+
     Args:
         resources: Lista de recursos para sincronizar ['orders', 'equipments', 'technicians']
         show_advanced: Se deve mostrar opções avançadas
         compact_mode: Modo compacto para sidebars
     """
     if resources is None:
-        resources = ['orders', 'equipments', 'technicians']
+        resources = ["orders", "equipments", "technicians"]
 
     # Container principal
     if compact_mode:
@@ -50,7 +49,7 @@ def render_sync_status(resources: list[str], compact_mode: bool = False) -> None
 
     try:
         stats = get_database_stats()
-        last_syncs = stats.get('last_syncs', [])
+        last_syncs = stats.get("last_syncs", [])
 
         if compact_mode:
             st.markdown("**📊 Status dos Dados**")
@@ -60,7 +59,7 @@ def render_sync_status(resources: list[str], compact_mode: bool = False) -> None
         # Criar mapa de último sync por recurso
         sync_map = {}
         for sync in last_syncs:
-            resource = sync.get('resource')
+            resource = sync.get("resource")
             if resource:
                 sync_map[resource] = sync
 
@@ -74,22 +73,19 @@ def render_sync_status(resources: list[str], compact_mode: bool = False) -> None
 
 
 def render_resource_status(
-    resource: str,
-    sync_info: dict | None,
-    stats: dict,
-    compact_mode: bool = False
+    resource: str, sync_info: dict | None, stats: dict, compact_mode: bool = False
 ) -> None:
     """Renderiza status de um recurso específico."""
 
     # Mapear nomes amigáveis
     resource_names = {
-        'orders': 'Ordens de Serviço',
-        'equipments': 'Equipamentos',
-        'technicians': 'Técnicos'
+        "orders": "Ordens de Serviço",
+        "equipments": "Equipamentos",
+        "technicians": "Técnicos",
     }
 
     display_name = resource_names.get(resource, resource.title())
-    record_count = stats.get(f'{resource}_count', 0)
+    record_count = stats.get(f"{resource}_count", 0)
 
     # Determinar status
     is_fresh = not should_run_incremental_sync(resource, max_age_hours=2)
@@ -108,12 +104,12 @@ def render_resource_status(
     if compact_mode:
         st.markdown(f"{status_icon} **{display_name}**: {record_count:,} registros")
         if sync_info:
-            last_sync = sync_info.get('synced_at') or sync_info.get('updated_at', 'Nunca')
-            if last_sync != 'Nunca':
+            last_sync = sync_info.get("synced_at") or sync_info.get("updated_at", "Nunca")
+            if last_sync != "Nunca":
                 try:
                     # Parse timestamp
-                    if 'T' in last_sync:
-                        dt = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
+                    if "T" in last_sync:
+                        dt = datetime.fromisoformat(last_sync.replace("Z", "+00:00"))
                     else:
                         dt = datetime.fromisoformat(last_sync)
 
@@ -131,17 +127,19 @@ def render_resource_status(
             st.caption(f"{record_count:,} registros")
 
         with col2:
-            st.markdown(f"<span style='color: {status_color}'>{status_icon} {status_text}</span>",
-                       unsafe_allow_html=True)
+            st.markdown(
+                f"<span style='color: {status_color}'>{status_icon} {status_text}</span>",
+                unsafe_allow_html=True,
+            )
 
         with col3:
             if sync_info:
-                last_sync = sync_info.get('synced_at') or sync_info.get('updated_at', 'Nunca')
-                if last_sync != 'Nunca':
+                last_sync = sync_info.get("synced_at") or sync_info.get("updated_at", "Nunca")
+                if last_sync != "Nunca":
                     try:
                         # Parse e formatar timestamp
-                        if 'T' in last_sync:
-                            dt = datetime.fromisoformat(last_sync.replace('Z', '+00:00'))
+                        if "T" in last_sync:
+                            dt = datetime.fromisoformat(last_sync.replace("Z", "+00:00"))
                         else:
                             dt = datetime.fromisoformat(last_sync)
 
@@ -167,9 +165,7 @@ def render_resource_status(
 
 
 def render_sync_controls(
-    resources: list[str],
-    show_advanced: bool = True,
-    compact_mode: bool = False
+    resources: list[str], show_advanced: bool = True, compact_mode: bool = False
 ) -> None:
     """Renderiza controles de sincronização."""
 
@@ -185,7 +181,7 @@ def render_sync_controls(
         only_delta = st.checkbox(
             "🔄 Apenas novos/alterados",
             value=True,
-            help="Quando ativado, sincroniza apenas registros modificados. Desativado = sincronização completa."
+            help="Quando ativado, sincroniza apenas registros modificados. Desativado = sincronização completa.",
         )
 
         # Recursos para sincronizar
@@ -194,7 +190,7 @@ def render_sync_controls(
                 "📂 Recursos para sincronizar",
                 options=resources,
                 default=resources,
-                help="Selecione quais tipos de dados sincronizar"
+                help="Selecione quais tipos de dados sincronizar",
             )
         else:
             selected_resources = resources
@@ -208,7 +204,7 @@ def render_sync_controls(
                 max_value=500,
                 value=100,
                 step=10,
-                help="Registros processados por vez"
+                help="Registros processados por vez",
             )
         else:
             batch_size = 100
@@ -226,16 +222,14 @@ def render_sync_controls(
         if st.button(
             "🔄 Atualizar Agora" if only_delta else "🔄 Sincronização Completa",
             type="primary" if only_delta else "secondary",
-            use_container_width=True
+            use_container_width=True,
         ):
             run_sync_action(selected_resources, only_delta, batch_size)
 
     with col_btn2:
         # Botão de verificação rápida
         if st.button(
-            "🔍 Verificar Status",
-            use_container_width=True,
-            help="Verifica status sem sincronizar"
+            "🔍 Verificar Status", use_container_width=True, help="Verifica status sem sincronizar"
         ):
             check_sync_status(selected_resources)
 
@@ -245,7 +239,7 @@ def render_sync_controls(
             if st.button(
                 "🗑️ Reset",
                 help="Limpa cache e força sincronização completa",
-                use_container_width=True
+                use_container_width=True,
             ):
                 if st.confirmation_dialog("Reset completo dos dados?"):
                     reset_all_data(selected_resources)
@@ -262,7 +256,7 @@ def run_sync_action(resources: list[str], only_delta: bool, batch_size: int) -> 
     if not only_delta:
         if not st.confirmation_dialog(
             "Confirmação de Sincronização Completa",
-            "Isso pode levar vários minutos e sobrescrever dados locais. Continuar?"
+            "Isso pode levar vários minutos e sobrescrever dados locais. Continuar?",
         ):
             return
 
@@ -282,13 +276,9 @@ def run_sync_action(resources: list[str], only_delta: bool, batch_size: int) -> 
         try:
             # Executar sincronização
             if only_delta:
-                run_incremental_sync_with_progress(
-                    resources, progress_bar, status_text
-                )
+                run_incremental_sync_with_progress(resources, progress_bar, status_text)
             else:
-                run_full_sync_with_progress(
-                    resources, batch_size, progress_bar, status_text
-                )
+                run_full_sync_with_progress(resources, batch_size, progress_bar, status_text)
 
             # Sucesso
             progress_bar.progress(100)
@@ -303,9 +293,7 @@ def run_sync_action(resources: list[str], only_delta: bool, batch_size: int) -> 
 
 
 def run_incremental_sync_with_progress(
-    resources: list[str],
-    progress_bar: st.progress,
-    status_text: st.empty
+    resources: list[str], progress_bar: st.progress, status_text: st.empty
 ) -> None:
     """Executa sync incremental com barra de progresso."""
 
@@ -320,6 +308,7 @@ def run_incremental_sync_with_progress(
             # Criar cliente da API
             from app.arkmeds_client.auth import ArkmedsAuth
             from app.arkmeds_client.client import ArkmedsClient
+
             auth = ArkmedsAuth()
             client = ArkmedsClient(auth)
 
@@ -336,10 +325,7 @@ def run_incremental_sync_with_progress(
 
 
 def run_full_sync_with_progress(
-    resources: list[str],
-    batch_size: int,
-    progress_bar: st.progress,
-    status_text: st.empty
+    resources: list[str], batch_size: int, progress_bar: st.progress, status_text: st.empty
 ) -> None:
     """Executa backfill completo com progresso."""
 
@@ -368,13 +354,13 @@ def check_sync_status(resources: list[str]) -> None:
         stats = get_database_stats()
 
         # Mostrar resumo
-        total_records = sum(stats.get(f'{r}_count', 0) for r in resources)
+        total_records = sum(stats.get(f"{r}_count", 0) for r in resources)
 
         st.success(f"📊 Total de registros: {total_records:,}")
 
         # Status por recurso
         for resource in resources:
-            count = stats.get(f'{resource}_count', 0)
+            count = stats.get(f"{resource}_count", 0)
             is_fresh = not should_run_incremental_sync(resource, max_age_hours=2)
 
             status = "✅ Atualizado" if is_fresh else "⚠️ Desatualizado"
@@ -399,9 +385,12 @@ def reset_all_data(resources: list[str]) -> None:
                 st.write(f"✅ Tabela {resource} limpa")
 
             # Limpar estado de sync
-            conn.execute("DELETE FROM sync_state WHERE resource IN ({})".format(
-                ','.join(['?' for _ in resources])
-            ), resources)
+            conn.execute(
+                "DELETE FROM sync_state WHERE resource IN ({})".format(
+                    ",".join(["?" for _ in resources])
+                ),
+                resources,
+            )
 
             conn.commit()
 
@@ -415,6 +404,7 @@ def reset_all_data(resources: list[str]) -> None:
 
 
 # ========== COMPONENTES AUXILIARES ==========
+
 
 def render_sync_badge(resource: str, compact: bool = False) -> None:
     """Renderiza badge de status para um recurso específico."""
@@ -444,7 +434,7 @@ def render_compact_refresh_button(resources: list[str] = None) -> None:
     """Renderiza botão compacto de refresh para sidebars."""
 
     if resources is None:
-        resources = ['orders']
+        resources = ["orders"]
 
     if st.button("🔄 Atualizar", help="Sincronização rápida", use_container_width=True):
         with st.spinner("Sincronizando..."):
@@ -452,6 +442,7 @@ def render_compact_refresh_button(resources: list[str] = None) -> None:
                 # Criar cliente da API
                 from app.arkmeds_client.auth import ArkmedsAuth
                 from app.arkmeds_client.client import ArkmedsClient
+
                 auth = ArkmedsAuth()
                 client = ArkmedsClient(auth)
 

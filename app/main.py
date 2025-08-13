@@ -18,6 +18,7 @@ from app.ui import register_pages  # noqa: E402
 # Configure the main page
 st.set_page_config(page_title="Tela Principal", page_icon="🏠", layout="wide")
 
+
 # Initialize database and startup sync
 @st.cache_resource
 def initialize_app():
@@ -28,10 +29,12 @@ def initialize_app():
 
         # Inicializar scheduler automático
         from app.core.scheduler import initialize_scheduler
+
         scheduler = initialize_scheduler()
 
         if scheduler:
             from app.core.logging import app_logger
+
             app_logger.log_info("🕐 Sistema de agendamento automático iniciado")
 
         # Iniciar sincronização de startup
@@ -42,15 +45,17 @@ def initialize_app():
         st.error(f"Erro ao inicializar aplicação: {e}")
         return False
 
+
 # Initialize app components
 if initialize_app():
     db_info = get_database_info()
-    if db_info.get('database_exists'):
+    if db_info.get("database_exists"):
         st.success("✅ Banco de dados inicializado com sucesso")
 
     # Link para configurações administrativas
     with st.expander("⚙️ Configurações Administrativas"):
-        st.info("""
+        st.info(
+            """
         **Sistema de agendamento e gerenciamento de dados**
         
         Para acessar controles administrativos como:
@@ -59,7 +64,8 @@ if initialize_app():
         - Status detalhado dos dados
         
         Navegue até **⚙️ Configurações** usando o menu lateral.
-        """)
+        """
+        )
 
         # Atalho direto (se disponível)
         if st.button("🔧 Acessar Configurações", use_container_width=True):
@@ -79,13 +85,12 @@ def _render_sync_status():
             col1, col2 = st.columns([3, 1])
 
             with col1:
-                if running_job.get('percent') is not None:
+                if running_job.get("percent") is not None:
                     # Progresso determinado
-                    progress_text = f"{running_job['processed']:,}/{running_job.get('total', '?'):,} itens"
-                    st.progress(
-                        running_job['percent'] / 100.0,
-                        text=progress_text
+                    progress_text = (
+                        f"{running_job['processed']:,}/{running_job.get('total', '?'):,} itens"
                     )
+                    st.progress(running_job["percent"] / 100.0, text=progress_text)
                 else:
                     # Progresso indeterminado
                     with st.spinner(f"Processados {running_job['processed']:,} itens..."):
@@ -109,7 +114,7 @@ def _render_sync_status():
 
                 with col1:
                     st.caption(f"📊 Última sincronização: {last_success.get('finished_at', 'N/A')}")
-                    if last_success.get('processed'):
+                    if last_success.get("processed"):
                         st.caption(f"📈 {last_success['processed']:,} registros sincronizados")
 
                 with col2:
@@ -132,7 +137,8 @@ st.header("📊 Indicadores")
 # Mostrar status de sincronização de dados
 _render_sync_status()
 
-st.markdown("""
+st.markdown(
+    """
 ## Bem-vindo ao Dashboard de Indicadores COMG
 
 Este dashboard apresenta indicadores consolidados da plataforma Arkmeds para análise de:
@@ -155,4 +161,5 @@ Use o menu lateral para navegar entre as diferentes análises disponíveis.
 
 **💡 Dica:** O sistema sincroniza dados automaticamente em intervalos regulares. 
 Você também pode usar os controles manuais de atualização em cada página.
-""")
+"""
+)

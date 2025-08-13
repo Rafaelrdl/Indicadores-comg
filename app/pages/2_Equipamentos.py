@@ -110,7 +110,9 @@ def _build_history_df(os_list: list[Chamado]) -> pd.DataFrame:
 
     # Agrupar por equipamento e calcular MTTR
     for os_obj in os_list:
-        data_fechamento_str = os_obj.ordem_servico.get("data_fechamento") if os_obj.ordem_servico else None
+        data_fechamento_str = (
+            os_obj.ordem_servico.get("data_fechamento") if os_obj.ordem_servico else None
+        )
         if not data_fechamento_str:
             continue
 
@@ -135,7 +137,7 @@ def _build_history_df(os_list: list[Chamado]) -> pd.DataFrame:
 
         for i in range(1, len(items)):
             current_date = parse_datetime(items[i].data_criacao_os)
-            previous_date = parse_datetime(items[i-1].data_criacao_os)
+            previous_date = parse_datetime(items[i - 1].data_criacao_os)
 
             if not current_date or not previous_date:
                 continue
@@ -189,9 +191,7 @@ async def fetch_equipment_data_async() -> tuple:
             try:
                 df = pd.DataFrame([e.model_dump() for e in equip_list])
                 df = DataValidator.validate_dataframe(
-                    df,
-                    required_columns=["id", "nome"],
-                    name="Equipamentos"
+                    df, required_columns=["id", "nome"], name="Equipamentos"
                 )
             except Exception as e:
                 app_logger.info(f"Erro na validação dos dados: {e}")
@@ -214,17 +214,19 @@ def fetch_equipment_data() -> tuple:
 
         # Verificar estatísticas do banco
         stats = get_database_stats()
-        equipments_count = stats.get('equipments_count', 0)
-        orders_count = stats.get('orders_count', 0)
+        equipments_count = stats.get("equipments_count", 0)
+        orders_count = stats.get("orders_count", 0)
 
         # Se banco está vazio, avisar usuário para executar sincronização
         if equipments_count == 0 or orders_count == 0:
-            st.warning("""
+            st.warning(
+                """
             📭 **Dados não encontrados no banco local**
             
             Para visualizar os dados de equipamentos, é necessário executar a sincronização inicial.
             Use os controles na sidebar ou aguarde a sincronização automática.
-            """)
+            """
+            )
             return None, [], []
 
         # Buscar equipamentos do SQLite
@@ -236,30 +238,35 @@ def fetch_equipment_data() -> tuple:
 
         # Buscar ordens relacionadas (últimos 12 meses)
         from datetime import datetime, timedelta
+
         end_date = datetime.now()
         start_date = end_date - timedelta(days=365)
 
         orders_df = get_orders_df(
-            start_date=start_date.isoformat(),
-            end_date=end_date.isoformat(),
-            limit=10000
+            start_date=start_date.isoformat(), end_date=end_date.isoformat(), limit=10000
         )
 
         # Converter equipments_df para lista de objetos compatíveis
         equipments_list = []
         for _, row in equipments_df.iterrows():
             try:
-                payload = json.loads(row['payload']) if isinstance(row['payload'], str) else row['payload']
-                equipments_list.append({
-                    'id': payload.get('id'),
-                    'descricao': payload.get('descricao', ''),
-                    'fabricante': payload.get('fabricante', ''),
-                    'modelo': payload.get('modelo', ''),
-                    'proprietario': payload.get('proprietario', ''),
-                    'data_aquisicao': payload.get('data_aquisicao'),
-                    'ativo': payload.get('ativo', True),
-                    **payload  # Incluir todos os outros campos
-                })
+                payload = (
+                    json.loads(row["payload"])
+                    if isinstance(row["payload"], str)
+                    else row["payload"]
+                )
+                equipments_list.append(
+                    {
+                        "id": payload.get("id"),
+                        "descricao": payload.get("descricao", ""),
+                        "fabricante": payload.get("fabricante", ""),
+                        "modelo": payload.get("modelo", ""),
+                        "proprietario": payload.get("proprietario", ""),
+                        "data_aquisicao": payload.get("data_aquisicao"),
+                        "ativo": payload.get("ativo", True),
+                        **payload,  # Incluir todos os outros campos
+                    }
+                )
             except Exception as e:
                 app_logger.log_error(e, {"context": "processar_equipamento"})
                 continue
@@ -268,7 +275,11 @@ def fetch_equipment_data() -> tuple:
         orders_list = []
         for _, row in orders_df.iterrows():
             try:
-                payload = json.loads(row['payload']) if isinstance(row['payload'], str) else row['payload']
+                payload = (
+                    json.loads(row["payload"])
+                    if isinstance(row["payload"], str)
+                    else row["payload"]
+                )
                 orders_list.append(payload)
             except Exception as e:
                 app_logger.log_error(e, {"context": "processar_ordem"})
@@ -276,29 +287,33 @@ def fetch_equipment_data() -> tuple:
 
         # Calcular métricas básicas localmente
         total_equipments = len(equipments_list)
-        equipment_ids = [eq['id'] for eq in equipments_list if eq.get('id')]
+        equipment_ids = [eq["id"] for eq in equipments_list if eq.get("id")]
 
         # Filtrar ordens relacionadas aos equipamentos
         related_orders = [
-            order for order in orders_list
-            if order.get('equipamento_id') in equipment_ids
+            order for order in orders_list if order.get("equipamento_id") in equipment_ids
         ]
 
         # Criar objeto de métricas básicas (compatível com código existente)
         from collections import namedtuple
-        BasicMetrics = namedtuple('BasicMetrics', [
-            'total', 'ativos', 'inativos', 'em_manutencao', 'disponivel', 'desativados'
-        ])
+
+        BasicMetrics = namedtuple(
+            "BasicMetrics",
+            ["total", "ativos", "inativos", "em_manutencao", "disponivel", "desativados"],
+        )
 
         # Contar status dos equipamentos
-        ativos = sum(1 for eq in equipments_list if eq.get('ativo', True))
+        ativos = sum(1 for eq in equipments_list if eq.get("ativo", True))
 
         # Contar equipamentos em manutenção baseado em ordens abertas
         orders_em_andamento = [
-            order for order in related_orders
-            if order.get('estado_id') in [1, 2, 3]  # Estados de manutenção ativa
+            order
+            for order in related_orders
+            if order.get("estado_id") in [1, 2, 3]  # Estados de manutenção ativa
         ]
-        equipamentos_em_manutencao = len(set(order.get('equipamento_id') for order in orders_em_andamento))
+        equipamentos_em_manutencao = len(
+            set(order.get("equipamento_id") for order in orders_em_andamento)
+        )
 
         metrics = BasicMetrics(
             total=total_equipments,
@@ -306,10 +321,12 @@ def fetch_equipment_data() -> tuple:
             inativos=total_equipments - ativos,
             em_manutencao=equipamentos_em_manutencao,
             disponivel=ativos - equipamentos_em_manutencao,
-            desativados=total_equipments - ativos
+            desativados=total_equipments - ativos,
         )
 
-        app_logger.log_info(f"✅ Carregados {total_equipments} equipamentos e {len(related_orders)} ordens do SQLite")
+        app_logger.log_info(
+            f"✅ Carregados {total_equipments} equipamentos e {len(related_orders)} ordens do SQLite"
+        )
         return metrics, equipments_list, related_orders
 
     except Exception as e:
@@ -366,55 +383,31 @@ def render_basic_metrics(metrics, equip_list: list) -> None:
 
     # Preparar métricas para os novos componentes
     status_metrics = [
-        Metric(
-            label="Equipamentos Ativos",
-            value=str(getattr(metrics, 'ativos', 0)),
-            icon="🔋"
-        ),
-        Metric(
-            label="Desativados",
-            value=str(getattr(metrics, 'desativados', 0)),
-            icon="🚫"
-        ),
+        Metric(label="Equipamentos Ativos", value=str(getattr(metrics, "ativos", 0)), icon="🔋"),
+        Metric(label="Desativados", value=str(getattr(metrics, "desativados", 0)), icon="🚫"),
         Metric(
             label="Em Manutenção",
             value=f"{getattr(metrics, 'em_manutencao', 0)} ({pct_em_manut}%)",
-            icon="🔧"
+            icon="🔧",
         ),
-        Metric(
-            label="MTTR Médio",
-            value=f"{getattr(metrics, 'mttr_h', 0):.1f}h",
-            icon="⏱️"
-        )
+        Metric(label="MTTR Médio", value=f"{getattr(metrics, 'mttr_h', 0):.1f}h", icon="⏱️"),
     ]
 
     performance_metrics = [
-        Metric(
-            label="MTBF Médio",
-            value=f"{getattr(metrics, 'mtbf_h', 0):.1f}h",
-            icon="📈"
-        ),
+        Metric(label="MTBF Médio", value=f"{getattr(metrics, 'mtbf_h', 0):.1f}h", icon="📈"),
         Metric(
             label="Disponibilidade",
             value=f"{getattr(metrics, 'disponibilidade', 0):.1f}%",
-            icon="📊"
+            icon="📊",
         ),
-        Metric(
-            label="Idade Média do Parque",
-            value=f"{idade_media} anos",
-            icon="📅"
-        ),
-        Metric(
-            label="% Em Manutenção",
-            value=f"{pct_em_manut}%",
-            icon="🔧"
-        )
+        Metric(label="Idade Média do Parque", value=f"{idade_media} anos", icon="📅"),
+        Metric(label="% Em Manutenção", value=f"{pct_em_manut}%", icon="🔧"),
     ]
 
     # KPI Cards
     kpi_cards = [
         KPICard(title="Status dos Equipamentos", metrics=status_metrics),
-        KPICard(title="Performance e Disponibilidade", metrics=performance_metrics)
+        KPICard(title="Performance e Disponibilidade", metrics=performance_metrics),
     ]
 
     MetricsDisplay.render_kpi_dashboard(kpi_cards)
@@ -457,11 +450,7 @@ def render_maintenance_history(os_hist: list[Chamado]) -> None:
             labels={"value": "Horas", "variable": ""},
             title="MTTR vs MTBF (últimos 12 meses)",
         )
-        fig.update_layout(
-            xaxis_title="Mês",
-            yaxis_title="Horas",
-            legend_title="Métrica"
-        )
+        fig.update_layout(xaxis_title="Mês", yaxis_title="Horas", legend_title="Métrica")
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Não há dados suficientes para gerar o histórico de manutenção.")
@@ -473,7 +462,8 @@ def render_reliability_rankings() -> None:
 
     # Informações sobre os cálculos
     with st.expander("ℹ️ Sobre os cálculos de MTTF/MTBF"):
-        st.info("""
+        st.info(
+            """
         **MTTF (Mean Time To Failure)**: Tempo médio até a primeira falha após aquisição.
         Equipamentos com maior MTTF são mais confiáveis.
         
@@ -482,13 +472,14 @@ def render_reliability_rankings() -> None:
         
         ⚠️ **Nota**: Este cálculo pode demorar alguns minutos pois analisa o histórico completo
         de manutenções de todos os equipamentos.
-        """)
+        """
+        )
 
     # Controle para habilitar cálculo pesado
     calcular_rankings = st.checkbox(
         "🔄 Calcular Rankings MTTF/MTBF",
         help="Este cálculo pode demorar alguns minutos. Deixe marcado apenas se necessário.",
-        key="calc_mttf_rankings_reliability_unique"
+        key="calc_mttf_rankings_reliability_unique",
     )
 
     if calcular_rankings:
@@ -498,6 +489,7 @@ def render_reliability_rankings() -> None:
         except Exception as e:
             st.error(f"Erro ao calcular rankings: {e}")
             st.info("Tente novamente em alguns minutos.")
+
 
 def _build_equipment_table(equip_list: list, os_hist: list[Chamado]) -> pd.DataFrame:
     """Constrói tabela detalhada de equipamentos com métricas individuais."""
@@ -510,7 +502,9 @@ def _build_equipment_table(equip_list: list, os_hist: list[Chamado]) -> pd.DataF
     # Agrupar chamados por equipamento
     by_eq: dict[int, list[Chamado]] = defaultdict(list)
     for os_obj in os_hist:
-        data_fechamento_str = os_obj.ordem_servico.get("data_fechamento") if os_obj.ordem_servico else None
+        data_fechamento_str = (
+            os_obj.ordem_servico.get("data_fechamento") if os_obj.ordem_servico else None
+        )
         if os_obj.equipamento_id is not None and data_fechamento_str:
             by_eq[os_obj.equipamento_id].append(os_obj)
 
@@ -545,9 +539,7 @@ def _build_equipment_table(equip_list: list, os_hist: list[Chamado]) -> pd.DataF
                             tempo_reparo = (data_fechamento - data_criacao).total_seconds()
                             tempos_reparo.append(tempo_reparo)
 
-                mttr_local.append(
-                    round(mean(tempos_reparo) / 3600, 2) if tempos_reparo else 0.0
-                )
+                mttr_local.append(round(mean(tempos_reparo) / 3600, 2) if tempos_reparo else 0.0)
 
                 # Calcular MTBF
                 if len(items) > 1:
@@ -555,7 +547,7 @@ def _build_equipment_table(equip_list: list, os_hist: list[Chamado]) -> pd.DataF
                     intervals = []
                     for i in range(1, len(items)):
                         data_atual = parse_datetime(items[i].data_criacao_os)
-                        data_anterior = parse_datetime(items[i-1].data_criacao_os)
+                        data_anterior = parse_datetime(items[i - 1].data_criacao_os)
                         if data_atual and data_anterior:
                             interval = (data_atual - data_anterior).total_seconds()
                             intervals.append(interval)
@@ -588,31 +580,31 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
     table_data = []
     for equip in equip_list:
         # Converter equipamento para dict se for um objeto Pydantic
-        if hasattr(equip, 'model_dump'):
+        if hasattr(equip, "model_dump"):
             equip_dict = equip.model_dump()
         else:
             equip_dict = equip
 
         # Calcular métricas básicas do equipamento
-        equip_id = equip_dict.get('id')
+        equip_id = equip_dict.get("id")
         equip_os = []
 
         for os in os_hist:
             # Converter OS para dict se for um objeto Pydantic
-            if hasattr(os, 'model_dump'):
+            if hasattr(os, "model_dump"):
                 os_dict = os.model_dump()
             else:
                 os_dict = os
 
             # Procurar o equipamento_id dentro da estrutura da ordem_servico
-            if os_dict.get('ordem_servico'):
-                ordem_servico = os_dict['ordem_servico']
-                equipamento_info = ordem_servico.get('equipamento', {})
+            if os_dict.get("ordem_servico"):
+                ordem_servico = os_dict["ordem_servico"]
+                equipamento_info = ordem_servico.get("equipamento", {})
 
                 # equipamento_info pode ser um dict ou um ID direto
                 equipamento_id = None
                 if isinstance(equipamento_info, dict):
-                    equipamento_id = equipamento_info.get('id')
+                    equipamento_id = equipamento_info.get("id")
                 elif isinstance(equipamento_info, int):
                     equipamento_id = equipamento_info
 
@@ -634,61 +626,70 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
 
         # Calcular idade se disponível
         idade = 0
-        if equip_dict.get('data_aquisicao'):
+        if equip_dict.get("data_aquisicao"):
             try:
                 from datetime import date, datetime
-                data_aquisicao = equip_dict['data_aquisicao']
+
+                data_aquisicao = equip_dict["data_aquisicao"]
                 if isinstance(data_aquisicao, str):
-                    data_aquisicao = datetime.fromisoformat(data_aquisicao.replace('Z', '+00:00')).date()
-                elif hasattr(data_aquisicao, 'date'):
+                    data_aquisicao = datetime.fromisoformat(
+                        data_aquisicao.replace("Z", "+00:00")
+                    ).date()
+                elif hasattr(data_aquisicao, "date"):
                     data_aquisicao = data_aquisicao.date()
                 idade = round((date.today() - data_aquisicao).days / 365, 1)
             except:
                 idade = 0
 
-        table_data.append({
-            'ID': equip_dict.get('id', ''),
-            'Equipamento': equip_dict.get('nome', ''),
-            'Setor': equip_dict.get('setor', {}).get('nome', 'N/A') if equip_dict.get('setor') else 'N/A',
-            'Marca': equip_dict.get('marca', {}).get('nome', 'N/A') if equip_dict.get('marca') else 'N/A',
-            'Modelo': equip_dict.get('modelo', ''),
-            'Idade (anos)': idade,
-            'Ordens Abertas': total_os,
-            'Status': status,
-            'Status_Color': status_color
-        })
+        table_data.append(
+            {
+                "ID": equip_dict.get("id", ""),
+                "Equipamento": equip_dict.get("nome", ""),
+                "Setor": (
+                    equip_dict.get("setor", {}).get("nome", "N/A")
+                    if equip_dict.get("setor")
+                    else "N/A"
+                ),
+                "Marca": (
+                    equip_dict.get("marca", {}).get("nome", "N/A")
+                    if equip_dict.get("marca")
+                    else "N/A"
+                ),
+                "Modelo": equip_dict.get("modelo", ""),
+                "Idade (anos)": idade,
+                "Ordens Abertas": total_os,
+                "Status": status,
+                "Status_Color": status_color,
+            }
+        )
 
     # Configurar filtros para a DataTable
     table_config = {
-        'columns': [
-            {'key': 'ID', 'label': 'ID', 'width': 80},
-            {'key': 'Equipamento', 'label': 'Equipamento', 'width': 200},
-            {'key': 'Setor', 'label': 'Setor', 'width': 150},
-            {'key': 'Marca', 'label': 'Marca', 'width': 120},
-            {'key': 'Modelo', 'label': 'Modelo', 'width': 150},
-            {'key': 'Idade (anos)', 'label': 'Idade (anos)', 'width': 100},
-            {'key': 'Ordens Abertas', 'label': 'Ordens Abertas', 'width': 120},
-            {'key': 'Status', 'label': 'Status', 'width': 100, 'color_column': 'Status_Color'}
+        "columns": [
+            {"key": "ID", "label": "ID", "width": 80},
+            {"key": "Equipamento", "label": "Equipamento", "width": 200},
+            {"key": "Setor", "label": "Setor", "width": 150},
+            {"key": "Marca", "label": "Marca", "width": 120},
+            {"key": "Modelo", "label": "Modelo", "width": 150},
+            {"key": "Idade (anos)", "label": "Idade (anos)", "width": 100},
+            {"key": "Ordens Abertas", "label": "Ordens Abertas", "width": 120},
+            {"key": "Status", "label": "Status", "width": 100, "color_column": "Status_Color"},
         ],
-        'filters': [
-            {'column': 'Setor', 'type': 'multiselect'},
-            {'column': 'Marca', 'type': 'multiselect'},
-            {'column': 'Status', 'type': 'multiselect'}
+        "filters": [
+            {"column": "Setor", "type": "multiselect"},
+            {"column": "Marca", "type": "multiselect"},
+            {"column": "Status", "type": "multiselect"},
         ],
-        'searchable_columns': ['Equipamento', 'Modelo'],
-        'sortable': True,
-        'pagination': True,
-        'page_size': 20
+        "searchable_columns": ["Equipamento", "Modelo"],
+        "sortable": True,
+        "pagination": True,
+        "page_size": 20,
     }
 
     # Renderizar usando novo DataTable
     if table_data:
         table_df = pd.DataFrame(table_data)
-        data_table = DataTable(
-            data=table_df,
-            title="Equipamentos",
-            key_prefix="equipment"
-        )
+        data_table = DataTable(data=table_df, title="Equipamentos", key_prefix="equipment")
         data_table.render()
     else:
         st.warning("Nenhum dados de equipamentos para exibir.")
@@ -703,22 +704,23 @@ def main():
 
         # Badge do scheduler automático
         from app.ui.components.scheduler_status import render_scheduler_badge
+
         render_scheduler_badge()
 
         st.markdown("---")
 
         st.markdown("**🔄 Sincronização**")
-        render_compact_refresh_button(['equipments', 'orders'])
+        render_compact_refresh_button(["equipments", "orders"])
 
         # Status dos dados
         with st.expander("📊 Status"):
-            render_sync_status(['equipments', 'orders'], compact_mode=True)
+            render_sync_status(["equipments", "orders"], compact_mode=True)
 
     # Usar novo sistema de layout
     layout = PageLayout(
         title="Análise de Equipamentos",
         description="Métricas de MTTR, MTBF e confiabilidade dos equipamentos",
-        icon="🛠️"
+        icon="🛠️",
     )
 
     layout.render_header()

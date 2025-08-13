@@ -11,10 +11,10 @@ from typing import Any, Optional
 class AppLogger:
     """Logger centralizado da aplicação."""
 
-    _instance: Optional['AppLogger'] = None
+    _instance: Optional["AppLogger"] = None
     _logger: logging.Logger | None = None
 
-    def __new__(cls) -> 'AppLogger':
+    def __new__(cls) -> "AppLogger":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -35,9 +35,7 @@ class AppLogger:
             console_handler.setLevel(logging.INFO)
 
             # Formatter
-            formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
+            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             console_handler.setFormatter(formatter)
 
             self._logger.addHandler(console_handler)
@@ -48,7 +46,7 @@ class AppLogger:
             "function": func_name,
             "duration_seconds": round(duration, 3),
             "timestamp": datetime.now().isoformat(),
-            **kwargs
+            **kwargs,
         }
 
         self._logger.info(f"PERFORMANCE: {func_name} executed in {duration:.3f}s - {context}")
@@ -72,26 +70,20 @@ class AppLogger:
             "error_type": type(error).__name__,
             "error_message": str(error),
             "timestamp": datetime.now().isoformat(),
-            **context
+            **context,
         }
 
         self._logger.error(f"ERROR: {error_context}")
 
     def log_info(self, message: str, **kwargs) -> None:
         """Log de informações gerais."""
-        context = {
-            "timestamp": datetime.now().isoformat(),
-            **kwargs
-        }
+        context = {"timestamp": datetime.now().isoformat(), **kwargs}
 
         self._logger.info(f"INFO: {message} - {context}")
 
     def log_warning(self, message: str, **kwargs) -> None:
         """Log de warnings/avisos."""
-        context = {
-            "timestamp": datetime.now().isoformat(),
-            **kwargs
-        }
+        context = {"timestamp": datetime.now().isoformat(), **kwargs}
 
         self._logger.warning(f"WARNING: {message} - {context}")
 
@@ -106,6 +98,7 @@ class AppLogger:
 
 def performance_monitor(func: Callable) -> Callable:
     """Decorator para monitorar performance de funções - thread safe."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         logger = AppLogger()
@@ -120,7 +113,7 @@ def performance_monitor(func: Callable) -> Callable:
                 func_name=func.__name__,
                 duration=duration,
                 args_count=len(args),
-                kwargs_keys=list(kwargs.keys())
+                kwargs_keys=list(kwargs.keys()),
             )
 
             return result
@@ -133,8 +126,8 @@ def performance_monitor(func: Callable) -> Callable:
                     "function": func.__name__,
                     "duration_before_error": duration,
                     "args_count": len(args),
-                    "kwargs_keys": list(kwargs.keys())
-                }
+                    "kwargs_keys": list(kwargs.keys()),
+                },
             )
             raise
 
@@ -143,6 +136,7 @@ def performance_monitor(func: Callable) -> Callable:
 
 def log_cache_performance(func: Callable) -> Callable:
     """Decorator para monitorar performance de cache - thread safe."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         logger = AppLogger()
@@ -171,8 +165,8 @@ def log_cache_performance(func: Callable) -> Callable:
                 context={
                     "function": func_name,
                     "duration_before_error": duration,
-                    "cache_operation": True
-                }
+                    "cache_operation": True,
+                },
             )
             raise
 

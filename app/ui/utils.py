@@ -1,4 +1,5 @@
 """Utility functions for UI operations."""
+
 from __future__ import annotations
 
 import asyncio
@@ -8,10 +9,10 @@ from typing import Any
 
 def run_async_safe(coro: Coroutine[Any, Any, Any]) -> Any:
     """Execute async coroutine safely, handling event loop issues.
-    
+
     This function handles the case where Streamlit might already have a running
     event loop, which would cause asyncio.run() to fail.
-    
+
     Fixed version that properly handles Streamlit context to avoid
     'missing ScriptRunContext' warnings.
     """

@@ -10,7 +10,6 @@ def register_pages() -> None:
     st.set_page_config(page_title="Dashboard Arkmeds", page_icon="🩺", layout="wide")
     inject_global_css()
 
-
     if "filters" not in st.session_state:
         st.session_state["filters"] = {
             "dt_ini": date.today().replace(day=1),
