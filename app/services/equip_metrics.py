@@ -13,7 +13,6 @@ from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import OSEstado
 
 from app.config.os_types import TIPO_CORRETIVA
-from app.data.cache.smart_cache import smart_cache
 
 
 class EquipmentMetricsError(Exception):

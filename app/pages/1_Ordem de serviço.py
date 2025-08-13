@@ -13,14 +13,13 @@ from app.ui.os_filters import render_os_filters, show_os_active_filters
 
 # New infrastructure imports
 from app.core import get_settings, APIError, DataValidationError
-from app.data.cache import smart_cache
 from app.ui.components import MetricsDisplay, Metric, KPICard, DistributionCharts, DataTable
 from app.ui.components.refresh_controls import render_refresh_controls, render_compact_refresh_button
 from app.ui.layouts import PageLayout, SectionLayout
 from app.utils import DataValidator, DataCleaner
 
 # Legacy imports for compatibility
-from app.core.logging import performance_monitor, log_cache_performance, app_logger
+from app.core.logging import performance_monitor, app_logger
 from app.core.exceptions import ErrorHandler, DataFetchError, safe_operation
 
 # Get configuration
@@ -120,7 +119,6 @@ def calculate_sla_sync(closed_orders: list) -> float:
     except Exception:
         return 0.0
 
-@log_cache_performance  
 @performance_monitor
 async def fetch_os_data_async(filters_dict: dict = None) -> Tuple:
     """
@@ -249,7 +247,6 @@ async def fetch_os_data_async(filters_dict: dict = None) -> Tuple:
 
 
 # Wrapper function for compatibility  
-@smart_cache(ttl=900)
 def fetch_os_data(filters_dict: dict = None) -> Tuple:
     """Wrapper síncrono para compatibilidade."""
     async def async_wrapper():

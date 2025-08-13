@@ -14,7 +14,6 @@ from app.ui.filters import render_filters, show_active_filters
 # Nova arquitetura de componentes
 from app.ui.components import MetricsDisplay, KPICard, DataTable, TimeSeriesCharts, DistributionCharts
 from app.ui.layouts import PageLayout, SectionLayout
-from app.data.cache import smart_cache
 from app.data.validators import DataValidator
 
 # Core imports
@@ -119,9 +118,8 @@ async def fetch_technician_data() -> List[dict]:
         raise e
 
 
-@smart_cache(ttl=900)
 def fetch_technician_data_cached() -> List[dict]:
-    """Wrapper síncrono com cache para fetch_technician_data."""
+    """Wrapper síncrono para fetch_technician_data."""
     async def async_wrapper():
         return await fetch_technician_data()
     return run_async_safe(async_wrapper())

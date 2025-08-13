@@ -42,20 +42,6 @@ class Settings(BaseSettings):
         description="Login endpoint path"
     )
 
-    # Cache Settings
-    default_cache_ttl: int = Field(
-        default=900,
-        description="Default cache TTL in seconds (15 minutes)"
-    )
-    heavy_operation_ttl: int = Field(
-        default=1800,
-        description="Heavy operation cache TTL in seconds (30 minutes)"
-    )
-    cache_max_entries: int = Field(
-        default=1000,
-        description="Maximum number of cache entries"
-    )
-
     # UI Settings
     page_title: str = Field(
         default="Indicadores COMG",

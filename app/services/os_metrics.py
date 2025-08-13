@@ -23,8 +23,6 @@ from app.config.os_types import (
     TIPO_PREVENTIVA,
 )
 
-from app.data.cache.smart_cache import smart_cache
-
 # Type aliases
 ServiceOrderData = dict[str, list[Chamado]]
 

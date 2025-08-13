@@ -26,7 +26,6 @@ from app.ui.utils import run_async_safe
 
 # New infrastructure imports
 from app.core import get_settings, APIError, DataValidationError
-from app.data.cache import smart_cache
 from app.ui.components import (
     MetricsDisplay, Metric, KPICard, TimeSeriesCharts, 
     DistributionCharts, KPICharts, DataTable
@@ -36,7 +35,7 @@ from app.ui.layouts import PageLayout, SectionLayout, GridLayout
 from app.utils import DataValidator, DataCleaner, MetricsCalculator, DataTransformer
 
 # Legacy imports for compatibility
-from app.core.logging import performance_monitor, log_cache_performance, app_logger
+from app.core.logging import performance_monitor, app_logger
 from app.core.exceptions import ErrorHandler, DataFetchError, safe_operation
 
 # Get configuration
@@ -98,7 +97,6 @@ def _build_history_df(os_list: list[Chamado]) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
-@log_cache_performance
 @performance_monitor
 async def fetch_equipment_data_async() -> tuple:
     """Busca dados básicos de equipamentos e histórico de manutenção."""
@@ -141,13 +139,11 @@ async def fetch_equipment_data_async() -> tuple:
 
 
 # Wrapper function for compatibility  
-@smart_cache(ttl=900)
 def fetch_equipment_data() -> tuple:
     """Wrapper síncrono para compatibilidade."""
     return run_async_safe(fetch_equipment_data_async())
 
 
-@log_cache_performance
 async def fetch_advanced_stats_async():
     """Busca estatísticas avançadas dos equipamentos."""
     try:
@@ -157,13 +153,11 @@ async def fetch_advanced_stats_async():
         return None
 
 
-@smart_cache(ttl=1800)
 def fetch_advanced_stats():
     """Wrapper síncrono para compatibilidade."""
     return run_async_safe(fetch_advanced_stats_async())
 
 
-@log_cache_performance
 @performance_monitor
 async def fetch_mttf_mtbf_data_async():
     """Busca dados de MTTF/MTBF (operação pesada)."""
@@ -174,7 +168,6 @@ async def fetch_mttf_mtbf_data_async():
         return ([], [])
 
 
-@smart_cache(ttl=1800)
 def fetch_mttf_mtbf_data():
     """Wrapper síncrono para compatibilidade."""
     return run_async_safe(fetch_mttf_mtbf_data_async())

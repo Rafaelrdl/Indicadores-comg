@@ -110,7 +110,20 @@ class SyncScheduler:
                 # Criar cliente da API
                 from app.arkmeds_client.client import ArkmedsClient
                 from app.arkmeds_client.auth import ArkmedsAuth
-                auth = ArkmedsAuth()
+                from app.core.config import get_settings
+                
+                settings = get_settings()
+                
+                # Verificar se as credenciais estão disponíveis
+                if not settings.arkmeds_email or not settings.arkmeds_password:
+                    raise ValueError("Credenciais da API não configuradas. Verifique ARKMEDS_EMAIL e ARKMEDS_PASSWORD no .env")
+                
+                auth = ArkmedsAuth(
+                    email=settings.arkmeds_email,
+                    password=settings.arkmeds_password,
+                    base_url=settings.arkmeds_base_url,
+                    token=settings.arkmeds_token
+                )
                 client = ArkmedsClient(auth)
                 
                 # Executar sincronização
@@ -138,10 +151,18 @@ class SyncScheduler:
     
     def _job_executed_listener(self, event) -> None:
         """Listener para jobs executados com sucesso."""
+        # JobExecutionEvent não tem atributo 'duration' nas versões mais recentes do APScheduler
+        # Usar scheduled_run_time e finished_time se disponíveis
+        duration_info = {}
+        if hasattr(event, 'scheduled_run_time') and hasattr(event, 'finished_time'):
+            if event.finished_time and event.scheduled_run_time:
+                duration = event.finished_time - event.scheduled_run_time
+                duration_info['duration_seconds'] = duration.total_seconds()
+        
         app_logger.log_info(
             f"📋 Job executado: {event.job_id}",
-            duration_seconds=event.duration.total_seconds() if event.duration else 0,
-            retval=str(event.retval) if event.retval else "None"
+            retval=str(event.retval) if event.retval else "None",
+            **duration_info
         )
     
     def _job_error_listener(self, event) -> None:

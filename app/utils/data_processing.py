@@ -9,7 +9,7 @@ from datetime import datetime, date, timedelta
 from functools import reduce
 import logging
 
-from ..core.constants import OSType, OSStatus, EquipmentStatus, CACHE_TTL
+from ..core.constants import OSType, OSStatus, EquipmentStatus
 
 logger = logging.getLogger(__name__)
 

@@ -11,8 +11,6 @@ from app.arkmeds_client.auth import ArkmedsAuthError
 from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import OSEstado
 
-from app.data.cache.smart_cache import smart_cache
-
 SLA_HOURS = int(os.getenv("OS_SLA_HOURS", 72))
 
 

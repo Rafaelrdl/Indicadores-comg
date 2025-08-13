@@ -20,13 +20,13 @@ __all__ = [
     "get_settings",
     # Constants
     "OSType", "OSStatus", "EquipmentStatus", "UserRole",
-    "COLORS", "CACHE_TTL", "API_ENDPOINTS",
+    "COLORS", "API_ENDPOINTS",
     # Exceptions  
     "ApplicationError", "APIError", "DataValidationError", 
     "ConfigurationError", "AuthenticationError", "CacheError",
     # Legacy compatibility
     "settings", "AppException", "DataFetchError",
-    "CACHE_TTL_DEFAULT", "CACHE_TTL_HEAVY", "DEFAULT_PERIOD_MONTHS"
+    "DEFAULT_PERIOD_MONTHS"
 ]
 
 # Legacy compatibility

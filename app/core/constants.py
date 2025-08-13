@@ -2,12 +2,6 @@
 
 from enum import Enum
 
-# Cache TTL Constants (in seconds)
-CACHE_TTL_DEFAULT = 900     # 15 minutes - standard operations
-CACHE_TTL_HEAVY = 1800      # 30 minutes - heavy operations  
-CACHE_TTL_LIGHT = 300       # 5 minutes - frequently changing data
-CACHE_TTL_DAILY = 86400     # 24 hours - static data
-
 # Date and Time Constants
 DEFAULT_PERIOD_MONTHS = 12  # Default period for analysis
 MAX_DATE_RANGE_DAYS = 365   # Maximum date range for queries
@@ -104,14 +98,6 @@ COLOR_PALETTE_PRIORITY = [
     '#FF8C00',  # Alta - Laranja
     '#DC143C'   # Crítica - Vermelho escuro
 ]
-
-# Cache TTL settings (alias for compatibility)
-CACHE_TTL = {
-    'default': CACHE_TTL_DEFAULT,
-    'heavy': CACHE_TTL_HEAVY,
-    'light': CACHE_TTL_LIGHT,
-    'daily': CACHE_TTL_DAILY
-}
 
 # API endpoints
 API_ENDPOINTS = {
