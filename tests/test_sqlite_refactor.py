@@ -8,6 +8,7 @@ import asyncio
 import sys
 import os
 from datetime import date, timedelta
+import pytest
 
 # Adicionar app ao path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -16,7 +17,7 @@ from app.services.repository import get_orders_df, get_database_stats
 from app.core.logging import app_logger
 
 
-async def test_sqlite_data_source():
+def test_sqlite_data_source():
     """Testa se conseguimos carregar dados do SQLite."""
     
     print("🔍 Testando refatoração de data source (API -> SQLite)")

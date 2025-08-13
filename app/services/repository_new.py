@@ -31,7 +31,7 @@ def query_df(sql: str, params: tuple = ()) -> pd.DataFrame:
         with get_conn() as conn:
             return pd.read_sql_query(sql, conn, params=params)
     except Exception as e:
-        app_logger.error(f"Erro na query SQL: {e}")
+        app_logger.log_error(f"Erro na query SQL: {e}")
         return pd.DataFrame()
 
 
@@ -52,7 +52,7 @@ def query_single_value(sql: str, params: tuple = ()) -> Any:
             result = cursor.fetchone()
             return result[0] if result else None
     except Exception as e:
-        app_logger.error(f"Erro na query de valor único: {e}")
+        app_logger.log_error(f"Erro na query de valor único: {e}")
         return None
 
 

@@ -87,6 +87,15 @@ class AppLogger:
         
         self._logger.info(f"INFO: {message} - {context}")
     
+    def log_warning(self, message: str, **kwargs) -> None:
+        """Log de warnings/avisos."""
+        context = {
+            "timestamp": datetime.now().isoformat(),
+            **kwargs
+        }
+        
+        self._logger.warning(f"WARNING: {message} - {context}")
+    
     def log_cache_hit(self, func_name: str, cache_key: str = None) -> None:
         """Log de cache hit."""
         self._logger.info(f"CACHE HIT: {func_name} - key: {cache_key}")

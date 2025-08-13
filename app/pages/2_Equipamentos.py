@@ -31,6 +31,7 @@ from app.ui.components import (
     MetricsDisplay, Metric, KPICard, TimeSeriesCharts, 
     DistributionCharts, KPICharts, DataTable
 )
+from app.ui.components.refresh_controls import render_compact_refresh_button, render_sync_status
 from app.ui.layouts import PageLayout, SectionLayout, GridLayout
 from app.utils import DataValidator, DataCleaner, MetricsCalculator, DataTransformer
 
@@ -528,6 +529,16 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
 
 def main():
     """Função principal da página de equipamentos usando nova arquitetura."""
+    
+    # ========== CONTROLES DE REFRESH NA SIDEBAR ==========
+    with st.sidebar:
+        st.markdown("---")
+        st.markdown("**🔄 Sincronização**")
+        render_compact_refresh_button(['equipments', 'orders'])
+        
+        # Status dos dados
+        with st.expander("📊 Status"):
+            render_sync_status(['equipments', 'orders'], compact_mode=True)
     
     # Usar novo sistema de layout
     layout = PageLayout(

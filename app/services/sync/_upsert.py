@@ -106,12 +106,12 @@ def upsert_records(
     
     except sqlite3.Error as e:
         conn.rollback()
-        app_logger.error(f"❌ SQLite error during upsert: {e}")
+        app_logger.log_error(f"❌ SQLite error during upsert: {e}")
         raise
     
     except Exception as e:
         conn.rollback()
-        app_logger.error(f"❌ Unexpected error during upsert: {e}")
+        app_logger.log_error(f"❌ Unexpected error during upsert: {e}")
         raise
 
 
@@ -157,7 +157,7 @@ def update_sync_state(
         app_logger.log_info(f"✅ Sync state updated for {resource}: type={sync_type}, records={total_records}")
     
     except sqlite3.Error as e:
-        app_logger.error(f"❌ Error updating sync state: {e}")
+        app_logger.log_error(f"❌ Error updating sync state: {e}")
         raise
 
 
@@ -198,7 +198,7 @@ def get_last_sync_info(conn: sqlite3.Connection, resource: str) -> Optional[Dict
         return None
     
     except sqlite3.Error as e:
-        app_logger.error(f"❌ Error getting last sync info: {e}")
+        app_logger.log_error(f"❌ Error getting last sync info: {e}")
         return None
 
 

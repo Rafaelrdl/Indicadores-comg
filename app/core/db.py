@@ -124,9 +124,61 @@ def init_database() -> None:
         conn.commit()
         print("✅ Banco de dados inicializado com sucesso")
         
+        # Executar migração para garantir compatibilidade
+        migrate_database()
+        
     except Exception as e:
         conn.rollback()
         print(f"❌ Erro ao inicializar banco de dados: {e}")
+        raise
+
+
+def migrate_database() -> None:
+    """
+    Migra o banco de dados para garantir que todas as colunas existem.
+    """
+    conn = get_conn()
+    
+    try:
+        print("🔄 Executando migração do banco de dados...")
+        
+        # Verificar e corrigir tabela sync_state
+        cursor = conn.execute("PRAGMA table_info(sync_state)")
+        columns = [info[1] for info in cursor.fetchall()]
+        
+        # Definir colunas obrigatórias
+        required_columns = {
+            'synced_at': 'TEXT',
+            'last_id': 'INTEGER', 
+            'last_full_sync': 'TEXT',
+            'sync_type': 'TEXT DEFAULT "unknown"'
+        }
+        
+        # Adicionar colunas faltantes
+        for col_name, col_def in required_columns.items():
+            if col_name not in columns:
+                try:
+                    conn.execute(f"ALTER TABLE sync_state ADD COLUMN {col_name} {col_def}")
+                    print(f"✅ Coluna {col_name} adicionada à tabela sync_state")
+                except Exception as e:
+                    print(f"⚠️ Aviso ao adicionar coluna {col_name}: {e}")
+        
+        # Verificar se todas as colunas necessárias existem agora
+        cursor = conn.execute("PRAGMA table_info(sync_state)")
+        final_columns = [info[1] for info in cursor.fetchall()]
+        
+        missing = [col for col in required_columns.keys() if col not in final_columns]
+        if missing:
+            print(f"⚠️ Colunas ainda faltantes: {missing}")
+        else:
+            print("✅ Todas as colunas necessárias estão presentes")
+        
+        conn.commit()
+        print("✅ Migração concluída")
+        
+    except Exception as e:
+        conn.rollback() 
+        print(f"❌ Erro na migração: {e}")
         raise
 
 

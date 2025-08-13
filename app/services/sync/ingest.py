@@ -91,7 +91,7 @@ class BackfillSync:
             return processed
         
         except Exception as e:
-            logger.error(f"❌ Erro durante backfill de ordens: {e}")
+            logger.log_error(f"❌ Erro durante backfill de ordens: {e}")
             raise
     
     async def sync_equipments(self, **filters) -> int:
@@ -151,7 +151,7 @@ class BackfillSync:
             return processed
         
         except Exception as e:
-            logger.error(f"❌ Erro durante backfill de equipamentos: {e}")
+            logger.log_error(f"❌ Erro durante backfill de equipamentos: {e}")
             raise
     
     async def sync_technicians(self, **filters) -> int:
@@ -211,7 +211,7 @@ class BackfillSync:
             return processed
         
         except Exception as e:
-            logger.error(f"❌ Erro durante backfill de técnicos: {e}")
+            logger.log_error(f"❌ Erro durante backfill de técnicos: {e}")
             raise
     
     async def sync_all(
@@ -251,7 +251,7 @@ class BackfillSync:
             return results
         
         except Exception as e:
-            logger.error(f"❌ Erro durante backfill completo: {e}")
+            logger.log_error(f"❌ Erro durante backfill completo: {e}")
             raise
     
     async def _fetch_all_paginated(
@@ -299,7 +299,7 @@ class BackfillSync:
                     return records if isinstance(records, list) else []
         
         except Exception as e:
-            logger.error(f"❌ Erro buscando {resource_type}: {e}")
+            logger.log_error(f"❌ Erro buscando {resource_type}: {e}")
             await self.rate_limiter.wait()
             self.rate_limiter.on_error()
             raise
@@ -349,7 +349,7 @@ async def run_backfill(
             await asyncio.sleep(1)
         
         except Exception as e:
-            logger.error(f"❌ Falha no backfill de {resource}: {e}")
+            logger.log_error(f"❌ Falha no backfill de {resource}: {e}")
             results[resource] = 0
     
     return results

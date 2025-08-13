@@ -15,6 +15,7 @@ from app.ui.os_filters import render_os_filters, show_os_active_filters
 from app.core import get_settings, APIError, DataValidationError
 from app.data.cache import smart_cache
 from app.ui.components import MetricsDisplay, Metric, KPICard, DistributionCharts, DataTable
+from app.ui.components.refresh_controls import render_refresh_controls, render_compact_refresh_button
 from app.ui.layouts import PageLayout, SectionLayout
 from app.utils import DataValidator, DataCleaner
 
@@ -426,6 +427,16 @@ def main():
     # Renderizar filtros específicos de OS na sidebar
     filters = render_os_filters(client)
     
+    # ========== CONTROLES DE SINCRONIZAÇÃO NA SIDEBAR ==========
+    with st.sidebar:
+        st.markdown("---")
+        render_compact_refresh_button(['orders'])
+        
+        # Status rápido
+        with st.expander("📊 Status dos Dados"):
+            from app.ui.components.refresh_controls import render_sync_status
+            render_sync_status(['orders'], compact_mode=True)
+    
     # Layout principal
     layout = PageLayout(
         title="📋 Ordem de Serviço",
@@ -433,20 +444,25 @@ def main():
     )
     layout.render_header()
     
-    # Adicionar botão para limpar cache (debug) no topo da página
-    st.markdown("---")
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
-    with col4:
-        if st.button("🔄 Limpar Cache & Atualizar", 
-                    help="Remove dados em cache e força busca completa da API"):
-            # Limpar cache do Streamlit
-            st.cache_data.clear()
-            # Limpar cache de sessão se houver
-            if "_arkmeds_client" in st.session_state:
-                del st.session_state["_arkmeds_client"]
-            st.success("✅ Cache limpo! Recarregando dados...")
-            st.rerun()
+    # ========== CONTROLES PRINCIPAIS DE SINCRONIZAÇÃO ==========
+    st.markdown("### 🔄 Gerenciamento de Dados")
     
+    # Abas para organizar melhor
+    tab_dados, tab_filtros = st.tabs(["� Dados & Sincronização", "🎛️ Filtros Avançados"])
+    
+    with tab_dados:
+        # Controles de refresh completos
+        render_refresh_controls(
+            resources=['orders'],
+            show_advanced=True,
+            compact_mode=False
+        )
+    
+    with tab_filtros:
+        # Mostrar filtros ativos para transparência
+        show_os_active_filters(filters)
+    
+    st.markdown("---")
     with layout.main_content():
         # Mostrar filtros ativos
         show_os_active_filters(client)

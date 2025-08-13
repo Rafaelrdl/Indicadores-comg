@@ -119,7 +119,7 @@ class IncrementalSync:
             return processed
         
         except Exception as e:
-            logger.error(f"❌ Erro durante sync incremental de ordens: {e}")
+            logger.log_error(f"❌ Erro durante sync incremental de ordens: {e}")
             raise
     
     async def sync_equipments_incremental(self, **filters) -> int:
@@ -204,7 +204,7 @@ class IncrementalSync:
             return processed
         
         except Exception as e:
-            logger.error(f"❌ Erro durante sync incremental de equipamentos: {e}")
+            logger.log_error(f"❌ Erro durante sync incremental de equipamentos: {e}")
             raise
     
     async def sync_technicians_incremental(self, **filters) -> int:
@@ -289,7 +289,7 @@ class IncrementalSync:
             return processed
         
         except Exception as e:
-            logger.error(f"❌ Erro durante sync incremental de técnicos: {e}")
+            logger.log_error(f"❌ Erro durante sync incremental de técnicos: {e}")
             raise
     
     async def sync_all_incremental(self, **filters) -> Dict[str, int]:
@@ -322,7 +322,7 @@ class IncrementalSync:
             return results
         
         except Exception as e:
-            logger.error(f"❌ Erro durante sincronização incremental completa: {e}")
+            logger.log_error(f"❌ Erro durante sincronização incremental completa: {e}")
             raise
     
     async def _fetch_incremental_data(
@@ -364,7 +364,7 @@ class IncrementalSync:
             return records if isinstance(records, list) else []
         
         except Exception as e:
-            logger.error(f"❌ Erro buscando dados incrementais de {resource_type}: {e}")
+            logger.log_error(f"❌ Erro buscando dados incrementais de {resource_type}: {e}")
             self.rate_limiter.on_error()
             await self.rate_limiter.wait()
             raise
@@ -409,7 +409,7 @@ async def run_incremental_sync(
             await asyncio.sleep(1)
         
         except Exception as e:
-            logger.error(f"❌ Falha na sincronização incremental de {resource}: {e}")
+            logger.log_error(f"❌ Falha na sincronização incremental de {resource}: {e}")
             results[resource] = 0
     
     return results
@@ -441,5 +441,5 @@ def should_run_incremental_sync(resource: str, max_age_hours: int = 2) -> bool:
         return datetime.now() - last_sync_time > max_age
     
     except Exception as e:
-        logger.error(f"❌ Erro verificando necessidade de sync: {e}")
+        logger.log_error(f"❌ Erro verificando necessidade de sync: {e}")
         return True  # Em caso de erro, sincronizar por segurança
