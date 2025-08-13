@@ -8,25 +8,26 @@ from datetime import datetime
 from app.arkmeds_client.auth import ArkmedsAuth
 from app.arkmeds_client.client import ArkmedsClient
 
+
 async def fetch_chamados():
     """Faz requisição para /api/v5/chamado/ e salva resultado."""
     print("🔍 Fazendo requisição para /api/v5/chamado/...")
-    
+
     auth = ArkmedsAuth.from_secrets()
     client = ArkmedsClient(auth)
-    
+
     try:
         # Fazer requisição para o endpoint
         resp = await client._request("GET", "/api/v5/chamado/")
         data = resp.json()
-        
+
         print(f"✅ Requisição bem-sucedida!")
         print(f"📊 Status: {resp.status_code}")
         print(f"📋 Dados recebidos: {len(str(data))} caracteres")
-        
+
         # Preparar conteúdo para o arquivo Markdown
         timestamp = datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
-        
+
         content = f"""# Resultado da API /api/v5/chamado/
 
 **Data da consulta:** {timestamp}  
@@ -43,7 +44,7 @@ async def fetch_chamados():
 ## Análise dos Dados
 
 """
-        
+
         # Adicionar análise básica dos dados
         if isinstance(data, dict):
             if "count" in data:
@@ -70,21 +71,21 @@ async def fetch_chamados():
                         content += f"  - `{key}`: {type(value).__name__}\n"
         else:
             content += f"- **Tipo de resposta:** {type(data).__name__}\n"
-        
+
         content += f"\n## Raw Response Headers\n\n"
         for header, value in resp.headers.items():
             content += f"- **{header}:** {value}\n"
-        
+
         # Salvar no arquivo
         with open("resultado.md", "w", encoding="utf-8") as f:
             f.write(content)
-        
+
         print(f"💾 Resultado salvo em 'resultado.md'")
         return data
-        
+
     except Exception as e:
         print(f"❌ Erro na requisição: {e}")
-        
+
         # Salvar erro no arquivo também
         timestamp = datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
         error_content = f"""# Erro na API /api/v5/chamado/
@@ -116,31 +117,34 @@ async def fetch_chamados():
 - Testar com parâmetros diferentes
 - Verificar se endpoint existe em outra versão (/api/v3/chamado/)
 """
-        
+
         with open("resultado.md", "w", encoding="utf-8") as f:
             f.write(error_content)
-        
+
         print(f"💾 Erro salvo em 'resultado.md'")
         return None
-        
+
     finally:
         await client.close()
+
 
 async def main():
     try:
         result = await fetch_chamados()
-        
+
         if result:
             print(f"\n✨ Consulta concluída com sucesso!")
             print(f"📄 Verifique o arquivo 'resultado.md' para detalhes completos")
         else:
             print(f"\n⚠️ Consulta falhou")
             print(f"📄 Verifique o arquivo 'resultado.md' para detalhes do erro")
-            
+
     except Exception as e:
         print(f"💥 Erro geral: {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

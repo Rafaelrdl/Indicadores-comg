@@ -36,7 +36,7 @@ class TestArkmedsClient:
     async def test_client_initialization(self, mock_auth):
         """Testa inicialização do cliente."""
         client = ArkmedsClient(mock_auth, timeout=15.0, max_retries=3)
-        
+
         assert client.auth == mock_auth
         assert client.timeout == 15.0
         assert client.max_retries == 3
@@ -46,7 +46,7 @@ class TestArkmedsClient:
         """Testa criação do httpx.AsyncClient."""
         # Executar _get_client
         http_client = await client._get_client()
-        
+
         # Verificações
         assert isinstance(http_client, httpx.AsyncClient)
         assert http_client.base_url == "https://api.test.com"
@@ -56,7 +56,7 @@ class TestArkmedsClient:
 
     async def test_request_success(self, client):
         """Testa requisição HTTP bem-sucedida."""
-        with patch.object(client, '_get_client') as mock_get_client:
+        with patch.object(client, "_get_client") as mock_get_client:
             # Mock do cliente HTTP
             mock_http_client = AsyncMock()
             mock_response = AsyncMock()
@@ -70,24 +70,22 @@ class TestArkmedsClient:
 
             # Verificações
             assert response == mock_response
-            mock_http_client.request.assert_called_once_with(
-                "GET", "/test/endpoint", params=None
-            )
+            mock_http_client.request.assert_called_once_with("GET", "/test/endpoint", params=None)
 
     async def test_request_retry_on_401(self, client, mock_auth):
         """Testa retry automático em caso de 401 Unauthorized."""
-        with patch.object(client, '_get_client') as mock_get_client:
+        with patch.object(client, "_get_client") as mock_get_client:
             # Mock do cliente HTTP
             mock_http_client = AsyncMock()
             mock_get_client.return_value = mock_http_client
-            
+
             # Primeira chamada retorna 401, segunda retorna 200
             response_401 = AsyncMock()
             response_401.status_code = 401
             response_200 = AsyncMock()
             response_200.status_code = 200
             response_200.raise_for_status.return_value = None
-            
+
             mock_http_client.request.side_effect = [response_401, response_200]
 
             # Executar requisição
@@ -100,19 +98,19 @@ class TestArkmedsClient:
 
     async def test_request_retry_on_500(self, client):
         """Testa retry automático em caso de erro 500."""
-        with patch.object(client, '_get_client') as mock_get_client:
-            with patch('asyncio.sleep') as mock_sleep:
+        with patch.object(client, "_get_client") as mock_get_client:
+            with patch("asyncio.sleep") as mock_sleep:
                 # Mock do cliente HTTP
                 mock_http_client = AsyncMock()
                 mock_get_client.return_value = mock_http_client
-                
+
                 # Primeira chamada retorna 500, segunda retorna 200
                 response_500 = AsyncMock()
                 response_500.status_code = 500
                 response_200 = AsyncMock()
                 response_200.status_code = 200
                 response_200.raise_for_status.return_value = None
-                
+
                 mock_http_client.request.side_effect = [response_500, response_200]
 
                 # Executar requisição
@@ -125,12 +123,12 @@ class TestArkmedsClient:
 
     async def test_request_max_retries_exceeded(self, client):
         """Testa falha após esgotar tentativas."""
-        with patch.object(client, '_get_client') as mock_get_client:
-            with patch('asyncio.sleep'):
+        with patch.object(client, "_get_client") as mock_get_client:
+            with patch("asyncio.sleep"):
                 # Mock do cliente HTTP
                 mock_http_client = AsyncMock()
                 mock_get_client.return_value = mock_http_client
-                
+
                 # Todas as tentativas retornam 500
                 response_500 = AsyncMock()
                 response_500.status_code = 500
@@ -148,11 +146,11 @@ class TestArkmedsClient:
 
     async def test_list_chamados_success(self, client):
         """Testa listagem de chamados bem-sucedida."""
-        with patch.object(client, '_get_client') as mock_get_client:
+        with patch.object(client, "_get_client") as mock_get_client:
             # Mock do cliente HTTP
             mock_http_client = AsyncMock()
             mock_get_client.return_value = mock_http_client
-            
+
             # Mock da resposta
             mock_response = AsyncMock()
             mock_response.status_code = 200
@@ -172,7 +170,7 @@ class TestArkmedsClient:
                             "email": "joao@teste.com",
                             "has_avatar": False,
                             "has_resp_tecnico": True,
-                            "avatar": "JS"
+                            "avatar": "JS",
                         },
                         "ordem_servico": {
                             "numero": "OS-2024-001",
@@ -180,8 +178,8 @@ class TestArkmedsClient:
                             "equipamento": 123,
                             "tipo_servico": 1,
                             "estado": 2,
-                            "prioridade": 2
-                        }
+                            "prioridade": 2,
+                        },
                     }
                 ]
             }
@@ -200,7 +198,7 @@ class TestArkmedsClient:
 
     async def test_list_equipment_success(self, client):
         """Testa listagem de equipamentos bem-sucedida."""
-        with patch.object(client, '_get_all_pages') as mock_get_pages:
+        with patch.object(client, "_get_all_pages") as mock_get_pages:
             # Mock dos dados retornados
             mock_get_pages.return_value = [
                 {
@@ -215,9 +213,9 @@ class TestArkmedsClient:
                             "identificacao": "Monitor Cardíaco Sala 1",
                             "tipo": 1,
                             "tipo_criticidade": 3,
-                            "prioridade": 2
+                            "prioridade": 2,
                         }
-                    ]
+                    ],
                 }
             ]
 
@@ -235,12 +233,10 @@ class TestArkmedsClient:
 
     async def test_list_tipos_fallback(self, client):
         """Testa fallback para tipos quando API não está disponível."""
-        with patch.object(client, '_get_all_pages') as mock_get_pages:
+        with patch.object(client, "_get_all_pages") as mock_get_pages:
             # Mock de erro 404
             mock_get_pages.side_effect = httpx.HTTPStatusError(
-                "Not Found",
-                request=AsyncMock(),
-                response=AsyncMock(status_code=404)
+                "Not Found", request=AsyncMock(), response=AsyncMock(status_code=404)
             )
 
             # Executar listagem
@@ -255,7 +251,7 @@ class TestArkmedsClient:
 
     async def test_list_estados_fallback(self, client):
         """Testa fallback para estados quando API não está disponível."""
-        with patch.object(client, '_get_all_pages') as mock_get_pages:
+        with patch.object(client, "_get_all_pages") as mock_get_pages:
             # Mock de erro de conexão
             mock_get_pages.side_effect = httpx.RequestError("Connection failed")
 
@@ -271,7 +267,7 @@ class TestArkmedsClient:
 
     async def test_close_client(self, client):
         """Testa fechamento do cliente HTTP."""
-        with patch.object(client, '_get_client') as mock_get_client:
+        with patch.object(client, "_get_client") as mock_get_client:
             # Mock do cliente HTTP
             mock_http_client = AsyncMock()
             mock_get_client.return_value = mock_http_client
@@ -286,7 +282,7 @@ class TestArkmedsClient:
 
     async def test_close_client_error_handling(self, client):
         """Testa tratamento de erros ao fechar cliente."""
-        with patch.object(client, '_get_client') as mock_get_client:
+        with patch.object(client, "_get_client") as mock_get_client:
             # Mock do cliente HTTP que falha ao fechar
             mock_http_client = AsyncMock()
             mock_http_client.aclose.side_effect = RuntimeError("Closed event loop")
@@ -299,10 +295,10 @@ class TestArkmedsClient:
             # Verificações
             assert client._client is None
 
-    @patch('streamlit.session_state', {})
+    @patch("streamlit.session_state", {})
     def test_from_session_creates_new_client(self):
         """Testa criação de cliente a partir da sessão."""
-        with patch('app.arkmeds_client.auth.ArkmedsAuth.from_secrets') as mock_from_secrets:
+        with patch("app.arkmeds_client.auth.ArkmedsAuth.from_secrets") as mock_from_secrets:
             mock_auth = AsyncMock(spec=ArkmedsAuth)
             mock_from_secrets.return_value = mock_auth
 
@@ -314,13 +310,13 @@ class TestArkmedsClient:
             assert client.auth == mock_auth
             mock_from_secrets.assert_called_once()
 
-    @patch('streamlit.session_state', {'_arkmeds_client': 'existing_client'})
+    @patch("streamlit.session_state", {"_arkmeds_client": "existing_client"})
     def test_from_session_returns_existing_client(self):
         """Testa retorno de cliente existente da sessão."""
         # Criar cliente existente na sessão
         existing_client = ArkmedsClient(AsyncMock())
-        
-        with patch('streamlit.session_state', {'_arkmeds_client': existing_client}):
+
+        with patch("streamlit.session_state", {"_arkmeds_client": existing_client}):
             # Executar from_session
             client = ArkmedsClient.from_session()
 
@@ -336,7 +332,7 @@ class TestArkmedsClientIntegration:
     async def test_real_api_endpoints(self):
         """Teste de endpoints reais da API (pular se não configurado)."""
         pytest.skip("Teste de integração - configurar credenciais reais para executar")
-        
+
         # Exemplo de teste de integração real:
         # client = ArkmedsClient.from_session()
         # chamados = await client.list_chamados({"page": 1, "page_size": 5})

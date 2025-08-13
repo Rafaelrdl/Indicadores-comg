@@ -29,7 +29,7 @@ class TestOSMetrics:
     async def test_calculate_sla_metrics_invalid_input(self):
         """Testa validação de entrada inválida."""
         from app.core.exceptions import ValidationError
-        
+
         with pytest.raises(ValidationError, match="closed_orders must be a list"):
             await calculate_sla_metrics("not_a_list")
 
@@ -41,7 +41,7 @@ class TestOSMetrics:
             AsyncMock(spec=Chamado),
             AsyncMock(spec=Chamado),
         ]
-        
+
         # Como a função depende de atributos específicos do Chamado,
         # este teste verifica se executa sem erro
         try:
@@ -67,7 +67,7 @@ class TestEquipmentMetrics:
     async def test_calculate_equipment_status_invalid_input(self):
         """Testa validação de entrada inválida."""
         from app.core.exceptions import ValidationError
-        
+
         with pytest.raises(ValidationError, match="equipment_list must be a list"):
             await calculate_equipment_status("not_a_list")
 
@@ -80,7 +80,7 @@ class TestEquipmentMetrics:
         eq2 = AsyncMock()
         eq2.ativo = False
         eq3 = AsyncMock()  # Sem atributo ativo (padrão True)
-        
+
         active, inactive = await calculate_equipment_status([eq1, eq2, eq3])
         assert active == 2  # eq1 e eq3
         assert inactive == 1  # eq2
@@ -96,7 +96,7 @@ class TestEquipmentMetrics:
     async def test_calculate_maintenance_metrics_invalid_input(self):
         """Testa validação de entrada inválida."""
         from app.core.exceptions import ValidationError
-        
+
         with pytest.raises(ValidationError, match="os_list must be a list"):
             await calculate_maintenance_metrics("not_a_list")
 
@@ -108,11 +108,9 @@ class TestTechnicianMetrics:
     async def test_calculate_technician_kpis_invalid_input(self):
         """Testa validação de entrada inválida."""
         from app.core.exceptions import ValidationError
-        
+
         with pytest.raises(ValidationError, match="orders must be a list"):
-            await calculate_technician_kpis(
-                1, "João", "not_a_list", date.today(), date.today()
-            )
+            await calculate_technician_kpis(1, "João", "not_a_list", date.today(), date.today())
 
     @pytest.mark.asyncio
     async def test_calculate_technician_kpis_empty_orders(self):
@@ -120,9 +118,9 @@ class TestTechnicianMetrics:
         result = await calculate_technician_kpis(
             1, "João", [], date.today() - timedelta(days=30), date.today()
         )
-        
+
         # Resultado deve ser um objeto TechnicianKPI
-        assert hasattr(result, 'technician_id')
+        assert hasattr(result, "technician_id")
         assert result.technician_id == 1
         assert result.technician_name == "João"
 
@@ -136,17 +134,17 @@ class TestServicesIntegration:
         """Testa comportamento de cache dos serviços."""
         # Este teste verifica se as funções executam corretamente
         # com o decorador @smart_cache aplicado
-        
+
         # Teste de SLA
         result1 = await calculate_sla_metrics([])
         result2 = await calculate_sla_metrics([])
         assert result1 == result2 == 0.0
-        
+
         # Teste de equipamentos
         active1, inactive1 = await calculate_equipment_status([])
         active2, inactive2 = await calculate_equipment_status([])
         assert (active1, inactive1) == (active2, inactive2) == (0, 0)
-        
+
         # Teste de manutenção
         result3 = await calculate_maintenance_metrics([])
         result4 = await calculate_maintenance_metrics([])

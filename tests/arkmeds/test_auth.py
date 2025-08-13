@@ -40,10 +40,7 @@ class TestArkmedsAuth:
         """Testa login bem-sucedido com /rest-auth/token-auth/."""
         # Mock do endpoint de login
         respx.post("https://api.test.com/rest-auth/token-auth/").mock(
-            return_value=httpx.Response(
-                200,
-                json={"token": "test_jwt_token_12345"}
-            )
+            return_value=httpx.Response(200, json={"token": "test_jwt_token_12345"})
         )
 
         # Executar login
@@ -62,13 +59,10 @@ class TestArkmedsAuth:
         respx.post("https://api.test.com/rest-auth/token-auth/").mock(
             return_value=httpx.Response(404, text="Not found")
         )
-        
+
         # Mock: segundo endpoint funciona
         respx.post("https://api.test.com/rest-auth/login/").mock(
-            return_value=httpx.Response(
-                200,
-                json={"token": "fallback_token_67890"}
-            )
+            return_value=httpx.Response(200, json={"token": "fallback_token_67890"})
         )
 
         # Executar login
@@ -95,10 +89,7 @@ class TestArkmedsAuth:
         """Testa tratamento de resposta malformada."""
         # Mock: resposta sem token
         respx.post("https://api.test.com/rest-auth/token-auth/").mock(
-            return_value=httpx.Response(
-                200,
-                json={"user": "test", "status": "ok"}  # Sem 'token'
-            )
+            return_value=httpx.Response(200, json={"user": "test", "status": "ok"})  # Sem 'token'
         )
 
         # Verificar que levanta exceção apropriada
@@ -112,9 +103,7 @@ class TestArkmedsAuth:
         respx.head("https://api.test.com/rest-auth/token-auth/").mock(
             return_value=httpx.Response(404)
         )
-        respx.head("https://api.test.com/rest-auth/login/").mock(
-            return_value=httpx.Response(200)
-        )
+        respx.head("https://api.test.com/rest-auth/login/").mock(return_value=httpx.Response(200))
 
         # Executar descoberta
         login_url = await mock_auth._discover_login_url()
@@ -128,9 +117,7 @@ class TestArkmedsAuth:
         """Testa falha na descoberta de URL de login."""
         # Mock: todos endpoints retornam 404
         for endpoint in ArkmedsAuth.LOGIN_ENDPOINT_CANDIDATES:
-            respx.head(f"https://api.test.com{endpoint}").mock(
-                return_value=httpx.Response(404)
-            )
+            respx.head(f"https://api.test.com{endpoint}").mock(return_value=httpx.Response(404))
             respx.request("OPTIONS", f"https://api.test.com{endpoint}").mock(
                 return_value=httpx.Response(404)
             )
@@ -141,7 +128,7 @@ class TestArkmedsAuth:
 
     async def test_get_token_auto_login(self, mock_auth):
         """Testa que get_token() faz login automaticamente."""
-        with patch.object(mock_auth, 'login') as mock_login:
+        with patch.object(mock_auth, "login") as mock_login:
             # Configurar mock para retornar token
             future_exp = datetime.now(timezone.utc) + timedelta(hours=1)
             mock_token = TokenData(token="auto_login_token", exp=future_exp)
@@ -161,7 +148,7 @@ class TestArkmedsAuth:
         near_exp = datetime.now(timezone.utc) + timedelta(minutes=1)
         mock_auth._token = TokenData(token="expiring_token", exp=near_exp)
 
-        with patch.object(mock_auth, 'login') as mock_login:
+        with patch.object(mock_auth, "login") as mock_login:
             # Configurar novo token
             future_exp = datetime.now(timezone.utc) + timedelta(hours=1)
             new_token = TokenData(token="refreshed_token", exp=future_exp)
@@ -180,7 +167,7 @@ class TestArkmedsAuth:
         future_exp = datetime.now(timezone.utc) + timedelta(hours=1)
         mock_auth._token = TokenData(token="valid_token", exp=future_exp)
 
-        with patch.object(mock_auth, 'login') as mock_login:
+        with patch.object(mock_auth, "login") as mock_login:
             # Executar refresh
             await mock_auth.refresh()
 
@@ -193,10 +180,10 @@ class TestArkmedsAuth:
             ArkmedsAuth(
                 email="test@example.com",
                 password="testpass",
-                base_url="invalid-url"  # Sem protocolo
+                base_url="invalid-url",  # Sem protocolo
             )
 
-    @patch('streamlit.secrets')
+    @patch("streamlit.secrets")
     def test_from_secrets(self, mock_secrets):
         """Testa criação a partir de secrets do Streamlit."""
         # Mock do streamlit.secrets
@@ -205,7 +192,7 @@ class TestArkmedsAuth:
             "password": "secretpass",
             "base_url": "https://secret.api.com",
             "token": "existing_token",
-            "login_path": "/custom/login"
+            "login_path": "/custom/login",
         }
 
         # Criar instância
@@ -228,7 +215,7 @@ class TestArkmedsAuthIntegration:
     async def test_real_api_connection(self):
         """Teste de conexão com API real (pular se não configurado)."""
         pytest.skip("Teste de integração - configurar credenciais reais para executar")
-        
+
         # Exemplo de teste de integração real:
         # auth = ArkmedsAuth.from_secrets()
         # token_data = await auth.login()

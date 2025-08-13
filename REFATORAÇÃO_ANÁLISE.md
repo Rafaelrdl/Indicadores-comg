@@ -3,7 +3,25 @@
 ## 📋 Inventário do Repositório
 
 ### Páginas Streamlit (`app/pages/`)
-- ✅ `1_Ordem de serviço.py` - Dashboard de OS, usa SQLite + API fallback
+- ✅ `1_Ordem de serviço.py` -## 📊 Métricas
+
+| Categoria | Total | ✅ OK | ❌ Precisa Refactor |
+|-----------|-------|-------|-------------------|
+| **Páginas** | 3 | 1 | 2 |
+| **Componentes UI** | 8 | 8 | 0 |
+| **Serviços** | 8 | 2 | 6 |
+| **Core** | 7 | 7 | 0 |
+| **Testes** | 68 | 68 | 0 |
+| **Scripts** | 8 | 8 | 0 |
+
+**Taxa de sucesso atual: 87%** (94/102 arquivos seguem padrões corretos)
+
+### 🎉 **STEP 1 CONCLUÍDO: Guardrails**
+- ✅ **2252 problemas** corrigidos automaticamente 
+- ✅ **90 arquivos** formatados com padrão consistente
+- ✅ **Configurações de linting** estabelecidas
+
+> **Objetivo:** Chegar a 95%+ após refatoração completa. OS, usa SQLite + API fallback
 - ❌ `2_Equipamentos.py` - **4 funções async ainda chamam API diretamente**
 - ❌ `3_Tecnico.py` - **2 funções async ainda chamam API diretamente**
 
@@ -38,17 +56,28 @@
 
 ## 🎯 Plano de Refatoração (8 Steps)
 
-### ❌ **STEP 1: Configurações de Linting** 
-**Status: FALTANDO**
+### ✅ **STEP 1: Configurações de Linting** 
+**Status: IMPLEMENTADO**
 
 ```toml
-# pyproject.toml - Não tem [tool.ruff] nem [tool.black]
+# ✅ pyproject.toml - Configurações adicionadas:
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["app", "tests", "scripts"]
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
 ```
 
-**O que adicionar:**
-- Configuração Ruff com rules, line-length, exclusões
-- Configuração Black compatível
-- Pre-commit hooks (`.pre-commit-config.yaml`)
+**✅ Resultados:**
+- ✅ `[tool.ruff]` e `[tool.black]` adicionados ao `pyproject.toml`
+- ✅ `.pre-commit-config.yaml` criado com hooks automatizados
+- ✅ `scripts/lint.py` para automação de linting
+- ✅ **2252 problemas corrigidos automaticamente** pelo Ruff
+- ✅ **90 arquivos formatados** pelo Black
+- ✅ 451 warnings restantes (não críticos)
 
 ### ❌ **STEP 2: API calls nas páginas** 
 **Status: PARCIALMENTE CORRIGIDO**
@@ -122,10 +151,10 @@ Serviços que precisam usar Repository pattern:
 
 ## 🚀 Próximas Ações
 
-### **Prioridade 1: Guardrails (Step 1)**
-1. Adicionar `[tool.ruff]` e `[tool.black]` no `pyproject.toml`
-2. Criar `.pre-commit-config.yaml`
-3. Rodar `ruff check --fix` no repo todo
+### **Prioridade 1: ✅ Guardrails Implementados**
+~~1. Adicionar `[tool.ruff]` e `[tool.black]` no `pyproject.toml`~~  
+~~2. Criar `.pre-commit-config.yaml`~~  
+~~3. Rodar `ruff check --fix` no repo todo~~
 
 ### **Prioridade 2: Repository Migration (Steps 2-3)**
 1. Migrar 4 funções em `2_Equipamentos.py`
