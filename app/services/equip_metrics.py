@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 from statistics import mean
 from typing import Any
 
-import httpx
-
-from app.arkmeds_client.auth import ArkmedsAuthError
 from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import OSEstado
 from app.config.os_types import TIPO_CORRETIVA
@@ -64,12 +60,12 @@ EquipMetrics = EquipmentMetrics
 
 
 async def fetch_equipment_data(
-    client: ArkmedsClient, start_date: date, end_date: date, **filters: Any
+    client: ArkmedsClient | None, start_date: date, end_date: date, **filters: Any
 ) -> tuple[list, list]:
-    """Fetch equipment and maintenance orders data concurrently.
+    """Fetch equipment and maintenance orders data using Repository (SQLite local).
 
     Args:
-        client: The Arkmeds API client
+        client: The Arkmeds API client (kept for compatibility, not used)
         start_date: Start date for the query
         end_date: End date for the query
         **filters: Additional filters for the query
@@ -78,24 +74,34 @@ async def fetch_equipment_data(
         Tuple containing (equipment_list, os_list)
 
     Raises:
-        DataFetchError: If there's an error fetching data from the API
+        DataFetchError: If there's an error fetching data from the local database
     """
     try:
-        equip_task = client.list_equipment()
+        # Import repository functions locally to avoid circular imports
+        from app.services.repository import get_equipments_df, get_orders_df
 
-        # Prepare OS filters - remover parâmetros não suportados
-        os_filters = {}
-        # Set default tipo_id only if not already specified
-        if "tipo_id" not in filters:
-            os_filters["tipo_id"] = TIPO_CORRETIVA
-        else:
-            os_filters["tipo_id"] = filters["tipo_id"]
+        # Fetch equipment data from SQLite
+        equipments_df = get_equipments_df()
+        equipment_list = equipments_df.to_dict("records") if not equipments_df.empty else []
 
-        os_task = client.list_chamados(os_filters)
+        # Prepare OS filters for Repository
+        tipo_id = filters.get("tipo_id", TIPO_CORRETIVA)
 
-        return await asyncio.gather(equip_task, os_task)
-    except (httpx.TimeoutException, ArkmedsAuthError) as exc:
-        raise DataFetchError(f"Failed to fetch equipment data: {exc!s}") from exc
+        # Fetch orders data from SQLite with date range
+        orders_df = get_orders_df(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat()
+        )
+
+        # Filter by tipo_id if specified
+        if not orders_df.empty and "tipo_id" in orders_df.columns:
+            orders_df = orders_df[orders_df["tipo_id"] == tipo_id]
+
+        os_list = orders_df.to_dict("records") if not orders_df.empty else []
+
+        return equipment_list, os_list
+    except Exception as exc:
+        raise DataFetchError(f"Failed to fetch equipment data from Repository: {exc!s}") from exc
 
 
 async def calculate_equipment_status(equipment_list: list) -> tuple[int, int]:

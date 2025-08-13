@@ -6,9 +6,6 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-import httpx
-
-from app.arkmeds_client.auth import ArkmedsAuthError
 from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import OSEstado
 
@@ -71,12 +68,12 @@ TechKPI = TechnicianKPI
 
 
 async def fetch_technician_orders(
-    client: ArkmedsClient, start_date: date, end_date: date, **filters: Any
+    client: ArkmedsClient | None, start_date: date, end_date: date, **filters: Any
 ) -> list[Any]:
-    """Fetch service orders data for technicians.
+    """Fetch service orders data for technicians using Repository (SQLite local).
 
     Args:
-        client: The Arkmeds API client
+        client: The Arkmeds API client (kept for compatibility, not used)
         start_date: Start date for the query
         end_date: End date for the query
         **filters: Additional filters for the query
@@ -85,18 +82,28 @@ async def fetch_technician_orders(
         List of service orders
 
     Raises:
-        DataFetchError: If there's an error fetching data from the API
+        DataFetchError: If there's an error fetching data from the local database
     """
     try:
-        return await client.list_chamados(
-            {
-                "data_criacao__lte": end_date,
-                "estado_ids": [OSEstado.ABERTA.value, OSEstado.FECHADA.value],
-                **filters,
-            }
+        # Import repository functions locally to avoid circular imports
+        from app.services.repository import get_orders_df
+
+        # Get filter states - default to open and closed orders
+        estados = filters.get("estado_ids", [OSEstado.ABERTA.value, OSEstado.FECHADA.value])
+
+        # Fetch orders data from SQLite with date range and states
+        orders_df = get_orders_df(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            estados=estados
         )
-    except (httpx.TimeoutException, ArkmedsAuthError) as exc:
-        raise DataFetchError(f"Failed to fetch technician data: {exc!s}") from exc
+
+        # Convert to list of dicts for compatibility
+        orders_list = orders_df.to_dict("records") if not orders_df.empty else []
+
+        return orders_list
+    except Exception as exc:
+        raise DataFetchError(f"Failed to fetch technician data from Repository: {exc!s}") from exc
 
 
 def group_orders_by_technician(orders: list[Any]) -> dict[int, list[Any]]:

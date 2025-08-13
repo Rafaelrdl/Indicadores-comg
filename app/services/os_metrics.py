@@ -119,12 +119,12 @@ def _validate_dates(start_date: date, end_date: date) -> None:
 
 
 async def fetch_orders(
-    client: ArkmedsClient, order_type: int, area_id: int | None = None, **extra: Any
+    client: ArkmedsClient | None, order_type: int, area_id: int | None = None, **extra: Any
 ) -> list[Chamado]:
-    """Fetch orders from the API with the given filters.
+    """Fetch orders using Repository (SQLite local) with the given filters.
 
     Args:
-        client: The Arkmeds API client
+        client: The Arkmeds API client (kept for compatibility, not used)
         order_type: Type of order to fetch
         area_id: Optional area ID to filter by
         **extra: Additional filters
@@ -132,17 +132,31 @@ async def fetch_orders(
     Returns:
         List of service orders
     """
-    params: dict[str, Any] = {
-        **extra,
-    }
+    try:
+        # Import repository functions locally to avoid circular imports
+        from app.services.repository import get_orders_df
 
-    if area_id is not None:
-        params["area_id"] = area_id
-        params["area_id"] = area_id
+        # Fetch all orders from SQLite
+        orders_df = get_orders_df()
 
-    # Nota: O parâmetro tipo_id não é suportado pela API atual
-    # A filtragem por tipo deve ser feita após receber os dados
-    return await client.list_chamados(params)
+        # Apply filters
+        if not orders_df.empty:
+            # Filter by type
+            if "tipo_id" in orders_df.columns:
+                orders_df = orders_df[orders_df["tipo_id"] == order_type]
+
+            # Filter by area if specified
+            if area_id is not None and "area_id" in orders_df.columns:
+                orders_df = orders_df[orders_df["area_id"] == area_id]
+
+        # Convert to list of Chamado-compatible dicts
+        orders_list = orders_df.to_dict("records") if not orders_df.empty else []
+
+        # Note: Returning dict records instead of Chamado objects for compatibility
+        return orders_list
+    except Exception as exc:
+        from app.core.exceptions import DataFetchError
+        raise DataFetchError(f"Failed to fetch orders from Repository: {exc!s}") from exc
 
 
 async def fetch_service_orders_with_cache(
