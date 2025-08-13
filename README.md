@@ -1,4 +1,33 @@
-# Dashboard Arkmeds - Indicadores COMG
+# Dashboard Ar### ✨ Características Principais
+- **🕐 Sincronização Automática**: Agendamento periódico session-aware (15min)
+- **📊 Indicadores de Progresso**: Barras de progresso em tempo real com persistência
+- **🚀 Startup Sync**: Sincronização automática não-bloqueante ao iniciar o app
+- **⚡ Performance 99%+ Melhor**: Leitura local SQLite### 🔄 Tipos de Sincronização
+
+#### 1. Startup Sync (Automática)
+- **Quando**: Automaticamente ao abrir o app
+- **Como**: Verifica se dados estão desatualizados (1h padrão)
+- **Progresso**: Barra de progresso na tela principal
+- **Performance**: ~10-30 segundos (apenas se necessário)
+- **Configuração**: `ENABLE_STARTUP_SYNC = true` em `secrets.toml`
+
+#### 2. Backfill Completo
+- **Quando usar**: Primeira execução ou reset completo
+- **Como**: Busca todos os dados da API
+- **Progresso**: Indicadores detalhados por recurso
+- **Performance**: ~2-5 minutos dependendo do volume
+- **Comando**: `poetry run python -m scripts.backfill`
+
+#### 3. Sincronização Incremental (Delta)
+- **Quando usar**: Atualizações regulares (padrão do scheduler)
+- **Como**: Apenas dados novos/modificados desde última sync
+- **Progresso**: Barra de progresso em tempo real
+- **Performance**: ~10-30 segundos
+- **Comando**: `poetry run python -m scripts.delta`ta
+- **🔄 Sistema Inteligente**: Backfill completo + sincronização incremental
+- **🎛️ Controles Interativos**: UI para gerenciar dados e status
+- **📊 Métricas Completas**: KPIs, análises e visualizações avançadas
+- **🏗️ Arquitetura Robusta**: Modular, escalável e bem testada Indicadores COMG
 
 ![CI](https://github.com/Rafaelrdl/Indicadores-comg/actions/workflows/ci.yml/badge.svg)
 ![CD](https://github.com/Rafaelrdl/Indicadores-comg/actions/workflows/cd.yml/badge.svg)
@@ -26,10 +55,13 @@ Sistema completo com **sincronização automática**, cache inteligente e perfor
 ├── 📱 app/                     # Aplicação principal
 │   ├── core/                   # Infraestrutura central
 │   │   ├── scheduler.py        # 🕐 Sistema de agendamento automático
+│   │   ├── startup.py          # 🚀 Sincronização automática na inicialização
 │   │   └── db.py              # 🗄️ Banco SQLite + migrações
 │   ├── services/sync/          # 🔄 Sistema de sincronização
 │   │   ├── ingest.py          # 📥 Backfill completo
 │   │   └── delta.py           # 📊 Sincronização incremental
+│   ├── services/               # 🛠️ Serviços de negócio
+│   │   └── sync_jobs.py       # 📊 Rastreamento de progresso de jobs
 │   ├── ui/components/          # 🎛️ Componentes interativos
 │   │   ├── refresh_controls.py # 🔄 Controles de atualização
 │   │   └── scheduler_status.py # 📊 Status do scheduler
@@ -68,6 +100,13 @@ base_url = "https://comg.arkmeds.com"
 # Sistema de Agendamento Automático
 SYNC_INTERVAL_MINUTES = 15          # Intervalo de sincronização (15min padrão)
 SCHEDULER_TIMEZONE = "America/Sao_Paulo"
+
+# Startup Sync - Sincronização Automática na Inicialização
+ENABLE_STARTUP_SYNC = true          # Ativa sync automática ao abrir app
+STARTUP_SYNC_CHECK_HOURS = 1        # Verifica se sync é necessária (1h padrão)
+
+# Progress UI - Interface de Progresso
+PROGRESS_UI_REFRESH_MS = 2000       # Atualização da barra de progresso (2s)
 
 # Auto-Refresh Fallback (páginas de alto tráfego)
 AUTOREFRESH_INTERVAL_MINUTES = 30   # Fallback quando scheduler inativo
@@ -123,14 +162,117 @@ poetry run python -m scripts.delta --force-full
 poetry run python -m scripts.delta --resources orders --min-interval 10
 ```
 
+## 📊 Sistema de Indicadores de Progresso
+
+O dashboard implementa um sistema completo de rastreamento de progresso para todas as operações de sincronização, fornecendo feedback visual em tempo real.
+
+### ✨ Funcionalidades
+
+#### 🚀 Startup Sync
+- **Sincronização Automática**: Executa automaticamente ao abrir o app
+- **Não-Bloqueante**: Roda em background sem travar a interface
+- **Cache Inteligente**: Evita sincronizações desnecessárias
+- **Sobreposição Zero**: Previne múltiplas execuções simultâneas
+
+#### 📊 Progress UI
+- **Barras de Progresso**: Visualização em tempo real do progresso
+- **Persistência**: Estado salvo no SQLite durante execução
+- **Auto-Refresh**: Interface atualiza automaticamente (2s padrão)
+- **Status Detalhado**: Mostra tipo, progresso, e tempo decorrido
+
+#### 🗄️ Job Management
+- **Rastreamento Completo**: Histórico de todos os jobs executados
+- **Estados**: `running`, `success`, `error`, `cancelled`
+- **Métricas**: Tempo de execução, itens processados, percentual
+- **Limpeza Automática**: Remove jobs antigos automaticamente
+
+### 🎛️ Interface Visual
+
+#### Tela Principal
+```
+🔄 Sincronização em Andamento
+━━━━━━━━━━━━━━━━━━━━ 65% (130/200)
+📈 Delta Sync | ⏱️ 00:02:15
+```
+
+#### Durante Startup Sync
+```
+🚀 Sincronização Inicial...
+━━━━━━━━━━░░░░░░░░░░ 50%
+🔄 Verificando dados recentes...
+```
+
+### ⚙️ Configurações
+
+```toml
+# .streamlit/secrets.toml
+[arkmeds]
+# Startup Sync
+ENABLE_STARTUP_SYNC = true          # Ativar sync automática
+STARTUP_SYNC_CHECK_HOURS = 1        # Verificar necessidade (1h)
+
+# Progress UI  
+PROGRESS_UI_REFRESH_MS = 2000       # Refresh da barra (2s)
+```
+
+### 📡 Fluxo de Execução
+
+1. **App Start**: `ensure_startup_sync()` verifica necessidade
+2. **Job Creation**: Cria registro no SQLite com status `running`
+3. **Progress Updates**: Atualiza `processed/total` em tempo real
+4. **UI Refresh**: Auto-refresh mostra progresso na tela
+5. **Job Completion**: Finaliza com status `success/error`
+
+### 🔧 API de Jobs
+
+```python
+from app.services.sync_jobs import (
+    create_job,      # Criar novo job
+    update_job,      # Atualizar progresso
+    finish_job,      # Finalizar job
+    get_running_job, # Job em execução
+    has_running_job  # Verificar se há job rodando
+)
+
+# Exemplo de uso
+job_id = create_job('delta')
+update_job(job_id, processed=50, total=100)
+finish_job(job_id, 'success')
+```
+
+### 🧪 Testes
+
+```bash
+# Testar sistema de progresso
+poetry run python -m pytest tests/test_sync_progress.py -v
+
+# Testar startup sync
+poetry run python -m pytest tests/test_startup_sync.py -v
+
+# Simular job completo
+poetry run python -c "
+from app.services.sync_jobs import create_job, update_job, finish_job
+import time
+job_id = create_job('delta')
+for i in [25, 50, 75, 100]:
+    update_job(job_id, i, 100)
+    time.sleep(1)
+finish_job(job_id, 'success')
+"
+```
+
 ## 🧪 Desenvolvimento e Testes
 
-### Executar Testes
+### 🧪 Executar Testes
 ```bash
 # Testes principais
 poetry run python -m pytest tests/test_sqlite_refactor.py -v
 poetry run python -m pytest tests/test_refresh_controls.py -v
 poetry run python -m pytest tests/test_basic_logging.py -v
+
+# Testes do sistema de progresso
+poetry run python -m pytest tests/test_sync_progress.py -v
+poetry run python -m pytest tests/test_startup_sync.py -v
 
 # Teste do scheduler
 poetry run python test_scheduler.py

@@ -48,6 +48,52 @@ def get_conn() -> sqlite3.Connection:
     # Habilitar foreign keys
     conn.execute("PRAGMA foreign_keys=ON;")
     
+    # Inicializar schema na primeira conexão
+    _initialize_sync_jobs_schema(conn)
+    
+    return conn
+
+
+def _initialize_sync_jobs_schema(conn: sqlite3.Connection) -> None:
+    """Inicializa o schema da tabela sync_jobs se não existir."""
+    try:
+        conn.executescript("""
+            -- Tabela para rastrear progresso de jobs de sincronização
+            CREATE TABLE IF NOT EXISTS sync_jobs (
+                job_id TEXT PRIMARY KEY,
+                kind TEXT NOT NULL CHECK(kind IN ('delta','backfill')),
+                status TEXT NOT NULL CHECK(status IN ('running','success','error')),
+                total INTEGER NULL,
+                processed INTEGER DEFAULT 0,
+                percent INTEGER DEFAULT 0,
+                started_at TEXT NOT NULL,
+                finished_at TEXT NULL,
+                updated_at TEXT NOT NULL
+            );
+            
+            -- Índice para consultas por status
+            CREATE INDEX IF NOT EXISTS idx_sync_jobs_status ON sync_jobs(status);
+            
+            -- Índice para consultas por tipo e status
+            CREATE INDEX IF NOT EXISTS idx_sync_jobs_kind_status ON sync_jobs(kind, status);
+            
+            -- Trigger para calcular porcentagem automaticamente
+            CREATE TRIGGER IF NOT EXISTS trg_sync_jobs_percent
+            AFTER UPDATE OF processed, total ON sync_jobs
+            BEGIN
+                UPDATE sync_jobs
+                SET percent = CASE 
+                    WHEN NEW.total IS NULL OR NEW.total = 0 THEN NULL
+                    ELSE CAST((NEW.processed * 100.0) / NEW.total AS INTEGER)
+                END,
+                updated_at = datetime('now')
+                WHERE job_id = NEW.job_id;
+            END;
+        """)
+        conn.commit()
+    except Exception as e:
+        print(f"Erro ao inicializar schema sync_jobs: {e}")
+    
     # Configurar row factory para acessar colunas por nome
     conn.row_factory = sqlite3.Row
     

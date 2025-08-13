@@ -9,6 +9,7 @@ import streamlit as st
 from app.arkmeds_client.client import ArkmedsClient
 from app.core.db import get_conn
 from app.core.logging import app_logger as logger
+from app.services.sync_jobs import create_job, update_job, finish_job, has_running_job
 from ._upsert import (
     upsert_records, 
     update_sync_state, 
@@ -447,5 +448,86 @@ def should_run_incremental_sync(resource: str, max_age_hours: int = 2) -> bool:
         return datetime.now() - last_sync_time > max_age
     
     except Exception as e:
-        logger.log_error(f"❌ Erro verificando necessidade de sync: {e}")
+        logger.log_error(e, {"context": "should_run_incremental_sync"})
         return True  # Em caso de erro, sincronizar por segurança
+
+
+async def run_delta_sync_with_progress(
+    client: ArkmedsClient,
+    resources: Optional[List[str]] = None
+) -> int:
+    """
+    Executa sincronização incremental com rastreamento de progresso.
+    
+    Wrapper que cria job de progresso e instrumenta o processo de sync
+    para fornecer feedback visual em tempo real.
+    
+    Args:
+        client: Cliente da API
+        resources: Lista de recursos para sincronizar (default: ['orders'])
+        
+    Returns:
+        int: Número total de registros sincronizados
+    """
+    # Evitar jobs concorrentes
+    if has_running_job('delta'):
+        logger.log_info("🔄 Job delta já em execução, pulando...")
+        return 0
+    
+    job_id = create_job('delta')
+    total_synced = 0
+    
+    try:
+        if resources is None:
+            resources = ['orders']
+            
+        logger.log_info(f"🚀 Iniciando sincronização delta com progresso - Job: {job_id}")
+        
+        # Estimativa inicial (será refinada durante o processo)
+        estimated_total = len(resources) * 100  # Estimativa conservadora
+        update_job(job_id, 0, estimated_total)
+        
+        sync_manager = IncrementalSync(client)
+        processed_items = 0
+        
+        for i, resource in enumerate(resources):
+            logger.log_info(f"📋 Sincronizando recurso {i+1}/{len(resources)}: {resource}")
+            
+            try:
+                if resource == 'orders':
+                    count = await sync_manager.sync_orders_incremental()
+                elif resource == 'equipments':
+                    count = await sync_manager.sync_equipments_incremental()
+                elif resource == 'technicians':
+                    count = await sync_manager.sync_technicians_incremental()
+                else:
+                    logger.log_info(f"⚠️ Recurso desconhecido: {resource}")
+                    count = 0
+                
+                total_synced += count
+                processed_items += count
+                
+                # Atualizar progresso (ajustar total se necessário)
+                if count > estimated_total // len(resources):
+                    # Se recebemos mais dados que esperado, ajustar total
+                    estimated_total = processed_items + ((len(resources) - i - 1) * count)
+                
+                update_job(job_id, processed_items, estimated_total)
+                
+                logger.log_info(f"✅ {resource}: {count:,} registros sincronizados")
+                
+            except Exception as e:
+                logger.log_error(e, {"context": f"sync_{resource}", "job_id": job_id})
+                # Continuar com outros recursos mesmo se um falhar
+                continue
+        
+        # Finalizar com sucesso
+        finish_job(job_id, 'success')
+        logger.log_info(f"🎉 Sincronização delta concluída: {total_synced:,} registros - Job: {job_id}")
+        
+        return total_synced
+        
+    except Exception as e:
+        finish_job(job_id, 'error')
+        logger.log_error(e, {"context": "run_delta_sync_with_progress", "job_id": job_id})
+        raise

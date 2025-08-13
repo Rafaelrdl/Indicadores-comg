@@ -2,22 +2,48 @@
 """Página de análise de desempenho de técnicos usando nova arquitetura."""
 
 import asyncio
+import json
+import sys
+from pathlib import Path
 from typing import List, Tuple
 
 import pandas as pd
 import streamlit as st
 
-from app.arkmeds_client.client import ArkmedsClient
-from app.ui.utils import run_async_safe
-from app.ui.filters import render_filters, show_active_filters
+# Configuração de imports flexível para diferentes contextos de execução
+current_dir = Path(__file__).parent
+app_dir = current_dir.parent
+root_dir = app_dir.parent
 
-# Nova arquitetura de componentes
-from app.ui.components import MetricsDisplay, KPICard, DataTable, TimeSeriesCharts, DistributionCharts
+# Adicionar paths necessários
+if str(app_dir) not in sys.path:
+    sys.path.insert(0, str(app_dir))
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
+
+# Imports flexíveis que funcionam em diferentes contextos
+try:
+    # Tentar importar sem prefixo app. (quando executado do diretório app)
+    from arkmeds_client.client import ArkmedsClient
+    from ui.utils import run_async_safe
+    from ui.filters import render_filters, show_active_filters
+    from ui.components import MetricsDisplay, KPICard, DataTable, TimeSeriesCharts, DistributionCharts
+except ImportError:
+    try:
+        # Tentar importar com prefixo app. (quando executado do diretório raiz)
+        from app.arkmeds_client.client import ArkmedsClient
+        from app.ui.utils import run_async_safe
+        from app.ui.filters import render_filters, show_active_filters
+        from app.ui.components import MetricsDisplay, KPICard, DataTable, TimeSeriesCharts, DistributionCharts
+    except ImportError as e:
+        st.error(f"Erro ao importar módulos: {e}")
+        st.stop()
 from app.ui.layouts import PageLayout, SectionLayout
 from app.data.validators import DataValidator
 
 # Core imports
 from app.core import get_settings, APIError, DataValidationError
+from app.core.logging import app_logger
 from app.services.tech_metrics import compute_metrics, calculate_technician_kpis, TechnicianKPI
 
 
@@ -119,10 +145,58 @@ async def fetch_technician_data() -> List[dict]:
 
 
 def fetch_technician_data_cached() -> List[dict]:
-    """Wrapper síncrono para fetch_technician_data."""
-    async def async_wrapper():
-        return await fetch_technician_data()
-    return run_async_safe(async_wrapper())
+    """Busca dados de técnicos do banco local em vez da API."""
+    try:
+        app_logger.log_info("👷 Buscando dados de técnicos do SQLite local...")
+        
+        # ========== NOVA ABORDAGEM: LEITURA DIRETA DO SQLITE ==========
+        from app.services.repository import get_technicians_df, get_database_stats
+        
+        # Verificar estatísticas do banco
+        stats = get_database_stats()
+        technicians_count = stats.get('technicians_count', 0)
+        
+        # Se banco está vazio, avisar usuário para executar sincronização
+        if technicians_count == 0:
+            st.warning("""
+            📭 **Dados não encontrados no banco local**
+            
+            Para visualizar os dados de técnicos, é necessário executar a sincronização inicial.
+            Use os controles na sidebar ou aguarde a sincronização automática.
+            """)
+            return []
+        
+        # Buscar técnicos do SQLite
+        technicians_df = get_technicians_df(limit=500)
+        
+        if technicians_df.empty:
+            st.warning("📭 Nenhum técnico encontrado no banco local")
+            return []
+        
+        # Converter technicians_df para lista de dicts compatíveis
+        technicians_list = []
+        for _, row in technicians_df.iterrows():
+            try:
+                payload = json.loads(row['payload']) if isinstance(row['payload'], str) else row['payload']
+                technicians_list.append({
+                    'id': payload.get('id'),
+                    'nome': payload.get('nome', ''),
+                    'email': payload.get('email', ''),
+                    'ativo': payload.get('ativo', True),
+                    'is_active': payload.get('ativo', True),  # Compatibilidade
+                    **payload  # Incluir todos os outros campos
+                })
+            except Exception as e:
+                app_logger.log_error(e, {"context": "processar_tecnico"})
+                continue
+        
+        app_logger.log_info(f"✅ Carregados {len(technicians_list)} técnicos do SQLite")
+        return technicians_list
+        
+    except Exception as e:
+        app_logger.log_error(e, {"context": "fetch_technician_data_cached_sqlite"})
+        st.error(f"⚠️ Erro ao carregar dados: {str(e)}")
+        return []
 
 
 def render_technician_overview(users: List[dict]) -> None:

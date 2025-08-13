@@ -1,6 +1,9 @@
 """Página de análise de equipamentos e manutenção."""
 
 import asyncio
+import json
+import sys
+from pathlib import Path
 from collections import defaultdict
 from datetime import date, datetime
 from statistics import mean
@@ -11,35 +14,76 @@ import plotly.express as px
 import streamlit as st
 from dateutil.relativedelta import relativedelta
 
-from arkmeds_client.client import ArkmedsClient
-from arkmeds_client.models import Chamado
-from config.os_types import TIPO_CORRETIVA
-from services.equip_metrics import compute_metrics
-from services.equip_advanced_metrics import (
-    calcular_stats_equipamentos,
-    calcular_mttf_mtbf_top,
-    exibir_distribuicao_prioridade,
-    exibir_distribuicao_status,
-    exibir_top_mttf_mtbf,
-)
-from app.ui.utils import run_async_safe
+# Configuração de imports flexível para diferentes contextos de execução
+current_dir = Path(__file__).parent
+app_dir = current_dir.parent
+root_dir = app_dir.parent
 
-# New infrastructure imports
-from app.core import get_settings, APIError, DataValidationError
-from app.ui.components import (
-    MetricsDisplay, Metric, KPICard, TimeSeriesCharts, 
-    DistributionCharts, KPICharts, DataTable
-)
-from app.ui.components.refresh_controls import render_compact_refresh_button, render_sync_status
-from app.ui.layouts import PageLayout, SectionLayout, GridLayout
-from app.utils import DataValidator, DataCleaner, MetricsCalculator, DataTransformer
+# Adicionar paths necessários
+if str(app_dir) not in sys.path:
+    sys.path.insert(0, str(app_dir))
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
 
-# Legacy imports for compatibility
-from app.core.logging import performance_monitor, app_logger
-from app.core.exceptions import ErrorHandler, DataFetchError, safe_operation
+# Imports flexíveis que funcionam em diferentes contextos
+try:
+    # Tentar importar sem prefixo app. (quando executado do diretório app)
+    from arkmeds_client.client import ArkmedsClient
+    from arkmeds_client.models import Chamado
+    from config.os_types import TIPO_CORRETIVA
+    from services.equip_metrics import compute_metrics
+    from services.equip_advanced_metrics import (
+        calcular_stats_equipamentos,
+        calcular_mttf_mtbf_top,
+        exibir_distribuicao_prioridade,
+        exibir_distribuicao_status,
+        exibir_top_mttf_mtbf,
+    )
+    from ui.utils import run_async_safe
+    from core import get_settings, APIError, DataValidationError
+    from ui.components import (
+        MetricsDisplay, Metric, KPICard, TimeSeriesCharts, 
+        DistributionCharts, KPICharts, DataTable
+    )
+    from ui.components.refresh_controls import render_compact_refresh_button, render_sync_status
+    from ui.layouts import PageLayout, SectionLayout, GridLayout
+    from utils import DataValidator, DataCleaner, MetricsCalculator, DataTransformer
+    from core.logging import performance_monitor, app_logger
+    from core.exceptions import ErrorHandler, DataFetchError, safe_operation
+except ImportError:
+    try:
+        # Tentar importar com prefixo app. (quando executado do diretório raiz)
+        from app.arkmeds_client.client import ArkmedsClient
+        from app.arkmeds_client.models import Chamado
+        from app.config.os_types import TIPO_CORRETIVA
+        from app.services.equip_metrics import compute_metrics
+        from app.services.equip_advanced_metrics import (
+            calcular_stats_equipamentos,
+            calcular_mttf_mtbf_top,
+            exibir_distribuicao_prioridade,
+            exibir_distribuicao_status,
+            exibir_top_mttf_mtbf,
+        )
+        from app.ui.utils import run_async_safe
+        from app.core import get_settings, APIError, DataValidationError
+        from app.ui.components import (
+            MetricsDisplay, Metric, KPICard, TimeSeriesCharts, 
+            DistributionCharts, KPICharts, DataTable
+        )
+        from app.ui.components.refresh_controls import render_compact_refresh_button, render_sync_status
+        from app.ui.layouts import PageLayout, SectionLayout, GridLayout
+        from app.utils import DataValidator, DataCleaner, MetricsCalculator, DataTransformer
+        from app.core.logging import performance_monitor, app_logger
+        from app.core.exceptions import ErrorHandler, DataFetchError, safe_operation
+    except ImportError as e:
+        st.error(f"Erro ao importar módulos: {e}")
+        st.stop()
 
 # Get configuration
-settings = get_settings()
+try:
+    settings = get_settings()
+except:
+    settings = None
 
 
 def parse_datetime(date_str: str) -> Optional[datetime]:
@@ -108,28 +152,37 @@ async def fetch_equipment_data_async() -> tuple:
         dt_fim = date.today()
         dt_ini = dt_fim - relativedelta(months=12)
         
-        # Buscar métricas e equipamentos primeiro (mais simples)
-        metrics_task = compute_metrics(client, start_date=dt_ini, end_date=dt_fim)
-        equip_task = client.list_equipment()
-        
-        # Buscar os dados básicos primeiro
-        metrics, equip_list = await asyncio.gather(metrics_task, equip_task)
+        # Buscar dados sequencialmente para evitar problemas de event loop
+        try:
+            metrics = await compute_metrics(client, start_date=dt_ini, end_date=dt_fim)
+        except Exception as e:
+            app_logger.info(f"Erro ao buscar métricas: {e}")
+            metrics = None
+            
+        try:
+            equip_list = await client.list_equipment()
+        except Exception as e:
+            app_logger.info(f"Erro ao buscar equipamentos: {e}")
+            equip_list = []
         
         # Buscar histórico separadamente para evitar problemas
         try:
             os_hist = await client.list_chamados({"tipo_id": TIPO_CORRETIVA})
         except Exception as e:
-            app_logger.warning(f"Erro ao buscar histórico de chamados: {e}")
+            app_logger.info(f"Erro ao buscar histórico de chamados: {e}")
             os_hist = []
         
-        # Validar dados
+        # Validar dados se disponível
         if equip_list:
-            df = pd.DataFrame([e.model_dump() for e in equip_list])
-            df = DataValidator.validate_dataframe(
-                df, 
-                required_columns=["id", "nome"],
-                name="Equipamentos"
-            )
+            try:
+                df = pd.DataFrame([e.model_dump() for e in equip_list])
+                df = DataValidator.validate_dataframe(
+                    df, 
+                    required_columns=["id", "nome"],
+                    name="Equipamentos"
+                )
+            except Exception as e:
+                app_logger.info(f"Erro na validação dos dados: {e}")
         
         return metrics, equip_list, os_hist
         
@@ -140,8 +193,117 @@ async def fetch_equipment_data_async() -> tuple:
 
 # Wrapper function for compatibility  
 def fetch_equipment_data() -> tuple:
-    """Wrapper síncrono para compatibilidade."""
-    return run_async_safe(fetch_equipment_data_async())
+    """Busca dados de equipamentos do banco local em vez da API."""
+    try:
+        app_logger.log_info("📊 Buscando dados de equipamentos do SQLite local...")
+        
+        # ========== NOVA ABORDAGEM: LEITURA DIRETA DO SQLITE ==========
+        from app.services.repository import get_equipments_df, get_orders_df, get_database_stats
+        
+        # Verificar estatísticas do banco
+        stats = get_database_stats()
+        equipments_count = stats.get('equipments_count', 0)
+        orders_count = stats.get('orders_count', 0)
+        
+        # Se banco está vazio, avisar usuário para executar sincronização
+        if equipments_count == 0 or orders_count == 0:
+            st.warning("""
+            📭 **Dados não encontrados no banco local**
+            
+            Para visualizar os dados de equipamentos, é necessário executar a sincronização inicial.
+            Use os controles na sidebar ou aguarde a sincronização automática.
+            """)
+            return None, [], []
+        
+        # Buscar equipamentos do SQLite
+        equipments_df = get_equipments_df(limit=1000)
+        
+        if equipments_df.empty:
+            st.warning("📭 Nenhum equipamento encontrado no banco local")
+            return None, [], []
+        
+        # Buscar ordens relacionadas (últimos 12 meses)
+        from datetime import datetime, timedelta
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=365)
+        
+        orders_df = get_orders_df(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            limit=10000
+        )
+        
+        # Converter equipments_df para lista de objetos compatíveis
+        equipments_list = []
+        for _, row in equipments_df.iterrows():
+            try:
+                payload = json.loads(row['payload']) if isinstance(row['payload'], str) else row['payload']
+                equipments_list.append({
+                    'id': payload.get('id'),
+                    'descricao': payload.get('descricao', ''),
+                    'fabricante': payload.get('fabricante', ''),
+                    'modelo': payload.get('modelo', ''),
+                    'proprietario': payload.get('proprietario', ''),
+                    'data_aquisicao': payload.get('data_aquisicao'),
+                    'ativo': payload.get('ativo', True),
+                    **payload  # Incluir todos os outros campos
+                })
+            except Exception as e:
+                app_logger.log_error(e, {"context": "processar_equipamento"})
+                continue
+        
+        # Converter orders_df para lista de chamados compatíveis  
+        orders_list = []
+        for _, row in orders_df.iterrows():
+            try:
+                payload = json.loads(row['payload']) if isinstance(row['payload'], str) else row['payload']
+                orders_list.append(payload)
+            except Exception as e:
+                app_logger.log_error(e, {"context": "processar_ordem"})
+                continue
+        
+        # Calcular métricas básicas localmente
+        total_equipments = len(equipments_list)
+        equipment_ids = [eq['id'] for eq in equipments_list if eq.get('id')]
+        
+        # Filtrar ordens relacionadas aos equipamentos
+        related_orders = [
+            order for order in orders_list 
+            if order.get('equipamento_id') in equipment_ids
+        ]
+        
+        # Criar objeto de métricas básicas (compatível com código existente)
+        from collections import namedtuple
+        BasicMetrics = namedtuple('BasicMetrics', [
+            'total', 'ativos', 'inativos', 'em_manutencao', 'disponivel', 'desativados'
+        ])
+        
+        # Contar status dos equipamentos
+        ativos = sum(1 for eq in equipments_list if eq.get('ativo', True))
+        
+        # Contar equipamentos em manutenção baseado em ordens abertas
+        orders_em_andamento = [
+            order for order in related_orders 
+            if order.get('estado_id') in [1, 2, 3]  # Estados de manutenção ativa
+        ]
+        equipamentos_em_manutencao = len(set(order.get('equipamento_id') for order in orders_em_andamento))
+        
+        metrics = BasicMetrics(
+            total=total_equipments,
+            ativos=ativos,
+            inativos=total_equipments - ativos,
+            em_manutencao=equipamentos_em_manutencao,
+            disponivel=ativos - equipamentos_em_manutencao,
+            desativados=total_equipments - ativos
+        )
+        
+        app_logger.log_info(f"✅ Carregados {total_equipments} equipamentos e {len(related_orders)} ordens do SQLite")
+        return metrics, equipments_list, related_orders
+        
+    except Exception as e:
+        app_logger.log_error(e, {"context": "fetch_equipment_data_sqlite"})
+        st.error(f"⚠️ Erro ao carregar dados: {str(e)}")
+        return None, [], []
 
 
 async def fetch_advanced_stats_async():
@@ -194,12 +356,12 @@ def render_basic_metrics(metrics, equip_list: list) -> None:
     status_metrics = [
         Metric(
             label="Equipamentos Ativos",
-            value=getattr(metrics, 'ativos', 0),
+            value=str(getattr(metrics, 'ativos', 0)),
             icon="🔋"
         ),
         Metric(
             label="Desativados",
-            value=getattr(metrics, 'desativados', 0),
+            value=str(getattr(metrics, 'desativados', 0)),
             icon="🚫"
         ),
         Metric(

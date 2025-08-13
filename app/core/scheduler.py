@@ -12,7 +12,8 @@ from typing import Optional
 import asyncio
 import threading
 
-from app.services.sync.delta import run_incremental_sync
+from app.services.sync.delta import run_delta_sync_with_progress
+from app.services.sync_jobs import has_running_job
 from app.core.logging import app_logger
 
 
@@ -97,6 +98,11 @@ class SyncScheduler:
         """
         with self._lock:
             try:
+                # Evitar jobs concorrentes
+                if has_running_job('delta'):
+                    app_logger.log_info("⏸️ Job delta já em execução, pulando sincronização agendada")
+                    return
+                
                 app_logger.log_info("🔄 Iniciando sincronização automática agendada")
                 
                 # Executar sync incremental de forma assíncrona
@@ -126,14 +132,16 @@ class SyncScheduler:
                 )
                 client = ArkmedsClient(auth)
                 
-                # Executar sincronização
-                result = loop.run_until_complete(run_incremental_sync(client, ['orders']))
+                # Executar sincronização com progresso
+                result = loop.run_until_complete(
+                    run_delta_sync_with_progress(client, ['orders'])
+                )
                 
                 self.last_run = datetime.now()
-                self.last_result = "sucesso" if result else "falha"
+                self.last_result = "sucesso" if result > 0 else "sem dados"
                 
                 app_logger.log_info(
-                    f"✅ Sincronização automática concluída: {self.last_result}",
+                    f"✅ Sincronização automática concluída: {result:,} registros - {self.last_result}",
                     result=result,
                     timestamp=self.last_run.isoformat()
                 )
