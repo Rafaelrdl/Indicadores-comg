@@ -31,7 +31,7 @@ def query_df(sql: str, params: tuple = ()) -> pd.DataFrame:
         with get_conn() as conn:
             return pd.read_sql_query(sql, conn, params=params)
     except Exception as e:
-        app_logger.log_error(f"Erro na query SQL: {e}")
+        app_logger.error(f"Erro na query SQL: {e}")
         return pd.DataFrame()
 
 
@@ -52,7 +52,7 @@ def query_single_value(sql: str, params: tuple = ()) -> Any:
             result = cursor.fetchone()
             return result[0] if result else None
     except Exception as e:
-        app_logger.log_error(f"Erro na query de valor único: {e}")
+        app_logger.error(f"Erro na query de valor único: {e}")
         return None
 
 
@@ -325,25 +325,16 @@ def get_database_stats() -> Dict[str, Any]:
         count = query_single_value(f"SELECT COUNT(*) FROM {table}")
         stats[f'{table}_count'] = count or 0
     
-    # Última sincronização - usar schema atualizado
+    # Última sincronização
     last_sync_sql = """
-        SELECT resource, synced_at, total_records, sync_type, last_updated_at
+        SELECT resource, synced_at, total_records, sync_type
         FROM sync_state 
-        ORDER BY COALESCE(synced_at, updated_at) DESC 
+        ORDER BY synced_at DESC 
         LIMIT 3
     """
     
-    try:
-        sync_df = query_df(last_sync_sql)
-        stats['last_syncs'] = sync_df.to_dict('records') if not sync_df.empty else []
-    except Exception as e:
-        # Fallback para schema antigo se necessário
-        try:
-            fallback_sql = "SELECT resource, updated_at, total_records FROM sync_state ORDER BY updated_at DESC LIMIT 3"
-            sync_df = query_df(fallback_sql)
-            stats['last_syncs'] = sync_df.to_dict('records') if not sync_df.empty else []
-        except:
-            stats['last_syncs'] = []
+    sync_df = query_df(last_sync_sql)
+    stats['last_syncs'] = sync_df.to_dict('records') if not sync_df.empty else []
     
     # Tamanho do banco
     db_size = query_single_value("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")

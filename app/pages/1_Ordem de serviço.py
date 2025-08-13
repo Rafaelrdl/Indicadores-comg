@@ -25,12 +25,111 @@ from app.core.exceptions import ErrorHandler, DataFetchError, safe_operation
 # Get configuration
 settings = get_settings()
 
+
+def compute_metrics_from_sqlite_data(service_orders: dict, dt_ini, dt_fim) -> dict:
+    """
+    Processa métricas a partir de dados do SQLite.
+    
+    Função local otimizada que evita chamadas async desnecessárias
+    quando os dados já estão carregados do banco local.
+    """
+    from app.services.os_metrics import OSMetrics
+    
+    try:
+        # Extrair listas de ordens por categoria
+        corretivas_predial = service_orders.get("corrective_building", [])
+        corretivas_eng = service_orders.get("corrective_engineering", [])
+        preventivas_predial = service_orders.get("preventive_building", [])
+        preventivas_infra = service_orders.get("preventive_infra", [])
+        busca_ativa = service_orders.get("active_search", [])
+        abertas = service_orders.get("open_orders", [])
+        fechadas = service_orders.get("closed_orders", [])
+        
+        # Calcular SLA
+        sla_pct = 0.0
+        if fechadas:
+            from app.services.os_metrics import calculate_sla_metrics
+            # Para SLA, usar função síncrona se disponível
+            sla_pct = calculate_sla_sync(fechadas)
+        
+        # Criar objeto de métricas
+        metrics = OSMetrics(
+            corretivas_predial=len(corretivas_predial),
+            corretivas_eng_clin=len(corretivas_eng),
+            preventivas_predial=len(preventivas_predial),
+            preventivas_infra=len(preventivas_infra),
+            busca_ativa=len(busca_ativa),
+            abertas=len(abertas),
+            fechadas=len(fechadas),
+            sla_pct=sla_pct
+        )
+        
+        # Retornar dados completos
+        return {
+            'metrics': metrics,
+            'service_orders': service_orders,
+            'dt_ini': dt_ini,
+            'dt_fim': dt_fim
+        }
+    
+    except Exception as e:
+        st.error(f"❌ Erro ao calcular métricas: {e}")
+        return {}
+
+
+def calculate_sla_sync(closed_orders: list) -> float:
+    """Calcula SLA de forma síncrona para dados locais."""
+    try:
+        from datetime import datetime
+        
+        if not closed_orders:
+            return 0.0
+        
+        sla_compliant = 0
+        total_orders = len(closed_orders)
+        sla_hours = 72  # SLA padrão de 72h
+        
+        for order in closed_orders:
+            try:
+                if not order.data_criacao or not order.data_fechamento:
+                    continue
+                
+                # Parse dates
+                if isinstance(order.data_criacao, str):
+                    created = datetime.fromisoformat(order.data_criacao.replace('Z', '+00:00'))
+                else:
+                    created = order.data_criacao
+                
+                if isinstance(order.data_fechamento, str):
+                    closed = datetime.fromisoformat(order.data_fechamento.replace('Z', '+00:00'))
+                else:
+                    closed = order.data_fechamento
+                
+                # Calcular diferença em horas
+                diff_hours = (closed - created).total_seconds() / 3600
+                
+                if diff_hours <= sla_hours:
+                    sla_compliant += 1
+            
+            except Exception:
+                continue
+        
+        return round((sla_compliant / total_orders) * 100, 1) if total_orders > 0 else 0.0
+    
+    except Exception:
+        return 0.0
+
 @log_cache_performance  
 @performance_monitor
 async def fetch_os_data_async(filters_dict: dict = None) -> Tuple:
-    """Busca dados de ordens de serviço e métricas."""
+    """
+    Busca dados de ordens de serviço - REFATORADO PARA SQLITE.
+    
+    🔄 NOVA IMPLEMENTAÇÃO: Leitura direta do SQLite local
+    """
     
     try:
+        # Compatibilidade: ainda aceita client mas não usa para busca principal
         client = ArkmedsClient.from_session()
         
         # Use os filtros passados ou os padrão para OS
@@ -49,46 +148,103 @@ async def fetch_os_data_async(filters_dict: dict = None) -> Tuple:
         dt_fim = filters.get("dt_fim") 
         estado_ids = filters.get("estado_ids", [])
         
-        # Preparar filtros para a API (manter compatibilidade)
-        api_filters = {}
-        if estado_ids:
-            api_filters["estado_ids"] = estado_ids
+        # ========== NOVA ABORDAGEM: LEITURA DIRETA DO SQLITE ==========
+        from app.services.repository import get_orders_df, get_database_stats
         
-        # Buscar métricas e OS em paralelo
-        metrics_task = compute_metrics(client, start_date=dt_ini, end_date=dt_fim, **api_filters)
+        st.info("💾 Carregando dados do SQLite local...")
         
-        # Para list_os, usar o filtro correto
-        os_filters = {
-            "data_criacao__gte": dt_ini,
-            "data_criacao__lte": dt_fim,
-        }
-        # Testar diferentes formatos para filtro de estado
-        if estado_ids:
-            # Aumentar page_size quando há filtros para compensar filtragem local
-            os_filters["page_size"] = 100  
-            # Armazenar o estado_ids para filtragem local
-            os_filters["_local_filter_estados"] = estado_ids
-            # Tentar primeiro com estado__in (padrão Django)
-            os_filters["estado__in"] = estado_ids
-            
-        os_raw_task = client.list_os(**os_filters)
+        # Verificar estatísticas do banco
+        stats = get_database_stats()
+        orders_count = stats.get('orders_count', 0)
         
-        metrics, os_raw = await asyncio.gather(metrics_task, os_raw_task)
+        if orders_count == 0:
+            st.warning("📭 Banco local vazio. Executando sincronização inicial...")
+            from app.services.sync.ingest import BackfillSync
+            backfill = BackfillSync()
+            await backfill.run_backfill(['orders'], batch_size=100)
+            st.success("✅ Sincronização inicial concluída")
         
-        # Validar dados se existirem
-        if os_raw:
-            df = pd.DataFrame([o.model_dump() for o in os_raw])
-            df = DataValidator.validate_dataframe(
-                df, 
-                required_columns=["id", "chamados"],
-                name="Ordens de Serviço"
-            )
+        # Verificar frescor e sincronizar se necessário
+        from app.services.sync.delta import should_run_incremental_sync, run_incremental_sync
+        
+        if should_run_incremental_sync('orders', max_age_hours=2):
+            st.info("🔄 Executando sincronização incremental...")
+            await run_incremental_sync('orders')
+            st.success("✅ Dados sincronizados")
+        
+        # Buscar dados otimizados do SQLite
+        df = get_orders_df(
+            start_date=dt_ini.isoformat(),
+            end_date=dt_fim.isoformat(),
+            estados=estado_ids,
+            limit=5000
+        )
+        
+        if df.empty:
+            st.warning("📭 Nenhuma ordem encontrada no período especificado")
+            return pd.DataFrame(), {}
+        
+        st.success(f"✅ {len(df):,} registros carregados do SQLite")
+        
+        # ========== PROCESSAR DADOS LOCALMENTE ==========
+        # Converter para formato legacy para compatibilidade com compute_metrics
+        from app.services.os_metrics import _convert_sqlite_df_to_service_orders
+        
+        try:
+            service_orders = _convert_sqlite_df_to_service_orders(df, dt_ini, dt_fim, filters)
+        except Exception as e:
+            # Fallback para conversão antiga se nova falhar
+            st.warning(f"⚠️ Usando conversão fallback: {e}")
+            from app.services.os_metrics import _convert_df_to_service_orders
+            service_orders = _convert_df_to_service_orders(df, dt_ini, dt_fim, filters)
+        
+        # Calcular métricas localmente (sem async necessário)
+        metrics_data = compute_metrics_from_sqlite_data(service_orders, dt_ini, dt_fim)
+        
+        # Retornar dados no formato esperado
+        # Extrair métricas e dados brutos do resultado
+        metrics = metrics_data.get('metrics')
+        os_raw = []
+        
+        # Converter service_orders de volta para lista de objetos para compatibilidade
+        for category_orders in service_orders.values():
+            if isinstance(category_orders, list):
+                os_raw.extend(category_orders)
         
         return metrics, os_raw
         
     except Exception as e:
-        app_logger.log_error(e, {"context": "fetch_os_data_async"})
-        raise APIError(f"Erro ao buscar dados: {str(e)}")
+        # Fallback para API se SQLite falhar
+        app_logger.log_error(e, {"context": "fetch_os_data_async (SQLite)"})
+        st.warning(f"⚠️ Erro no SQLite: {e}")
+        st.info("🔄 Tentando fallback para API...")
+        
+        try:
+            # Usar função original como fallback
+            api_filters = {}
+            if estado_ids:
+                api_filters["estado_ids"] = estado_ids
+            
+            # Buscar métricas da API
+            metrics = await compute_metrics(client, start_date=dt_ini, end_date=dt_fim, **api_filters)
+            
+            # Buscar OS da API
+            os_filters = {
+                "data_criacao__gte": dt_ini,
+                "data_criacao__lte": dt_fim,
+            }
+            if estado_ids:
+                os_filters["page_size"] = 100  
+                os_filters["_local_filter_estados"] = estado_ids
+                os_filters["estado__in"] = estado_ids
+            
+            os_raw = await client.list_os(**os_filters)
+            
+            return metrics, os_raw
+            
+        except Exception as api_error:
+            app_logger.log_error(api_error, {"context": "fetch_os_data_async (API fallback)"})
+            raise APIError(f"Erro ao buscar dados (SQLite e API): {str(api_error)}")
 
 
 # Wrapper function for compatibility  
