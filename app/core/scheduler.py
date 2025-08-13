@@ -4,17 +4,17 @@ Sistema de agendamento automático para sincronização periódica.
 Este módulo gerencia a execução automática de sincronizações incrementais
 em intervalos regulares usando APScheduler em modo session-aware.
 """
-import streamlit as st
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
-from datetime import datetime
-from typing import Optional
 import asyncio
 import threading
+from datetime import datetime
 
+import streamlit as st
+from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from app.core.logging import app_logger
 from app.services.sync.delta import run_delta_sync_with_progress
 from app.services.sync_jobs import has_running_job
-from app.core.logging import app_logger
 
 
 class SyncScheduler:
@@ -24,7 +24,7 @@ class SyncScheduler:
     Usa BackgroundScheduler para executar sincronizações periódicas
     enquanto a sessão Streamlit estiver ativa.
     """
-    
+
     def __init__(self, interval_minutes: int = 15):
         """
         Initialize scheduler with specified interval.
@@ -33,23 +33,23 @@ class SyncScheduler:
             interval_minutes: Intervalo entre sincronizações em minutos
         """
         self.interval_minutes = interval_minutes
-        self.scheduler: Optional[BackgroundScheduler] = None
-        self.last_run: Optional[datetime] = None
-        self.last_result: Optional[str] = None
+        self.scheduler: BackgroundScheduler | None = None
+        self.last_run: datetime | None = None
+        self.last_result: str | None = None
         self._lock = threading.Lock()
-        
+
     def start(self) -> None:
         """Inicia o scheduler."""
         if self.scheduler is not None and self.scheduler.running:
             app_logger.log_info(f"Scheduler já está rodando (intervalo: {self.interval_minutes}m)")
             return
-            
+
         try:
             self.scheduler = BackgroundScheduler(
                 daemon=True,
                 timezone='America/Sao_Paulo'
             )
-            
+
             # Adicionar job de sincronização
             self.scheduler.add_job(
                 func=self._sync_wrapper,
@@ -60,27 +60,27 @@ class SyncScheduler:
                 max_instances=1,  # Evita sobreposição
                 coalesce=True     # Combina execuções atrasadas
             )
-            
+
             # Adicionar listeners para logs
             self.scheduler.add_listener(
-                self._job_executed_listener, 
+                self._job_executed_listener,
                 EVENT_JOB_EXECUTED
             )
             self.scheduler.add_listener(
-                self._job_error_listener, 
+                self._job_error_listener,
                 EVENT_JOB_ERROR
             )
-            
+
             self.scheduler.start()
             app_logger.log_info(
                 f"🕐 Scheduler iniciado - sincronização automática a cada {self.interval_minutes} minutos",
                 scheduler_id="incremental_sync"
             )
-            
+
         except Exception as e:
             app_logger.log_error(e, {"context": "scheduler_start"})
             raise
-    
+
     def stop(self) -> None:
         """Para o scheduler."""
         if self.scheduler and self.scheduler.running:
@@ -89,9 +89,9 @@ class SyncScheduler:
                 app_logger.log_info("🛑 Scheduler parado")
             except Exception as e:
                 app_logger.log_error(e, {"context": "scheduler_stop"})
-        
+
         self.scheduler = None
-    
+
     def _sync_wrapper(self) -> None:
         """
         Wrapper para executar sincronização incremental de forma thread-safe.
@@ -102,9 +102,9 @@ class SyncScheduler:
                 if has_running_job('delta'):
                     app_logger.log_info("⏸️ Job delta já em execução, pulando sincronização agendada")
                     return
-                
+
                 app_logger.log_info("🔄 Iniciando sincronização automática agendada")
-                
+
                 # Executar sync incremental de forma assíncrona
                 loop = None
                 try:
@@ -112,18 +112,18 @@ class SyncScheduler:
                 except RuntimeError:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
-                
+
                 # Criar cliente da API
-                from app.arkmeds_client.client import ArkmedsClient
                 from app.arkmeds_client.auth import ArkmedsAuth
+                from app.arkmeds_client.client import ArkmedsClient
                 from app.core.config import get_settings
-                
+
                 settings = get_settings()
-                
+
                 # Verificar se as credenciais estão disponíveis
                 if not settings.arkmeds_email or not settings.arkmeds_password:
                     raise ValueError("Credenciais da API não configuradas. Verifique ARKMEDS_EMAIL e ARKMEDS_PASSWORD no .env")
-                
+
                 auth = ArkmedsAuth(
                     email=settings.arkmeds_email,
                     password=settings.arkmeds_password,
@@ -131,32 +131,32 @@ class SyncScheduler:
                     token=settings.arkmeds_token
                 )
                 client = ArkmedsClient(auth)
-                
+
                 # Executar sincronização com progresso
                 result = loop.run_until_complete(
                     run_delta_sync_with_progress(client, ['orders'])
                 )
-                
+
                 self.last_run = datetime.now()
                 self.last_result = "sucesso" if result > 0 else "sem dados"
-                
+
                 app_logger.log_info(
                     f"✅ Sincronização automática concluída: {result:,} registros - {self.last_result}",
                     result=result,
                     timestamp=self.last_run.isoformat()
                 )
-                
+
             except Exception as e:
                 self.last_run = datetime.now()
-                self.last_result = f"erro: {str(e)}"
+                self.last_result = f"erro: {e!s}"
                 app_logger.log_error(
-                    e, 
+                    e,
                     {
-                        "context": "scheduled_sync", 
+                        "context": "scheduled_sync",
                         "timestamp": self.last_run.isoformat()
                     }
                 )
-    
+
     def _job_executed_listener(self, event) -> None:
         """Listener para jobs executados com sucesso."""
         # JobExecutionEvent não tem atributo 'duration' nas versões mais recentes do APScheduler
@@ -166,13 +166,13 @@ class SyncScheduler:
             if event.finished_time and event.scheduled_run_time:
                 duration = event.finished_time - event.scheduled_run_time
                 duration_info['duration_seconds'] = duration.total_seconds()
-        
+
         app_logger.log_info(
             f"📋 Job executado: {event.job_id}",
             retval=str(event.retval) if event.retval else "None",
             **duration_info
         )
-    
+
     def _job_error_listener(self, event) -> None:
         """Listener para jobs com erro."""
         app_logger.log_error(
@@ -183,7 +183,7 @@ class SyncScheduler:
                 "traceback": event.traceback
             }
         )
-    
+
     def get_status(self) -> dict:
         """Retorna status atual do scheduler."""
         return {
@@ -193,12 +193,12 @@ class SyncScheduler:
             "last_result": self.last_result,
             "next_run": self._get_next_run_time()
         }
-    
-    def _get_next_run_time(self) -> Optional[datetime]:
+
+    def _get_next_run_time(self) -> datetime | None:
         """Retorna horário da próxima execução."""
         if not self.scheduler or not self.scheduler.running:
             return None
-            
+
         try:
             job = self.scheduler.get_job("incremental_sync")
             return job.next_run_time if job else None
@@ -221,21 +221,21 @@ def get_scheduler() -> SyncScheduler:
         # Fallback para variável de ambiente ou padrão
         import os
         interval = int(os.environ.get("SYNC_INTERVAL_MINUTES", 15))
-    
+
     # Criar e iniciar scheduler
     scheduler = SyncScheduler(interval_minutes=interval)
-    
+
     try:
         scheduler.start()
         app_logger.log_info(f"🚀 Sistema de agendamento inicializado (intervalo: {interval}m)")
     except Exception as e:
         app_logger.log_error(e, {"context": "scheduler_initialization"})
         # Retornar scheduler mesmo com erro - pode ser usado manualmente
-    
+
     return scheduler
 
 
-def initialize_scheduler() -> Optional[SyncScheduler]:
+def initialize_scheduler() -> SyncScheduler | None:
     """
     Inicializa o scheduler de forma segura.
     

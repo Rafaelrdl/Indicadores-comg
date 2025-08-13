@@ -2,6 +2,7 @@
 
 from enum import Enum
 
+
 # Date and Time Constants
 DEFAULT_PERIOD_MONTHS = 12  # Default period for analysis
 MAX_DATE_RANGE_DAYS = 365   # Maximum date range for queries
@@ -75,7 +76,7 @@ class UserRole(Enum):
 # Color schemes for charts
 COLORS = {
     'primary': '#1f77b4',
-    'secondary': '#ff7f0e', 
+    'secondary': '#ff7f0e',
     'success': '#2ca02c',
     'warning': '#d62728',
     'info': '#17becf',
@@ -86,7 +87,7 @@ COLORS = {
 # Chart color palettes
 COLOR_PALETTE_STATUS = [
     '#2E8B57',  # Concluído - Verde
-    '#FF6347',  # Pendente - Vermelho  
+    '#FF6347',  # Pendente - Vermelho
     '#4682B4',  # Em Andamento - Azul
     '#DAA520',  # Aberto - Dourado
     '#8B008B'   # Cancelado - Roxo

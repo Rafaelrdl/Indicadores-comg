@@ -1,10 +1,9 @@
 """Utility modules package."""
 
+from .data_processing import DataAggregator, DataProcessor, MetricsCalculator
 from .settings import get_settings
-from .validation import DataValidator, DataCleaner, DataTransformer, SchemaValidator
-from .data_processing import (
-    DataProcessor, MetricsCalculator, DataAggregator
-)
+from .validation import DataCleaner, DataTransformer, DataValidator, SchemaValidator
+
 
 __all__ = [
     # Settings

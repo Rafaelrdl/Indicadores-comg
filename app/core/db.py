@@ -6,10 +6,8 @@ otimizadas para performance e confiabilidade.
 """
 from __future__ import annotations
 
-import os
 import sqlite3
 from pathlib import Path
-from typing import Optional
 
 import streamlit as st
 
@@ -31,26 +29,26 @@ def get_conn() -> sqlite3.Connection:
     """
     # Garantir que o diretório data existe
     DB_PATH.parent.mkdir(exist_ok=True)
-    
+
     # Criar conexão com configurações otimizadas
     conn = sqlite3.connect(
-        str(DB_PATH), 
+        str(DB_PATH),
         check_same_thread=False,
         timeout=DB_TIMEOUT
     )
-    
+
     # Configurações de performance e confiabilidade
     conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA synchronous=NORMAL;") 
+    conn.execute("PRAGMA synchronous=NORMAL;")
     conn.execute("PRAGMA temp_store=MEMORY;")
     conn.execute("PRAGMA mmap_size=268435456;")  # 256MB
-    
+
     # Habilitar foreign keys
     conn.execute("PRAGMA foreign_keys=ON;")
-    
+
     # Inicializar schema na primeira conexão
     _initialize_sync_jobs_schema(conn)
-    
+
     return conn
 
 
@@ -93,10 +91,10 @@ def _initialize_sync_jobs_schema(conn: sqlite3.Connection) -> None:
         conn.commit()
     except Exception as e:
         print(f"Erro ao inicializar schema sync_jobs: {e}")
-    
+
     # Configurar row factory para acessar colunas por nome
     conn.row_factory = sqlite3.Row
-    
+
     return conn
 
 
@@ -105,7 +103,7 @@ def init_database() -> None:
     Inicializa o banco de dados criando tabelas e índices necessários.
     """
     conn = get_conn()
-    
+
     try:
         # Tabela de ordens de serviço/chamados
         conn.execute("""
@@ -117,7 +115,7 @@ def init_database() -> None:
                 created_at INTEGER DEFAULT (strftime('%s', 'now'))
             )
         """)
-        
+
         # Tabela de equipamentos
         conn.execute("""
             CREATE TABLE IF NOT EXISTS equipments (
@@ -128,7 +126,7 @@ def init_database() -> None:
                 created_at INTEGER DEFAULT (strftime('%s', 'now'))
             )
         """)
-        
+
         # Tabela de responsáveis técnicos
         conn.execute("""
             CREATE TABLE IF NOT EXISTS technicians (
@@ -139,7 +137,7 @@ def init_database() -> None:
                 created_at INTEGER DEFAULT (strftime('%s', 'now'))
             )
         """)
-        
+
         # Tabela de estado de sincronização
         conn.execute("""
             CREATE TABLE IF NOT EXISTS sync_state (
@@ -154,25 +152,25 @@ def init_database() -> None:
                 updated_at INTEGER DEFAULT (strftime('%s', 'now'))
             )
         """)
-        
+
         # Criar índices para performance
         conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_updated_at ON orders(updated_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_fetched_at ON orders(fetched_at)")
-        
+
         conn.execute("CREATE INDEX IF NOT EXISTS idx_equipments_updated_at ON equipments(updated_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_equipments_fetched_at ON equipments(fetched_at)")
-        
+
         conn.execute("CREATE INDEX IF NOT EXISTS idx_technicians_updated_at ON technicians(updated_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_technicians_fetched_at ON technicians(fetched_at)")
-        
+
         conn.execute("CREATE INDEX IF NOT EXISTS idx_sync_state_resource ON sync_state(resource)")
-        
+
         conn.commit()
         print("✅ Banco de dados inicializado com sucesso")
-        
+
         # Executar migração para garantir compatibilidade
         migrate_database()
-        
+
     except Exception as e:
         conn.rollback()
         print(f"❌ Erro ao inicializar banco de dados: {e}")
@@ -184,22 +182,22 @@ def migrate_database() -> None:
     Migra o banco de dados para garantir que todas as colunas existem.
     """
     conn = get_conn()
-    
+
     try:
         print("🔄 Executando migração do banco de dados...")
-        
+
         # Verificar e corrigir tabela sync_state
         cursor = conn.execute("PRAGMA table_info(sync_state)")
         columns = [info[1] for info in cursor.fetchall()]
-        
+
         # Definir colunas obrigatórias
         required_columns = {
             'synced_at': 'TEXT',
-            'last_id': 'INTEGER', 
+            'last_id': 'INTEGER',
             'last_full_sync': 'TEXT',
             'sync_type': 'TEXT DEFAULT "unknown"'
         }
-        
+
         # Adicionar colunas faltantes
         for col_name, col_def in required_columns.items():
             if col_name not in columns:
@@ -208,22 +206,22 @@ def migrate_database() -> None:
                     print(f"✅ Coluna {col_name} adicionada à tabela sync_state")
                 except Exception as e:
                     print(f"⚠️ Aviso ao adicionar coluna {col_name}: {e}")
-        
+
         # Verificar se todas as colunas necessárias existem agora
         cursor = conn.execute("PRAGMA table_info(sync_state)")
         final_columns = [info[1] for info in cursor.fetchall()]
-        
-        missing = [col for col in required_columns.keys() if col not in final_columns]
+
+        missing = [col for col in required_columns if col not in final_columns]
         if missing:
             print(f"⚠️ Colunas ainda faltantes: {missing}")
         else:
             print("✅ Todas as colunas necessárias estão presentes")
-        
+
         conn.commit()
         print("✅ Migração concluída")
-        
+
     except Exception as e:
-        conn.rollback() 
+        conn.rollback()
         print(f"❌ Erro na migração: {e}")
         raise
 
@@ -233,16 +231,16 @@ def get_database_info() -> dict:
     Retorna informações sobre o banco de dados.
     """
     conn = get_conn()
-    
+
     try:
         # Verificar se o arquivo existe
         db_exists = DB_PATH.exists()
         db_size = DB_PATH.stat().st_size if db_exists else 0
-        
+
         # Contar registros em cada tabela
         tables_info = {}
         tables = ['orders', 'equipments', 'technicians', 'sync_state']
-        
+
         for table in tables:
             try:
                 cursor = conn.execute(f"SELECT COUNT(*) FROM {table}")
@@ -250,7 +248,7 @@ def get_database_info() -> dict:
                 tables_info[table] = count
             except sqlite3.OperationalError:
                 tables_info[table] = "Tabela não existe"
-        
+
         return {
             "database_path": str(DB_PATH),
             "database_exists": db_exists,
@@ -258,7 +256,7 @@ def get_database_info() -> dict:
             "database_size_mb": round(db_size / (1024 * 1024), 2),
             "tables": tables_info
         }
-        
+
     except Exception as e:
         return {
             "error": str(e),
@@ -266,7 +264,7 @@ def get_database_info() -> dict:
         }
 
 
-def execute_query(query: str, params: Optional[tuple] = None) -> list[sqlite3.Row]:
+def execute_query(query: str, params: tuple | None = None) -> list[sqlite3.Row]:
     """
     Executa uma query SELECT e retorna os resultados.
     
@@ -282,7 +280,7 @@ def execute_query(query: str, params: Optional[tuple] = None) -> list[sqlite3.Ro
     return cursor.fetchall()
 
 
-def execute_update(query: str, params: Optional[tuple] = None) -> int:
+def execute_update(query: str, params: tuple | None = None) -> int:
     """
     Executa uma query de modificação (INSERT, UPDATE, DELETE).
     

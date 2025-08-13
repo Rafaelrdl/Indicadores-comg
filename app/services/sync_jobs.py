@@ -5,9 +5,7 @@ Este módulo fornece funcionalidades para criar, atualizar e monitorar
 o progresso de jobs de sincronização (delta e backfill).
 """
 import time
-import sqlite3
-from typing import Dict, Any, Optional, List
-from datetime import datetime
+from typing import Any
 
 from app.core.db import get_conn
 from app.core.logging import app_logger
@@ -24,7 +22,7 @@ def create_job(kind: str) -> str:
         str: ID único do job criado
     """
     job_id = f"{kind}-{int(time.time() * 1000)}"
-    
+
     try:
         with get_conn() as conn:
             conn.execute("""
@@ -34,16 +32,16 @@ def create_job(kind: str) -> str:
                 )
                 VALUES (?, ?, 'running', 0, NULL, NULL, datetime('now'), datetime('now'))
             """, (job_id, kind))
-            
+
         app_logger.log_info(f"🆕 Job de sincronização criado: {job_id}")
         return job_id
-        
+
     except Exception as e:
         app_logger.log_error(e, {"context": "create_job", "job_id": job_id, "kind": kind})
         raise
 
 
-def update_job(job_id: str, processed: int, total: Optional[int] = None) -> None:
+def update_job(job_id: str, processed: int, total: int | None = None) -> None:
     """
     Atualiza o progresso de um job.
     
@@ -68,12 +66,12 @@ def update_job(job_id: str, processed: int, total: Optional[int] = None) -> None
                     SET processed = ?, updated_at = datetime('now')
                     WHERE job_id = ? AND status = 'running'
                 """, (processed, job_id))
-                
+
     except Exception as e:
         app_logger.log_error(e, {
-            "context": "update_job", 
-            "job_id": job_id, 
-            "processed": processed, 
+            "context": "update_job",
+            "job_id": job_id,
+            "processed": processed,
             "total": total
         })
 
@@ -93,14 +91,14 @@ def finish_job(job_id: str, status: str) -> None:
                 SET status = ?, finished_at = datetime('now'), updated_at = datetime('now')
                 WHERE job_id = ?
             """, (status, job_id))
-            
+
         app_logger.log_info(f"✅ Job finalizado: {job_id} - {status}")
-        
+
     except Exception as e:
         app_logger.log_error(e, {"context": "finish_job", "job_id": job_id, "status": status})
 
 
-def get_running_job(kind: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def get_running_job(kind: str | None = None) -> dict[str, Any] | None:
     """
     Obtém o job atualmente em execução.
     
@@ -130,12 +128,12 @@ def get_running_job(kind: Optional[str] = None) -> Optional[Dict[str, Any]]:
                     ORDER BY started_at DESC
                     LIMIT 1
                 """)
-            
+
             row = cursor.fetchone()
             if row:
                 return {
                     'job_id': row[0],
-                    'kind': row[1], 
+                    'kind': row[1],
                     'status': row[2],
                     'total': row[3],
                     'processed': row[4],
@@ -144,13 +142,13 @@ def get_running_job(kind: Optional[str] = None) -> Optional[Dict[str, Any]]:
                     'updated_at': row[7]
                 }
             return None
-            
+
     except Exception as e:
         app_logger.log_error(e, {"context": "get_running_job", "kind": kind})
         return None
 
 
-def get_last_success_job(kind: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def get_last_success_job(kind: str | None = None) -> dict[str, Any] | None:
     """
     Obtém o último job concluído com sucesso.
     
@@ -180,13 +178,13 @@ def get_last_success_job(kind: Optional[str] = None) -> Optional[Dict[str, Any]]
                     ORDER BY finished_at DESC
                     LIMIT 1
                 """)
-            
+
             row = cursor.fetchone()
             if row:
                 return {
                     'job_id': row[0],
                     'kind': row[1],
-                    'status': row[2], 
+                    'status': row[2],
                     'total': row[3],
                     'processed': row[4],
                     'percent': row[5],
@@ -194,13 +192,13 @@ def get_last_success_job(kind: Optional[str] = None) -> Optional[Dict[str, Any]]
                     'finished_at': row[7]
                 }
             return None
-            
+
     except Exception as e:
         app_logger.log_error(e, {"context": "get_last_success_job", "kind": kind})
         return None
 
 
-def has_running_job(kind: Optional[str] = None) -> bool:
+def has_running_job(kind: str | None = None) -> bool:
     """
     Verifica se há um job rodando.
     
@@ -226,24 +224,24 @@ def cleanup_old_jobs(days: int = 7) -> int:
     """
     try:
         with get_conn() as conn:
-            cursor = conn.execute("""
+            cursor = conn.execute(f"""
                 DELETE FROM sync_jobs
                 WHERE status != 'running' 
-                AND datetime(started_at) < datetime('now', '-{} days')
-            """.format(days))
-            
+                AND datetime(started_at) < datetime('now', '-{days} days')
+            """)
+
             deleted_count = cursor.rowcount
             if deleted_count > 0:
                 app_logger.log_info(f"🧹 Removidos {deleted_count} jobs antigos (>{days} dias)")
-            
+
             return deleted_count
-            
+
     except Exception as e:
         app_logger.log_error(e, {"context": "cleanup_old_jobs", "days": days})
         return 0
 
 
-def get_job_history(limit: int = 10) -> List[Dict[str, Any]]:
+def get_job_history(limit: int = 10) -> list[dict[str, Any]]:
     """
     Obtém histórico de jobs recentes.
     
@@ -262,7 +260,7 @@ def get_job_history(limit: int = 10) -> List[Dict[str, Any]]:
                 ORDER BY started_at DESC
                 LIMIT ?
             """, (limit,))
-            
+
             jobs = []
             for row in cursor.fetchall():
                 jobs.append({
@@ -276,9 +274,9 @@ def get_job_history(limit: int = 10) -> List[Dict[str, Any]]:
                     'finished_at': row[7],
                     'updated_at': row[8]
                 })
-                
+
             return jobs
-            
+
     except Exception as e:
         app_logger.log_error(e, {"context": "get_job_history", "limit": limit})
         return []

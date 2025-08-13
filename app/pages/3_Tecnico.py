@@ -1,14 +1,12 @@
-# -*- coding: utf-8 -*-
 """Página de análise de desempenho de técnicos usando nova arquitetura."""
 
-import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import List, Tuple
 
 import pandas as pd
 import streamlit as st
+
 
 # Configuração de imports flexível para diferentes contextos de execução
 current_dir = Path(__file__).parent
@@ -25,76 +23,89 @@ if str(root_dir) not in sys.path:
 try:
     # Tentar importar sem prefixo app. (quando executado do diretório app)
     from arkmeds_client.client import ArkmedsClient
-    from ui.utils import run_async_safe
+    from ui.components import (
+        DataTable,
+        DistributionCharts,
+        KPICard,
+        MetricsDisplay,
+        TimeSeriesCharts,
+    )
     from ui.filters import render_filters, show_active_filters
-    from ui.components import MetricsDisplay, KPICard, DataTable, TimeSeriesCharts, DistributionCharts
+    from ui.utils import run_async_safe
 except ImportError:
     try:
         # Tentar importar com prefixo app. (quando executado do diretório raiz)
         from app.arkmeds_client.client import ArkmedsClient
-        from app.ui.utils import run_async_safe
+        from app.ui.components import (
+            DataTable,
+            DistributionCharts,
+            KPICard,
+            MetricsDisplay,
+            TimeSeriesCharts,
+        )
         from app.ui.filters import render_filters, show_active_filters
-        from app.ui.components import MetricsDisplay, KPICard, DataTable, TimeSeriesCharts, DistributionCharts
+        from app.ui.utils import run_async_safe
     except ImportError as e:
         st.error(f"Erro ao importar módulos: {e}")
         st.stop()
-from app.ui.layouts import PageLayout, SectionLayout
-from app.data.validators import DataValidator
-
 # Core imports
-from app.core import get_settings, APIError, DataValidationError
+from app.core import APIError, DataValidationError
 from app.core.logging import app_logger
-from app.services.tech_metrics import compute_metrics, calculate_technician_kpis, TechnicianKPI
+from app.data.validators import DataValidator
+from app.ui.layouts import PageLayout, SectionLayout
 
 
 def main():
     """Função principal da página de técnicos usando nova arquitetura."""
-    
+
     # ========== CONTROLES NA SIDEBAR ==========
     with st.sidebar:
         st.markdown("---")
-        
+
         # Badge do scheduler automático
         from app.ui.components.scheduler_status import render_scheduler_badge
         render_scheduler_badge()
-        
+
         st.markdown("---")
-        
+
         st.markdown("**🔄 Sincronização**")
-        from app.ui.components.refresh_controls import render_compact_refresh_button, render_sync_status
+        from app.ui.components.refresh_controls import (
+            render_compact_refresh_button,
+            render_sync_status,
+        )
         render_compact_refresh_button(['technicians', 'orders'])
-        
+
         # Status dos dados
         with st.expander("📊 Status"):
             render_sync_status(['technicians', 'orders'], compact_mode=True)
-    
+
     # Usar novo sistema de layout
     layout = PageLayout(
-        title="Análise de Técnicos", 
+        title="Análise de Técnicos",
         description="Desempenho e atividades da equipe técnica",
         icon="👷"
     )
-    
+
     layout.render_header()
-    
+
     with layout.main_content():
         # Renderizar filtros (manter funcionalidade existente)
         client = ArkmedsClient.from_session()
         render_filters(client)
         show_active_filters(client)
-        
+
         # Buscar dados
         try:
             users = fetch_technician_data_cached()
-            
+
             # Renderizar seções com novos layouts
             with SectionLayout.metric_section("📊 Visão Geral da Equipe"):
                 render_technician_overview(users)
-            
+
             with SectionLayout.data_section("📋 Lista de Técnicos"):
                 render_technician_table(users)
-            
-            # Seção em construção  
+
+            # Seção em construção
             with SectionLayout.info_section("🚧 Funcionalidades em Desenvolvimento"):
                 st.markdown("""
                 ### 🎯 Métricas de Performance
@@ -113,29 +124,29 @@ def main():
                 - **Badges de Conquista**: Reconhecimento de especialização
                 - **Leaderboards**: Rankings motivacionais
                 """)
-                
+
         except Exception as e:
-            st.error(f"Erro ao carregar dados: {str(e)}")
+            st.error(f"Erro ao carregar dados: {e!s}")
 
 
-async def fetch_technician_data() -> List[dict]:
+async def fetch_technician_data() -> list[dict]:
     """Busca dados dos técnicos com cache inteligente."""
     try:
         client = ArkmedsClient.from_session()
         users = await client.list_users()
-        
+
         # Converter para DataFrame e validar
         if users:
             df = pd.DataFrame([user.model_dump() for user in users])
             df = DataValidator.validate_dataframe(
-                df, 
+                df,
                 required_columns=["id", "nome"],
                 name="Técnicos"
             )
             return df.to_dict('records')
-        
+
         return []
-        
+
     except APIError as e:
         st.error("❌ Erro na API de usuários")
         raise e
@@ -144,18 +155,18 @@ async def fetch_technician_data() -> List[dict]:
         raise e
 
 
-def fetch_technician_data_cached() -> List[dict]:
+def fetch_technician_data_cached() -> list[dict]:
     """Busca dados de técnicos do banco local em vez da API."""
     try:
         app_logger.log_info("👷 Buscando dados de técnicos do SQLite local...")
-        
+
         # ========== NOVA ABORDAGEM: LEITURA DIRETA DO SQLITE ==========
-        from app.services.repository import get_technicians_df, get_database_stats
-        
+        from app.services.repository import get_database_stats, get_technicians_df
+
         # Verificar estatísticas do banco
         stats = get_database_stats()
         technicians_count = stats.get('technicians_count', 0)
-        
+
         # Se banco está vazio, avisar usuário para executar sincronização
         if technicians_count == 0:
             st.warning("""
@@ -165,14 +176,14 @@ def fetch_technician_data_cached() -> List[dict]:
             Use os controles na sidebar ou aguarde a sincronização automática.
             """)
             return []
-        
+
         # Buscar técnicos do SQLite
         technicians_df = get_technicians_df(limit=500)
-        
+
         if technicians_df.empty:
             st.warning("📭 Nenhum técnico encontrado no banco local")
             return []
-        
+
         # Converter technicians_df para lista de dicts compatíveis
         technicians_list = []
         for _, row in technicians_df.iterrows():
@@ -189,27 +200,27 @@ def fetch_technician_data_cached() -> List[dict]:
             except Exception as e:
                 app_logger.log_error(e, {"context": "processar_tecnico"})
                 continue
-        
+
         app_logger.log_info(f"✅ Carregados {len(technicians_list)} técnicos do SQLite")
         return technicians_list
-        
+
     except Exception as e:
         app_logger.log_error(e, {"context": "fetch_technician_data_cached_sqlite"})
-        st.error(f"⚠️ Erro ao carregar dados: {str(e)}")
+        st.error(f"⚠️ Erro ao carregar dados: {e!s}")
         return []
 
 
-def render_technician_overview(users: List[dict]) -> None:
+def render_technician_overview(users: list[dict]) -> None:
     """Renderiza visão geral dos técnicos com novos componentes."""
-    
+
     # KPIs principais
     total_techs = len(users) if users else 0
     active_techs = len([u for u in users if u.get('is_active', True)]) if users else 0
     avg_experience = calculate_avg_experience(users)
-    
+
     # Usar novos componentes KPI
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
         KPICard.render(
             title="Total de Técnicos",
@@ -217,7 +228,7 @@ def render_technician_overview(users: List[dict]) -> None:
             icon="👷",
             color="primary"
         )
-    
+
     with col2:
         KPICard.render(
             title="Técnicos Ativos",
@@ -225,7 +236,7 @@ def render_technician_overview(users: List[dict]) -> None:
             icon="✅",
             color="success"
         )
-    
+
     with col3:
         rate = (active_techs/total_techs*100) if total_techs > 0 else 0
         KPICard.render(
@@ -234,7 +245,7 @@ def render_technician_overview(users: List[dict]) -> None:
             icon="📊",
             color="info"
         )
-    
+
     with col4:
         KPICard.render(
             title="Experiência Média",
@@ -244,16 +255,16 @@ def render_technician_overview(users: List[dict]) -> None:
         )
 
 
-def render_technician_table(users: List[dict]) -> None:
+def render_technician_table(users: list[dict]) -> None:
     """Renderiza tabela de técnicos com novo componente DataTable."""
-    
+
     if not users:
         st.warning("📭 Nenhum técnico encontrado")
         return
-    
+
     # Preparar dados para tabela
     df = pd.DataFrame(users)
-    
+
     # Configurar colunas da tabela
     column_config = {
         'name': st.column_config.TextColumn("Nome", width="medium"),
@@ -262,7 +273,7 @@ def render_technician_table(users: List[dict]) -> None:
         'is_active': st.column_config.CheckboxColumn("Ativo", width="small"),
         'last_login': st.column_config.DatetimeColumn("Último Login", width="medium")
     }
-    
+
     # Usar novo componente DataTable
     DataTable.render(
         data=df,
@@ -273,11 +284,11 @@ def render_technician_table(users: List[dict]) -> None:
     )
 
 
-def calculate_avg_experience(users: List[dict]) -> float:
+def calculate_avg_experience(users: list[dict]) -> float:
     """Calcula experiência média dos técnicos."""
     if not users:
         return 0.0
-    
+
     experiences = []
     for user in users:
         # Simular cálculo de experiência baseado em data de criação
@@ -285,7 +296,7 @@ def calculate_avg_experience(users: List[dict]) -> float:
         if created_date:
             # Lógica simplificada - em produção usar datas reais
             experiences.append(2.5)  # Média simulada
-    
+
     return sum(experiences) / len(experiences) if experiences else 0.0
 
 

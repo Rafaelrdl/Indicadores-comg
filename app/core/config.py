@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import os
-from typing import Optional
-
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Application settings with environment variable support."""
-    
+
     model_config = {
         "extra": "ignore",  # Allow extra fields to be ignored
         "env_file": ".env",
@@ -25,15 +22,15 @@ class Settings(BaseSettings):
         default="https://comg.arkmeds.com",
         description="Base URL for Arkmeds API"
     )
-    arkmeds_email: Optional[str] = Field(
+    arkmeds_email: str | None = Field(
         default=None,
         description="Email for Arkmeds authentication"
     )
-    arkmeds_password: Optional[str] = Field(
+    arkmeds_password: str | None = Field(
         default=None,
-        description="Password for Arkmeds authentication"  
+        description="Password for Arkmeds authentication"
     )
-    arkmeds_token: Optional[str] = Field(
+    arkmeds_token: str | None = Field(
         default=None,
         description="JWT token for Arkmeds authentication"
     )
@@ -65,7 +62,7 @@ class Settings(BaseSettings):
         default=10,
         description="Maximum concurrent API requests"
     )
-    
+
     # Scheduler Settings
     sync_interval_minutes: int = Field(
         default=15,
@@ -87,7 +84,7 @@ class Settings(BaseSettings):
         default=30,
         description="Request timeout in seconds"
     )
-    
+
     # Logging Settings
     log_level: str = Field(
         default="INFO",
@@ -121,15 +118,15 @@ class Settings(BaseSettings):
     )
 
     @classmethod
-    def from_streamlit_secrets(cls) -> 'Settings':
+    def from_streamlit_secrets(cls) -> Settings:
         """Load settings from Streamlit secrets.toml."""
         try:
             import streamlit as st
-            
+
             # Extract from secrets if available
             secrets = getattr(st, 'secrets', {})
             arkmeds_config = secrets.get('arkmeds', {})
-            
+
             return cls(
                 arkmeds_base_url=arkmeds_config.get('base_url', "https://comg.arkmeds.com"),
                 arkmeds_email=arkmeds_config.get('email'),

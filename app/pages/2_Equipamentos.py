@@ -1,18 +1,17 @@
 """Página de análise de equipamentos e manutenção."""
 
-import asyncio
 import json
 import sys
-from pathlib import Path
 from collections import defaultdict
 from datetime import date, datetime
+from pathlib import Path
 from statistics import mean
-from typing import Optional
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 from dateutil.relativedelta import relativedelta
+
 
 # Configuração de imports flexível para diferentes contextos de execução
 current_dir = Path(__file__).parent
@@ -31,50 +30,63 @@ try:
     from arkmeds_client.client import ArkmedsClient
     from arkmeds_client.models import Chamado
     from config.os_types import TIPO_CORRETIVA
-    from services.equip_metrics import compute_metrics
+    from core import APIError, DataValidationError, get_settings
+    from core.exceptions import DataFetchError, ErrorHandler, safe_operation
+    from core.logging import app_logger, performance_monitor
     from services.equip_advanced_metrics import (
-        calcular_stats_equipamentos,
         calcular_mttf_mtbf_top,
+        calcular_stats_equipamentos,
         exibir_distribuicao_prioridade,
         exibir_distribuicao_status,
         exibir_top_mttf_mtbf,
     )
-    from ui.utils import run_async_safe
-    from core import get_settings, APIError, DataValidationError
+    from services.equip_metrics import compute_metrics
     from ui.components import (
-        MetricsDisplay, Metric, KPICard, TimeSeriesCharts, 
-        DistributionCharts, KPICharts, DataTable
+        DataTable,
+        DistributionCharts,
+        KPICard,
+        KPICharts,
+        Metric,
+        MetricsDisplay,
+        TimeSeriesCharts,
     )
     from ui.components.refresh_controls import render_compact_refresh_button, render_sync_status
-    from ui.layouts import PageLayout, SectionLayout, GridLayout
-    from utils import DataValidator, DataCleaner, MetricsCalculator, DataTransformer
-    from core.logging import performance_monitor, app_logger
-    from core.exceptions import ErrorHandler, DataFetchError, safe_operation
+    from ui.layouts import GridLayout, PageLayout, SectionLayout
+    from ui.utils import run_async_safe
+    from utils import DataCleaner, DataTransformer, DataValidator, MetricsCalculator
 except ImportError:
     try:
         # Tentar importar com prefixo app. (quando executado do diretório raiz)
         from app.arkmeds_client.client import ArkmedsClient
         from app.arkmeds_client.models import Chamado
         from app.config.os_types import TIPO_CORRETIVA
-        from app.services.equip_metrics import compute_metrics
+        from app.core import APIError, DataValidationError, get_settings
+        from app.core.exceptions import DataFetchError, ErrorHandler, safe_operation
+        from app.core.logging import app_logger, performance_monitor
         from app.services.equip_advanced_metrics import (
-            calcular_stats_equipamentos,
             calcular_mttf_mtbf_top,
+            calcular_stats_equipamentos,
             exibir_distribuicao_prioridade,
             exibir_distribuicao_status,
             exibir_top_mttf_mtbf,
         )
-        from app.ui.utils import run_async_safe
-        from app.core import get_settings, APIError, DataValidationError
+        from app.services.equip_metrics import compute_metrics
         from app.ui.components import (
-            MetricsDisplay, Metric, KPICard, TimeSeriesCharts, 
-            DistributionCharts, KPICharts, DataTable
+            DataTable,
+            DistributionCharts,
+            KPICard,
+            KPICharts,
+            Metric,
+            MetricsDisplay,
+            TimeSeriesCharts,
         )
-        from app.ui.components.refresh_controls import render_compact_refresh_button, render_sync_status
-        from app.ui.layouts import PageLayout, SectionLayout, GridLayout
-        from app.utils import DataValidator, DataCleaner, MetricsCalculator, DataTransformer
-        from app.core.logging import performance_monitor, app_logger
-        from app.core.exceptions import ErrorHandler, DataFetchError, safe_operation
+        from app.ui.components.refresh_controls import (
+            render_compact_refresh_button,
+            render_sync_status,
+        )
+        from app.ui.layouts import GridLayout, PageLayout, SectionLayout
+        from app.ui.utils import run_async_safe
+        from app.utils import DataCleaner, DataTransformer, DataValidator, MetricsCalculator
     except ImportError as e:
         st.error(f"Erro ao importar módulos: {e}")
         st.stop()
@@ -86,7 +98,7 @@ except:
     settings = None
 
 
-def parse_datetime(date_str: str) -> Optional[datetime]:
+def parse_datetime(date_str: str) -> datetime | None:
     """Parse date string no formato DD/MM/YY - HH:MM para datetime."""
     return DataTransformer.parse_arkmeds_datetime(date_str)
 
@@ -95,19 +107,19 @@ def _build_history_df(os_list: list[Chamado]) -> pd.DataFrame:
     """Constrói DataFrame com histórico de MTTR e MTBF por mês."""
     mttr_map: dict[date, list[float]] = defaultdict(list)
     by_eq: dict[int | None, list[Chamado]] = defaultdict(list)
-    
+
     # Agrupar por equipamento e calcular MTTR
     for os_obj in os_list:
         data_fechamento_str = os_obj.ordem_servico.get("data_fechamento") if os_obj.ordem_servico else None
         if not data_fechamento_str:
             continue
-        
+
         data_criacao = parse_datetime(os_obj.data_criacao_os)
         data_fechamento = parse_datetime(data_fechamento_str)
-        
+
         if not data_criacao or not data_fechamento:
             continue
-            
+
         month = data_fechamento.replace(day=1, hour=0, minute=0, second=0, microsecond=0).date()
         delta_h = (data_fechamento - data_criacao).total_seconds() / 3600
         mttr_map[month].append(delta_h)
@@ -118,16 +130,16 @@ def _build_history_df(os_list: list[Chamado]) -> pd.DataFrame:
     for items in by_eq.values():
         if len(items) < 2:
             continue
-            
+
         items.sort(key=lambda o: parse_datetime(o.data_criacao_os) or datetime.min)
-        
+
         for i in range(1, len(items)):
             current_date = parse_datetime(items[i].data_criacao_os)
             previous_date = parse_datetime(items[i-1].data_criacao_os)
-            
+
             if not current_date or not previous_date:
                 continue
-                
+
             month = current_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0).date()
             interval_h = (current_date - previous_date).total_seconds() / 3600
             mtbf_map[month].append(interval_h)
@@ -144,67 +156,67 @@ def _build_history_df(os_list: list[Chamado]) -> pd.DataFrame:
 @performance_monitor
 async def fetch_equipment_data_async() -> tuple:
     """Busca dados básicos de equipamentos e histórico de manutenção."""
-    
+
     try:
         client = ArkmedsClient.from_session()
-        
+
         # Período fixo dos últimos 12 meses para equipamentos
         dt_fim = date.today()
         dt_ini = dt_fim - relativedelta(months=12)
-        
+
         # Buscar dados sequencialmente para evitar problemas de event loop
         try:
             metrics = await compute_metrics(client, start_date=dt_ini, end_date=dt_fim)
         except Exception as e:
             app_logger.info(f"Erro ao buscar métricas: {e}")
             metrics = None
-            
+
         try:
             equip_list = await client.list_equipment()
         except Exception as e:
             app_logger.info(f"Erro ao buscar equipamentos: {e}")
             equip_list = []
-        
+
         # Buscar histórico separadamente para evitar problemas
         try:
             os_hist = await client.list_chamados({"tipo_id": TIPO_CORRETIVA})
         except Exception as e:
             app_logger.info(f"Erro ao buscar histórico de chamados: {e}")
             os_hist = []
-        
+
         # Validar dados se disponível
         if equip_list:
             try:
                 df = pd.DataFrame([e.model_dump() for e in equip_list])
                 df = DataValidator.validate_dataframe(
-                    df, 
+                    df,
                     required_columns=["id", "nome"],
                     name="Equipamentos"
                 )
             except Exception as e:
                 app_logger.info(f"Erro na validação dos dados: {e}")
-        
+
         return metrics, equip_list, os_hist
-        
+
     except Exception as e:
         app_logger.log_error(e, {"context": "fetch_equipment_data_async"})
-        raise APIError(f"Erro ao buscar dados de equipamentos: {str(e)}")
+        raise APIError(f"Erro ao buscar dados de equipamentos: {e!s}")
 
 
-# Wrapper function for compatibility  
+# Wrapper function for compatibility
 def fetch_equipment_data() -> tuple:
     """Busca dados de equipamentos do banco local em vez da API."""
     try:
         app_logger.log_info("📊 Buscando dados de equipamentos do SQLite local...")
-        
+
         # ========== NOVA ABORDAGEM: LEITURA DIRETA DO SQLITE ==========
-        from app.services.repository import get_equipments_df, get_orders_df, get_database_stats
-        
+        from app.services.repository import get_database_stats, get_equipments_df, get_orders_df
+
         # Verificar estatísticas do banco
         stats = get_database_stats()
         equipments_count = stats.get('equipments_count', 0)
         orders_count = stats.get('orders_count', 0)
-        
+
         # Se banco está vazio, avisar usuário para executar sincronização
         if equipments_count == 0 or orders_count == 0:
             st.warning("""
@@ -214,25 +226,25 @@ def fetch_equipment_data() -> tuple:
             Use os controles na sidebar ou aguarde a sincronização automática.
             """)
             return None, [], []
-        
+
         # Buscar equipamentos do SQLite
         equipments_df = get_equipments_df(limit=1000)
-        
+
         if equipments_df.empty:
             st.warning("📭 Nenhum equipamento encontrado no banco local")
             return None, [], []
-        
+
         # Buscar ordens relacionadas (últimos 12 meses)
         from datetime import datetime, timedelta
         end_date = datetime.now()
         start_date = end_date - timedelta(days=365)
-        
+
         orders_df = get_orders_df(
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
             limit=10000
         )
-        
+
         # Converter equipments_df para lista de objetos compatíveis
         equipments_list = []
         for _, row in equipments_df.iterrows():
@@ -251,8 +263,8 @@ def fetch_equipment_data() -> tuple:
             except Exception as e:
                 app_logger.log_error(e, {"context": "processar_equipamento"})
                 continue
-        
-        # Converter orders_df para lista de chamados compatíveis  
+
+        # Converter orders_df para lista de chamados compatíveis
         orders_list = []
         for _, row in orders_df.iterrows():
             try:
@@ -261,33 +273,33 @@ def fetch_equipment_data() -> tuple:
             except Exception as e:
                 app_logger.log_error(e, {"context": "processar_ordem"})
                 continue
-        
+
         # Calcular métricas básicas localmente
         total_equipments = len(equipments_list)
         equipment_ids = [eq['id'] for eq in equipments_list if eq.get('id')]
-        
+
         # Filtrar ordens relacionadas aos equipamentos
         related_orders = [
-            order for order in orders_list 
+            order for order in orders_list
             if order.get('equipamento_id') in equipment_ids
         ]
-        
+
         # Criar objeto de métricas básicas (compatível com código existente)
         from collections import namedtuple
         BasicMetrics = namedtuple('BasicMetrics', [
             'total', 'ativos', 'inativos', 'em_manutencao', 'disponivel', 'desativados'
         ])
-        
+
         # Contar status dos equipamentos
         ativos = sum(1 for eq in equipments_list if eq.get('ativo', True))
-        
+
         # Contar equipamentos em manutenção baseado em ordens abertas
         orders_em_andamento = [
-            order for order in related_orders 
+            order for order in related_orders
             if order.get('estado_id') in [1, 2, 3]  # Estados de manutenção ativa
         ]
         equipamentos_em_manutencao = len(set(order.get('equipamento_id') for order in orders_em_andamento))
-        
+
         metrics = BasicMetrics(
             total=total_equipments,
             ativos=ativos,
@@ -296,13 +308,13 @@ def fetch_equipment_data() -> tuple:
             disponivel=ativos - equipamentos_em_manutencao,
             desativados=total_equipments - ativos
         )
-        
+
         app_logger.log_info(f"✅ Carregados {total_equipments} equipamentos e {len(related_orders)} ordens do SQLite")
         return metrics, equipments_list, related_orders
-        
+
     except Exception as e:
         app_logger.log_error(e, {"context": "fetch_equipment_data_sqlite"})
-        st.error(f"⚠️ Erro ao carregar dados: {str(e)}")
+        st.error(f"⚠️ Erro ao carregar dados: {e!s}")
         return None, [], []
 
 
@@ -337,7 +349,7 @@ def fetch_mttf_mtbf_data():
 
 def render_basic_metrics(metrics, equip_list: list) -> None:
     """Renderiza as métricas básicas de equipamentos usando novos componentes."""
-    
+
     # Verificar se métricas são válidas
     if metrics is None:
         st.warning("⚠️ Métricas não disponíveis.")
@@ -375,7 +387,7 @@ def render_basic_metrics(metrics, equip_list: list) -> None:
             icon="⏱️"
         )
     ]
-    
+
     performance_metrics = [
         Metric(
             label="MTBF Médio",
@@ -404,9 +416,9 @@ def render_basic_metrics(metrics, equip_list: list) -> None:
         KPICard(title="Status dos Equipamentos", metrics=status_metrics),
         KPICard(title="Performance e Disponibilidade", metrics=performance_metrics)
     ]
-    
+
     MetricsDisplay.render_kpi_dashboard(kpi_cards)
-    
+
     cols = st.columns(3)
     cols[0].metric("🔄 MTBF (h)", metrics.mtbf_h)
     cols[1].metric("⚠️ % Ativos EM", pct_em_manut)
@@ -419,14 +431,14 @@ def render_advanced_analysis() -> None:
 
     try:
         advanced_stats = fetch_advanced_stats()
-        
+
         # Sub-seções da análise avançada
         st.subheader("🔋 Status dos Equipamentos")
         exibir_distribuicao_status(advanced_stats)
 
         st.subheader("🎯 Distribuição de Prioridade")
         exibir_distribuicao_prioridade(advanced_stats)
-        
+
     except Exception as e:
         st.error(f"Erro ao carregar análise avançada: {e}")
 
@@ -494,19 +506,19 @@ def _build_equipment_table(equip_list: list, os_hist: list[Chamado]) -> pd.DataF
     df["idade_anos"] = df["data_aquisicao"].apply(
         lambda d: round((date.today() - d.date()).days / 365, 1) if d else None
     )
-    
+
     # Agrupar chamados por equipamento
     by_eq: dict[int, list[Chamado]] = defaultdict(list)
     for os_obj in os_hist:
         data_fechamento_str = os_obj.ordem_servico.get("data_fechamento") if os_obj.ordem_servico else None
         if os_obj.equipamento_id is not None and data_fechamento_str:
             by_eq[os_obj.equipamento_id].append(os_obj)
-    
+
     # Calcular métricas por equipamento
     mttr_local = []
     mtbf_local = []
     ultima_os = []
-    
+
     for eq in df["id"]:
         items = by_eq.get(eq, [])
         if items:
@@ -518,10 +530,10 @@ def _build_equipment_table(equip_list: list, os_hist: list[Chamado]) -> pd.DataF
                     data_fechamento = parse_datetime(data_fechamento_str)
                     if data_fechamento:
                         datas_fechamento.append(data_fechamento)
-            
+
             if datas_fechamento:
                 ultima_os.append(max(datas_fechamento).date())
-                
+
                 # Calcular MTTR
                 tempos_reparo = []
                 for o in items:
@@ -532,11 +544,11 @@ def _build_equipment_table(equip_list: list, os_hist: list[Chamado]) -> pd.DataF
                         if data_criacao and data_fechamento:
                             tempo_reparo = (data_fechamento - data_criacao).total_seconds()
                             tempos_reparo.append(tempo_reparo)
-                
+
                 mttr_local.append(
                     round(mean(tempos_reparo) / 3600, 2) if tempos_reparo else 0.0
                 )
-                
+
                 # Calcular MTBF
                 if len(items) > 1:
                     items.sort(key=lambda o: parse_datetime(o.data_criacao_os) or datetime.min)
@@ -558,7 +570,7 @@ def _build_equipment_table(equip_list: list, os_hist: list[Chamado]) -> pd.DataF
             ultima_os.append(None)
             mttr_local.append(0.0)
             mtbf_local.append(0.0)
-    
+
     df["ultima_os"] = ultima_os
     df["mttr_local"] = mttr_local
     df["mtbf_local"] = mtbf_local
@@ -567,11 +579,11 @@ def _build_equipment_table(equip_list: list, os_hist: list[Chamado]) -> pd.DataF
 
 def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
     """Renderiza tabela de equipamentos usando nova arquitetura DataTable."""
-    
+
     if not equip_list:
         st.warning("Nenhum equipamento encontrado.")
         return
-    
+
     # Preparar dados para a nova DataTable
     table_data = []
     for equip in equip_list:
@@ -580,35 +592,35 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
             equip_dict = equip.model_dump()
         else:
             equip_dict = equip
-            
+
         # Calcular métricas básicas do equipamento
         equip_id = equip_dict.get('id')
         equip_os = []
-        
+
         for os in os_hist:
             # Converter OS para dict se for um objeto Pydantic
             if hasattr(os, 'model_dump'):
                 os_dict = os.model_dump()
             else:
                 os_dict = os
-                
+
             # Procurar o equipamento_id dentro da estrutura da ordem_servico
-            if 'ordem_servico' in os_dict and os_dict['ordem_servico']:
+            if os_dict.get('ordem_servico'):
                 ordem_servico = os_dict['ordem_servico']
                 equipamento_info = ordem_servico.get('equipamento', {})
-                
+
                 # equipamento_info pode ser um dict ou um ID direto
                 equipamento_id = None
                 if isinstance(equipamento_info, dict):
                     equipamento_id = equipamento_info.get('id')
                 elif isinstance(equipamento_info, int):
                     equipamento_id = equipamento_info
-                    
+
                 if equipamento_id == equip_id:
                     equip_os.append(os_dict)
-        
+
         total_os = len(equip_os)
-        
+
         # Status baseado no número de ordens
         if total_os == 0:
             status = "Normal"
@@ -619,12 +631,12 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
         else:
             status = "Crítico"
             status_color = "red"
-            
+
         # Calcular idade se disponível
         idade = 0
         if equip_dict.get('data_aquisicao'):
             try:
-                from datetime import datetime, date
+                from datetime import date, datetime
                 data_aquisicao = equip_dict['data_aquisicao']
                 if isinstance(data_aquisicao, str):
                     data_aquisicao = datetime.fromisoformat(data_aquisicao.replace('Z', '+00:00')).date()
@@ -633,7 +645,7 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
                 idade = round((date.today() - data_aquisicao).days / 365, 1)
             except:
                 idade = 0
-            
+
         table_data.append({
             'ID': equip_dict.get('id', ''),
             'Equipamento': equip_dict.get('nome', ''),
@@ -645,7 +657,7 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
             'Status': status,
             'Status_Color': status_color
         })
-    
+
     # Configurar filtros para a DataTable
     table_config = {
         'columns': [
@@ -668,7 +680,7 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
         'pagination': True,
         'page_size': 20
     }
-    
+
     # Renderizar usando novo DataTable
     if table_data:
         table_df = pd.DataFrame(table_data)
@@ -684,33 +696,33 @@ def render_equipment_table(equip_list: list, os_hist: list[Chamado]) -> None:
 
 def main():
     """Função principal da página de equipamentos usando nova arquitetura."""
-    
+
     # ========== CONTROLES DE REFRESH NA SIDEBAR ==========
     with st.sidebar:
         st.markdown("---")
-        
+
         # Badge do scheduler automático
         from app.ui.components.scheduler_status import render_scheduler_badge
         render_scheduler_badge()
-        
+
         st.markdown("---")
-        
+
         st.markdown("**🔄 Sincronização**")
         render_compact_refresh_button(['equipments', 'orders'])
-        
+
         # Status dos dados
         with st.expander("📊 Status"):
             render_sync_status(['equipments', 'orders'], compact_mode=True)
-    
+
     # Usar novo sistema de layout
     layout = PageLayout(
-        title="Análise de Equipamentos", 
+        title="Análise de Equipamentos",
         description="Métricas de MTTR, MTBF e confiabilidade dos equipamentos",
         icon="🛠️"
     )
-    
+
     layout.render_header()
-    
+
     with layout.main_content():
         # Buscar dados
         try:
@@ -718,36 +730,36 @@ def main():
             if result is None or len(result) != 3:
                 st.error("Erro ao carregar dados de equipamentos. Verifique a conexão com a API.")
                 return
-            
+
             metrics, equip_list, os_hist = result
-            
+
             if metrics is None:
                 st.error("Erro ao calcular métricas de equipamentos. Verifique os dados.")
                 return
-                
+
             if equip_list is None:
                 equip_list = []
-                
+
             if os_hist is None:
                 os_hist = []
-                
+
         except Exception as e:
-            st.error(f"Erro inesperado ao carregar dados de equipamentos: {str(e)}")
+            st.error(f"Erro inesperado ao carregar dados de equipamentos: {e!s}")
             return
-        
+
         # Renderizar seções com novos layouts
         with SectionLayout.metric_section("📊 Métricas Básicas de Equipamentos"):
             render_basic_metrics(metrics, equip_list)
-        
+
         with SectionLayout.chart_section("📈 Análise Avançada"):
             render_advanced_analysis()
-        
+
         with SectionLayout.chart_section("🔧 Histórico de Manutenção"):
             render_maintenance_history(os_hist)
-        
+
         with SectionLayout.chart_section("🏆 Rankings de Confiabilidade"):
             render_reliability_rankings()
-        
+
         with SectionLayout.data_section("📋 Tabela de Equipamentos"):
             render_equipment_table(equip_list, os_hist)
 

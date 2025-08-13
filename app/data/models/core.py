@@ -1,6 +1,7 @@
 """Core data models for UI components."""
 
-from typing import Any, Optional, List, Dict, Union
+from typing import Any
+
 from pydantic import BaseModel, field_validator
 
 
@@ -8,11 +9,11 @@ class Metric(BaseModel):
     """Model for individual metric display."""
     label: str
     value: str
-    delta: Optional[str] = None
-    delta_color: Optional[str] = "normal"
-    icon: Optional[str] = None
-    help_text: Optional[str] = None
-    
+    delta: str | None = None
+    delta_color: str | None = "normal"
+    icon: str | None = None
+    help_text: str | None = None
+
     @field_validator('value', mode='before')
     @classmethod
     def convert_value_to_string(cls, v):
@@ -25,27 +26,27 @@ class Metric(BaseModel):
 class KPICard(BaseModel):
     """Model for KPI card with multiple metrics."""
     title: str
-    metrics: List[Metric]
-    description: Optional[str] = None
-    color: Optional[str] = None
+    metrics: list[Metric]
+    description: str | None = None
+    color: str | None = None
 
 
 class ChartConfig(BaseModel):
     """Configuration for chart components."""
     chart_type: str
-    title: Optional[str] = None
-    x_column: Optional[str] = None
-    y_column: Optional[str] = None
-    color_column: Optional[str] = None
-    height: Optional[int] = 400
+    title: str | None = None
+    x_column: str | None = None
+    y_column: str | None = None
+    color_column: str | None = None
+    height: int | None = 400
     show_legend: bool = True
 
 
 class TableConfig(BaseModel):
     """Configuration for data table components."""
-    columns: List[Dict[str, Any]]
-    filters: Optional[List[Dict[str, Any]]] = None
-    searchable_columns: Optional[List[str]] = None
+    columns: list[dict[str, Any]]
+    filters: list[dict[str, Any]] | None = None
+    searchable_columns: list[str] | None = None
     sortable: bool = True
     pagination: bool = False
     page_size: int = 10

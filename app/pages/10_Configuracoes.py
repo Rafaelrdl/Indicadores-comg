@@ -5,42 +5,20 @@ Esta página centraliza:
 - Gerenciamento de dados (migrado da página Ordem de Serviço)
 - Sistema de agendamento automático (migrado da main)
 """
-import sys
-from pathlib import Path
-
 import streamlit as st
 
+from app.core.logging import app_logger
 
-# Configuração de imports flexível para diferentes contextos de execução
-current_dir = Path(__file__).parent
-app_dir = current_dir.parent
-root_dir = app_dir.parent
+# Core/scheduler
+from app.core.scheduler import get_scheduler_status
 
-# Adicionar paths necessários
-if str(app_dir) not in sys.path:
-    sys.path.insert(0, str(app_dir))
-if str(root_dir) not in sys.path:
-    sys.path.insert(0, str(root_dir))
+# Repository para estatísticas
+from app.services.repository import get_database_stats
 
-# Imports flexíveis que funcionam em diferentes contextos
-try:
-    # Tentar importar sem prefixo app. (quando executado do diretório app)
-    from core.logging import app_logger
-    from core.scheduler import get_scheduler_status
-    from services.repository import get_database_stats
-    from ui.components.refresh_controls import render_refresh_controls, render_sync_status
-    from ui.components.scheduler_status import render_scheduler_status
-except ImportError:
-    try:
-        # Tentar importar com prefixo app. (quando executado do diretório raiz)
-        from app.core.logging import app_logger
-        from app.core.scheduler import get_scheduler_status
-        from app.services.repository import get_database_stats
-        from app.ui.components.refresh_controls import render_refresh_controls, render_sync_status
-        from app.ui.components.scheduler_status import render_scheduler_status
-    except ImportError as e:
-        st.error(f"Erro ao importar módulos: {e}")
-        st.stop()
+# UI components reutilizáveis
+from app.ui.components.refresh_controls import render_refresh_controls, render_sync_status
+from app.ui.components.scheduler_status import render_scheduler_status
+
 
 # Configuração da página
 st.set_page_config(

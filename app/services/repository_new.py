@@ -5,10 +5,10 @@ Este módulo fornece acesso otimizado aos dados locais,
 substituindo chamadas diretas à API durante navegação.
 """
 import json
+from typing import Any
+
 import pandas as pd
 import streamlit as st
-from typing import List, Optional, Dict, Any
-from datetime import datetime, date
 
 from app.core.db import get_conn
 from app.core.logging import app_logger
@@ -60,10 +60,10 @@ def query_single_value(sql: str, params: tuple = ()) -> Any:
 
 @st.cache_data(ttl=60)  # Cache de 1 minuto para reduzir I/O
 def get_orders_df(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None, 
-    estados: Optional[List[int]] = None,
-    limit: Optional[int] = None
+    start_date: str | None = None,
+    end_date: str | None = None,
+    estados: list[int] | None = None,
+    limit: int | None = None
 ) -> pd.DataFrame:
     """
     Busca ordens de serviço do banco local com filtros.
@@ -95,31 +95,31 @@ def get_orders_df(
         FROM orders
         WHERE 1=1
     """
-    
+
     params = []
-    
+
     # Aplicar filtros
     if start_date:
         sql += " AND json_extract(payload, '$.data_criacao') >= ?"
         params.append(start_date)
-    
+
     if end_date:
         sql += " AND json_extract(payload, '$.data_criacao') <= ?"
         params.append(end_date)
-    
+
     if estados:
         placeholders = ','.join(['?' for _ in estados])
         sql += f" AND json_extract(payload, '$.ordem_servico.estado') IN ({placeholders})"
         params.extend(estados)
-    
+
     # Ordenar por data de criação (mais recentes primeiro)
     sql += " ORDER BY json_extract(payload, '$.data_criacao') DESC"
-    
+
     if limit:
         sql += f" LIMIT {limit}"
-    
+
     df = query_df(sql, tuple(params))
-    
+
     # Processar colunas JSON se necessário
     if not df.empty:
         # Parse ordem_servico JSON se for string
@@ -127,15 +127,15 @@ def get_orders_df(
             df['ordem_servico'] = df['ordem_servico'].apply(
                 lambda x: json.loads(x) if isinstance(x, str) else x
             )
-    
+
     app_logger.log_info(f"📊 Carregadas {len(df):,} ordens do SQLite local")
     return df
 
 
 @st.cache_data(ttl=60)
 def get_equipments_df(
-    limit: Optional[int] = None,
-    search: Optional[str] = None
+    limit: int | None = None,
+    search: str | None = None
 ) -> pd.DataFrame:
     """
     Busca equipamentos do banco local.
@@ -160,25 +160,25 @@ def get_equipments_df(
         FROM equipments
         WHERE 1=1
     """
-    
+
     params = []
-    
+
     if search:
         sql += " AND json_extract(payload, '$.descricao') LIKE ?"
         params.append(f"%{search}%")
-    
+
     sql += " ORDER BY json_extract(payload, '$.descricao')"
-    
+
     if limit:
         sql += f" LIMIT {limit}"
-    
+
     df = query_df(sql, tuple(params))
     app_logger.log_info(f"🔧 Carregados {len(df):,} equipamentos do SQLite local")
     return df
 
 
-@st.cache_data(ttl=60)  
-def get_technicians_df(limit: Optional[int] = None) -> pd.DataFrame:
+@st.cache_data(ttl=60)
+def get_technicians_df(limit: int | None = None) -> pd.DataFrame:
     """
     Busca técnicos do banco local.
     
@@ -201,10 +201,10 @@ def get_technicians_df(limit: Optional[int] = None) -> pd.DataFrame:
         WHERE 1=1
         ORDER BY json_extract(payload, '$.nome')
     """
-    
+
     if limit:
         sql += f" LIMIT {limit}"
-    
+
     df = query_df(sql, ())
     app_logger.log_info(f"👥 Carregados {len(df):,} técnicos do SQLite local")
     return df
@@ -213,7 +213,7 @@ def get_technicians_df(limit: Optional[int] = None) -> pd.DataFrame:
 # ========== QUERIES ESPECÍFICAS PARA MÉTRICAS ==========
 
 @st.cache_data(ttl=30)  # Cache mais curto para métricas
-def get_orders_by_state_counts() -> Dict[int, int]:
+def get_orders_by_state_counts() -> dict[int, int]:
     """
     Conta ordens por estado.
     
@@ -228,16 +228,16 @@ def get_orders_by_state_counts() -> Dict[int, int]:
         WHERE json_extract(payload, '$.ordem_servico.estado') IS NOT NULL
         GROUP BY json_extract(payload, '$.ordem_servico.estado')
     """
-    
+
     df = query_df(sql)
     if df.empty:
         return {}
-    
-    return dict(zip(df['estado'].astype(int), df['total']))
+
+    return dict(zip(df['estado'].astype(int), df['total'], strict=False))
 
 
 @st.cache_data(ttl=30)
-def get_orders_by_type_counts() -> Dict[int, int]:
+def get_orders_by_type_counts() -> dict[int, int]:
     """
     Conta ordens por tipo de serviço.
     
@@ -252,18 +252,18 @@ def get_orders_by_type_counts() -> Dict[int, int]:
         WHERE json_extract(payload, '$.ordem_servico.tipo_servico') IS NOT NULL
         GROUP BY json_extract(payload, '$.ordem_servico.tipo_servico')
     """
-    
+
     df = query_df(sql)
     if df.empty:
         return {}
-    
-    return dict(zip(df['tipo'].astype(int), df['total']))
+
+    return dict(zip(df['tipo'].astype(int), df['total'], strict=False))
 
 
 @st.cache_data(ttl=30)
 def get_orders_timeline_data(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    start_date: str | None = None,
+    end_date: str | None = None
 ) -> pd.DataFrame:
     """
     Dados para timeline de ordens (gráficos temporais).
@@ -284,17 +284,17 @@ def get_orders_timeline_data(
         FROM orders 
         WHERE json_extract(payload, '$.data_criacao') IS NOT NULL
     """
-    
+
     params = []
-    
+
     if start_date:
         sql += " AND DATE(json_extract(payload, '$.data_criacao')) >= ?"
         params.append(start_date)
-    
+
     if end_date:
         sql += " AND DATE(json_extract(payload, '$.data_criacao')) <= ?"
         params.append(end_date)
-    
+
     sql += """
         GROUP BY 
             DATE(json_extract(payload, '$.data_criacao')),
@@ -302,7 +302,7 @@ def get_orders_timeline_data(
             json_extract(payload, '$.ordem_servico.tipo_servico')
         ORDER BY data DESC
     """
-    
+
     df = query_df(sql, tuple(params))
     app_logger.log_info(f"📈 Timeline data: {len(df):,} pontos carregados")
     return df
@@ -311,7 +311,7 @@ def get_orders_timeline_data(
 # ========== FUNÇÕES DE ESTATÍSTICAS ==========
 
 @st.cache_data(ttl=30)
-def get_database_stats() -> Dict[str, Any]:
+def get_database_stats() -> dict[str, Any]:
     """
     Estatísticas do banco de dados local.
     
@@ -319,12 +319,12 @@ def get_database_stats() -> Dict[str, Any]:
         Dict com estatísticas
     """
     stats = {}
-    
+
     # Contar registros por tabela
     for table in ['orders', 'equipments', 'technicians']:
         count = query_single_value(f"SELECT COUNT(*) FROM {table}")
         stats[f'{table}_count'] = count or 0
-    
+
     # Última sincronização
     last_sync_sql = """
         SELECT resource, synced_at, total_records, sync_type
@@ -332,15 +332,15 @@ def get_database_stats() -> Dict[str, Any]:
         ORDER BY synced_at DESC 
         LIMIT 3
     """
-    
+
     sync_df = query_df(last_sync_sql)
     stats['last_syncs'] = sync_df.to_dict('records') if not sync_df.empty else []
-    
+
     # Tamanho do banco
     db_size = query_single_value("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
     stats['database_size_bytes'] = db_size or 0
     stats['database_size_mb'] = round((db_size or 0) / 1024 / 1024, 2)
-    
+
     return stats
 
 
@@ -348,57 +348,57 @@ def get_database_stats() -> Dict[str, Any]:
 
 class Repository:
     """Classe de compatibilidade com sistema antigo."""
-    
+
     @staticmethod
-    def get_orders(estados: Optional[List[int]] = None, limit: Optional[int] = None) -> pd.DataFrame:
+    def get_orders(estados: list[int] | None = None, limit: int | None = None) -> pd.DataFrame:
         """Compatibilidade com método antigo."""
         return get_orders_df(estados=estados, limit=limit)
-    
-    @staticmethod  
-    def get_equipments(limit: Optional[int] = None) -> pd.DataFrame:
+
+    @staticmethod
+    def get_equipments(limit: int | None = None) -> pd.DataFrame:
         """Compatibilidade com método antigo."""
         return get_equipments_df(limit=limit)
-    
+
     @staticmethod
-    def get_technicians(limit: Optional[int] = None) -> pd.DataFrame:
+    def get_technicians(limit: int | None = None) -> pd.DataFrame:
         """Compatibilidade com método antigo."""
         return get_technicians_df(limit=limit)
-    
+
     @staticmethod
-    def save_orders(records: List[Dict[str, Any]]) -> int:
+    def save_orders(records: list[dict[str, Any]]) -> int:
         """Compatibilidade - usar sync system."""
         from app.services.sync._upsert import upsert_records
         conn = get_conn()
         return upsert_records(conn, 'orders', records)
-    
-    @staticmethod 
-    def save_equipments(records: List[Dict[str, Any]]) -> int:
+
+    @staticmethod
+    def save_equipments(records: list[dict[str, Any]]) -> int:
         """Compatibilidade - usar sync system."""
         from app.services.sync._upsert import upsert_records
         conn = get_conn()
         return upsert_records(conn, 'equipments', records)
-    
+
     @staticmethod
-    def save_technicians(records: List[Dict[str, Any]]) -> int:
-        """Compatibilidade - usar sync system.""" 
+    def save_technicians(records: list[dict[str, Any]]) -> int:
+        """Compatibilidade - usar sync system."""
         from app.services.sync._upsert import upsert_records
         conn = get_conn()
         return upsert_records(conn, 'technicians', records)
-    
+
     @staticmethod
     def update_sync_state(resource: str, **kwargs) -> None:
         """Compatibilidade - usar sync system."""
         from app.services.sync._upsert import update_sync_state
         conn = get_conn()
         update_sync_state(conn, resource, **kwargs)
-    
+
     @staticmethod
-    def get_sync_state(resource: str) -> Optional[Dict[str, Any]]:
+    def get_sync_state(resource: str) -> dict[str, Any] | None:
         """Compatibilidade - usar sync system."""
         from app.services.sync._upsert import get_last_sync_info
-        conn = get_conn() 
+        conn = get_conn()
         return get_last_sync_info(conn, resource)
-    
+
     @staticmethod
     def is_data_fresh(resource: str, max_age_hours: int = 2) -> bool:
         """Compatibilidade - usar sync system."""

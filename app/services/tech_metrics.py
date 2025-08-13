@@ -7,9 +7,11 @@ from datetime import date
 from typing import Any
 
 import httpx
+
 from app.arkmeds_client.auth import ArkmedsAuthError
 from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import OSEstado
+
 
 SLA_HOURS = int(os.getenv("OS_SLA_HOURS", 72))
 
@@ -92,7 +94,7 @@ async def fetch_technician_orders(
             **filters,
         })
     except (httpx.TimeoutException, ArkmedsAuthError) as exc:
-        raise DataFetchError(f"Failed to fetch technician data: {str(exc)}") from exc
+        raise DataFetchError(f"Failed to fetch technician data: {exc!s}") from exc
 
 
 def group_orders_by_technician(orders: list[Any]) -> dict[int, list[Any]]:
@@ -276,7 +278,7 @@ async def compute_metrics(
         start_date = dt_ini
     if end_date is None:
         end_date = dt_fim
-        
+
     # Se ainda são None, usar período padrão
     if start_date is None:
         from datetime import date
@@ -284,7 +286,7 @@ async def compute_metrics(
     if end_date is None:
         from datetime import date
         end_date = date.today()
-        
+
     frozen = tuple(sorted(filters.items()))
 
     metrics_dicts = await _cached_compute(

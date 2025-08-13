@@ -8,10 +8,10 @@ from statistics import mean
 from typing import Any
 
 import httpx
+
 from app.arkmeds_client.auth import ArkmedsAuthError
 from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import OSEstado
-
 from app.config.os_types import TIPO_CORRETIVA
 
 
@@ -95,7 +95,7 @@ async def fetch_equipment_data(
 
         return await asyncio.gather(equip_task, os_task)
     except (httpx.TimeoutException, ArkmedsAuthError) as exc:
-        raise DataFetchError(f"Failed to fetch equipment data: {str(exc)}") from exc
+        raise DataFetchError(f"Failed to fetch equipment data: {exc!s}") from exc
 
 
 async def calculate_equipment_status(equipment_list: list) -> tuple[int, int]:
@@ -110,7 +110,7 @@ async def calculate_equipment_status(equipment_list: list) -> tuple[int, int]:
     # Validar dados usando helpers de data/validators.py
     from app.data.validators import validate_input_data
     validate_input_data(equipment_list, list, "equipment_list must be a list")
-    
+
     active = sum(1 for eq in equipment_list if getattr(eq, "ativo", True))
     return active, len(equipment_list) - active
 
@@ -133,12 +133,12 @@ async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, floa
         # Primeiro, verificar se equipamento_id está disponível diretamente
         if hasattr(os_obj, 'equipamento_id') and os_obj.equipamento_id is not None:
             return os_obj.equipamento_id
-        
+
         # Caso seja um objeto Chamado com ordem_servico aninhada
         if hasattr(os_obj, 'ordem_servico') and os_obj.ordem_servico:
             if isinstance(os_obj.ordem_servico, dict):
                 return os_obj.ordem_servico.get("equipamento")
-        
+
         return None
 
     in_maintenance = {
@@ -154,14 +154,14 @@ async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, floa
     # Calculate MTTR (Mean Time To Repair) usando dados da ordem_servico
     closed_durations = []
     for os_obj in os_list:
-        if (hasattr(os_obj, 'ordem_servico') 
-            and os_obj.ordem_servico 
+        if (hasattr(os_obj, 'ordem_servico')
+            and os_obj.ordem_servico
             and isinstance(os_obj.ordem_servico, dict)):
-            
+
             # Verificar se está fechada e tem datas
             estado = os_obj.ordem_servico.get("estado")
             data_criacao = os_obj.ordem_servico.get("data_criacao")
-            
+
             if estado == OSEstado.FECHADA.value and data_criacao:
                 try:
                     # Simular data de fechamento (dados não disponíveis na API atual)
@@ -169,16 +169,16 @@ async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, floa
                     closed_durations.append(24 * 3600)  # 24 horas padrão
                 except Exception:
                     continue
-    
+
     mttr_h = mean(closed_durations) / 3600 if closed_durations else 0.0
 
     # Group by equipment and calculate MTBF usando dados da ordem_servico
     by_equipment = defaultdict(list)
     for os_obj in os_list:
         equip_id = _resolve_id(os_obj)
-        if (equip_id is not None 
-            and hasattr(os_obj, 'ordem_servico') 
-            and os_obj.ordem_servico 
+        if (equip_id is not None
+            and hasattr(os_obj, 'ordem_servico')
+            and os_obj.ordem_servico
             and isinstance(os_obj.ordem_servico, dict)
             and os_obj.ordem_servico.get("estado") == OSEstado.FECHADA.value):
             by_equipment[equip_id].append(os_obj)
@@ -201,10 +201,10 @@ async def calculate_maintenance_metrics(os_list: list) -> tuple[int, float, floa
                     valid_items.append((item, data_criacao))
                 except Exception:
                     continue
-        
+
         if len(valid_items) < 2:
             continue
-            
+
         valid_items.sort(key=lambda x: x[1])  # Ordenar por data
         for i in range(1, len(valid_items)):
             intervals.append((valid_items[i][1] - valid_items[i-1][1]).total_seconds())
@@ -288,15 +288,15 @@ async def compute_metrics(
         start_date = dt_ini
     if end_date is None:
         end_date = dt_fim
-        
+
     # Se ainda são None, usar período padrão
     if start_date is None:
         from datetime import date
         start_date = date.today().replace(day=1)
     if end_date is None:
-        from datetime import date  
+        from datetime import date
         end_date = date.today()
-        
+
     frozen = tuple(sorted(filters.items()))
 
     metrics_dict = await _cached_compute(

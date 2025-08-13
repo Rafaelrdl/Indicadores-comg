@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union, Tuple
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import streamlit as st
 
 from ...core.constants import COLORS
@@ -14,10 +12,10 @@ from ...core.constants import COLORS
 
 class ChartConfig:
     """Configuration for chart styling and behavior."""
-    
+
     DEFAULT_HEIGHT = 400
     DEFAULT_WIDTH = None
-    
+
     THEME = {
         'background_color': 'rgba(0,0,0,0)',
         'grid_color': 'rgba(128,128,128,0.2)',
@@ -28,14 +26,14 @@ class ChartConfig:
 
 class TimeSeriesCharts:
     """Components for time series visualizations."""
-    
+
     @staticmethod
     def render_line_chart(
         data: pd.DataFrame,
         x_col: str,
         y_col: str,
         title: str,
-        color_col: Optional[str] = None,
+        color_col: str | None = None,
         height: int = ChartConfig.DEFAULT_HEIGHT
     ) -> None:
         """
@@ -52,7 +50,7 @@ class TimeSeriesCharts:
         if data.empty:
             st.warning(f"Nenhum dado disponível para {title}")
             return
-        
+
         fig = px.line(
             data,
             x=x_col,
@@ -62,19 +60,19 @@ class TimeSeriesCharts:
             height=height,
             color_discrete_sequence=list(COLORS.values())
         )
-        
+
         fig.update_layout(
             plot_bgcolor=ChartConfig.THEME['background_color'],
             paper_bgcolor=ChartConfig.THEME['background_color'],
             font_family=ChartConfig.THEME['font_family'],
             font_color=ChartConfig.THEME['text_color']
         )
-        
+
         fig.update_xaxes(gridcolor=ChartConfig.THEME['grid_color'])
         fig.update_yaxes(gridcolor=ChartConfig.THEME['grid_color'])
-        
+
         st.plotly_chart(fig, use_container_width=True)
-    
+
     @staticmethod
     def render_area_chart(
         data: pd.DataFrame,
@@ -96,9 +94,9 @@ class TimeSeriesCharts:
         if data.empty:
             st.warning(f"Nenhum dado disponível para {title}")
             return
-        
+
         fig = go.Figure()
-        
+
         fig.add_trace(go.Scatter(
             x=data[x_col],
             y=data[y_col],
@@ -108,20 +106,20 @@ class TimeSeriesCharts:
             line_color=fill_color,
             fillcolor=f"rgba{tuple(list(px.colors.hex_to_rgb(fill_color)) + [0.3])}"
         ))
-        
+
         fig.update_layout(
             title=title,
             plot_bgcolor=ChartConfig.THEME['background_color'],
             paper_bgcolor=ChartConfig.THEME['background_color'],
             height=ChartConfig.DEFAULT_HEIGHT
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
 
 
 class DistributionCharts:
     """Components for distribution and categorical visualizations."""
-    
+
     @staticmethod
     def render_bar_chart(
         data: pd.DataFrame,
@@ -129,7 +127,7 @@ class DistributionCharts:
         y_col: str,
         title: str,
         orientation: str = 'v',
-        color_col: Optional[str] = None
+        color_col: str | None = None
     ) -> None:
         """
         Render a bar chart.
@@ -145,7 +143,7 @@ class DistributionCharts:
         if data.empty:
             st.warning(f"Nenhum dado disponível para {title}")
             return
-        
+
         fig = px.bar(
             data,
             x=x_col if orientation == 'v' else y_col,
@@ -156,14 +154,14 @@ class DistributionCharts:
             height=ChartConfig.DEFAULT_HEIGHT,
             color_discrete_sequence=list(COLORS.values())
         )
-        
+
         fig.update_layout(
             plot_bgcolor=ChartConfig.THEME['background_color'],
             paper_bgcolor=ChartConfig.THEME['background_color']
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
-    
+
     @staticmethod
     def render_pie_chart(
         data: pd.DataFrame,
@@ -185,7 +183,7 @@ class DistributionCharts:
         if data.empty:
             st.warning(f"Nenhum dado disponível para {title}")
             return
-        
+
         fig = px.pie(
             data,
             values=values_col,
@@ -195,14 +193,14 @@ class DistributionCharts:
             height=ChartConfig.DEFAULT_HEIGHT,
             color_discrete_sequence=list(COLORS.values())
         )
-        
+
         fig.update_layout(
             plot_bgcolor=ChartConfig.THEME['background_color'],
             paper_bgcolor=ChartConfig.THEME['background_color']
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
-    
+
     @staticmethod
     def render_histogram(
         data: pd.DataFrame,
@@ -224,7 +222,7 @@ class DistributionCharts:
         if data.empty or column not in data.columns:
             st.warning(f"Nenhum dado disponível para {title}")
             return
-        
+
         fig = px.histogram(
             data,
             x=column,
@@ -233,26 +231,26 @@ class DistributionCharts:
             height=ChartConfig.DEFAULT_HEIGHT,
             color_discrete_sequence=[color]
         )
-        
+
         fig.update_layout(
             plot_bgcolor=ChartConfig.THEME['background_color'],
             paper_bgcolor=ChartConfig.THEME['background_color']
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
 
 
 class KPICharts:
     """Specialized charts for KPI visualization."""
-    
+
     @staticmethod
     def render_gauge_chart(
         value: float,
         title: str,
         min_val: float = 0,
         max_val: float = 100,
-        target: Optional[float] = None,
-        thresholds: Optional[Dict[str, float]] = None
+        target: float | None = None,
+        thresholds: dict[str, float] | None = None
     ) -> None:
         """
         Render a gauge chart for KPI visualization.
@@ -272,7 +270,7 @@ class KPICharts:
                 'yellow': max_val * 0.7,
                 'green': max_val
             }
-        
+
         fig = go.Figure(go.Indicator(
             mode = "gauge+number+delta",
             value = value,
@@ -294,19 +292,19 @@ class KPICharts:
                 }
             }
         ))
-        
+
         fig.update_layout(
             height=300,
             plot_bgcolor=ChartConfig.THEME['background_color'],
             paper_bgcolor=ChartConfig.THEME['background_color']
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
-    
+
     @staticmethod
     def render_trend_indicators(
-        current_values: Dict[str, float],
-        previous_values: Dict[str, float],
+        current_values: dict[str, float],
+        previous_values: dict[str, float],
         title: str = "Indicadores de Tendência"
     ) -> None:
         """
@@ -318,13 +316,13 @@ class KPICharts:
             title: Chart title
         """
         st.subheader(title)
-        
+
         cols = st.columns(len(current_values))
-        
+
         for i, (metric, current_val) in enumerate(current_values.items()):
             with cols[i]:
                 previous_val = previous_values.get(metric, 0)
-                
+
                 # Calculate trend
                 if previous_val != 0:
                     trend = ((current_val - previous_val) / previous_val) * 100
@@ -334,7 +332,7 @@ class KPICharts:
                     trend = 0
                     trend_icon = "➡️"
                     trend_color = "gray"
-                
+
                 st.metric(
                     label=f"{trend_icon} {metric}",
                     value=f"{current_val:.1f}",
@@ -344,11 +342,11 @@ class KPICharts:
 
 class ComparisonCharts:
     """Charts for comparative analysis."""
-    
+
     @staticmethod
     def render_comparison_bar(
-        data: Dict[str, List[float]],
-        categories: List[str],
+        data: dict[str, list[float]],
+        categories: list[str],
         title: str,
         y_title: str = "Valores"
     ) -> None:
@@ -362,9 +360,9 @@ class ComparisonCharts:
             y_title: Y-axis title
         """
         fig = go.Figure()
-        
+
         colors = list(COLORS.values())
-        
+
         for i, (series_name, values) in enumerate(data.items()):
             fig.add_trace(go.Bar(
                 name=series_name,
@@ -372,7 +370,7 @@ class ComparisonCharts:
                 y=values,
                 marker_color=colors[i % len(colors)]
             ))
-        
+
         fig.update_layout(
             title=title,
             xaxis_title="Categorias",
@@ -382,9 +380,9 @@ class ComparisonCharts:
             plot_bgcolor=ChartConfig.THEME['background_color'],
             paper_bgcolor=ChartConfig.THEME['background_color']
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
-    
+
     @staticmethod
     def render_before_after_chart(
         before_data: pd.DataFrame,
@@ -406,12 +404,12 @@ class ComparisonCharts:
         # Combine data for comparison
         before_summary = before_data.groupby(category_col)[metric_col].mean().reset_index()
         after_summary = after_data.groupby(category_col)[metric_col].mean().reset_index()
-        
+
         before_summary['Period'] = 'Antes'
         after_summary['Period'] = 'Depois'
-        
+
         combined_data = pd.concat([before_summary, after_summary], ignore_index=True)
-        
+
         fig = px.bar(
             combined_data,
             x=category_col,
@@ -422,10 +420,10 @@ class ComparisonCharts:
             height=ChartConfig.DEFAULT_HEIGHT,
             color_discrete_sequence=[COLORS['secondary'], COLORS['primary']]
         )
-        
+
         fig.update_layout(
             plot_bgcolor=ChartConfig.THEME['background_color'],
             paper_bgcolor=ChartConfig.THEME['background_color']
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)

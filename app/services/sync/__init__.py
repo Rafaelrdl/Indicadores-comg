@@ -7,13 +7,14 @@ Este módulo implementa:
 - Upsert idempotente com controle de duplicatas
 - Rate limiting e retry logic
 """
-from .ingest import BackfillSync
+from ._upsert import RateLimiter, upsert_records
 from .delta import IncrementalSync
-from ._upsert import upsert_records, RateLimiter
+from .ingest import BackfillSync
+
 
 __all__ = [
     'BackfillSync',
-    'IncrementalSync', 
-    'upsert_records',
-    'RateLimiter'
+    'IncrementalSync',
+    'RateLimiter',
+    'upsert_records'
 ]

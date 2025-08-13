@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 import asyncio
-import concurrent.futures
-from typing import Any, Coroutine
-import streamlit as st
+from collections.abc import Coroutine
+from typing import Any
 
 
 def run_async_safe(coro: Coroutine[Any, Any, Any]) -> Any:
@@ -22,13 +21,14 @@ def run_async_safe(coro: Coroutine[Any, Any, Any]) -> Any:
         if loop.is_running():
             # We're in a running loop, need to use a thread
             import threading
+
             from streamlit.runtime.scriptrunner import get_script_run_ctx
-            
+
             # Capture current Streamlit context
             ctx = get_script_run_ctx()
             result = None
             exception = None
-            
+
             def run_in_thread():
                 nonlocal result, exception
                 new_loop = None
@@ -36,10 +36,10 @@ def run_async_safe(coro: Coroutine[Any, Any, Any]) -> Any:
                     # Set up new event loop in thread
                     new_loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(new_loop)
-                    
+
                     # Run the coroutine
                     result = new_loop.run_until_complete(coro)
-                    
+
                 except Exception as e:
                     exception = e
                 finally:
@@ -49,20 +49,20 @@ def run_async_safe(coro: Coroutine[Any, Any, Any]) -> Any:
                             new_loop.close()
                         except Exception:
                             pass
-            
+
             # Run in thread without ThreadPoolExecutor to avoid context issues
             thread = threading.Thread(target=run_in_thread)
             thread.start()
             thread.join()
-            
+
             if exception:
                 raise exception
             return result
-            
+
         else:
             # No running loop, can use asyncio.run directly
             return asyncio.run(coro)
-            
+
     except RuntimeError:
         # No event loop, create one
         return asyncio.run(coro)

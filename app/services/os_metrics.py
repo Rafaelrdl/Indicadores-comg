@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import os
-import pandas as pd
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, cast
 
 import httpx
+import pandas as pd
 import streamlit as st
+
 from app.arkmeds_client.auth import ArkmedsAuthError
 from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import Chamado, OSEstado
-from app.services.repository import Repository
-from app.services.sync.delta import should_run_incremental_sync, run_incremental_sync
-
 from app.config.os_types import (
     AREA_ENG_CLIN,
     AREA_PREDIAL,
@@ -22,6 +20,8 @@ from app.config.os_types import (
     TIPO_CORRETIVA,
     TIPO_PREVENTIVA,
 )
+from app.services.sync.delta import run_incremental_sync, should_run_incremental_sync
+
 
 # Type aliases
 ServiceOrderData = dict[str, list[Chamado]]
@@ -139,7 +139,7 @@ async def fetch_orders(
     if area_id is not None:
         params["area_id"] = area_id
         params["area_id"] = area_id
-    
+
     # Nota: O parâmetro tipo_id não é suportado pela API atual
     # A filtragem por tipo deve ser feita após receber os dados
     return await client.list_chamados(params)
@@ -172,18 +172,18 @@ async def fetch_service_orders_with_cache(
         ValidationError: If input parameters are invalid
     """
     _validate_dates(start_date, end_date)
-    
+
     # ========== NOVA ABORDAGEM: LEITURA DIRETA DO SQLITE ==========
-    from app.services.repository import get_orders_df, get_database_stats
-    
+    from app.services.repository import get_database_stats, get_orders_df
+
     # Extrair filtros
     estado_ids = filters.get('estado_ids', [])
-    
+
     try:
         # Verificar estado do banco antes de usar
         stats = get_database_stats()
         orders_count = stats.get('orders_count', 0)
-        
+
         if orders_count == 0:
             st.warning("📭 Banco local vazio. Executando backfill inicial...")
             from app.services.sync.ingest import BackfillSync
@@ -195,29 +195,29 @@ async def fetch_service_orders_with_cache(
                 st.warning(f"⚠️ Falha no backfill: {e}")
                 st.info("🔄 Usando fallback para API...")
                 return await fetch_service_orders(client, start_date, end_date, **filters)
-        
+
         # Verificar frescor dos dados e sincronizar se necessário
         elif should_run_incremental_sync('orders', max_age_hours=2):
             try:
                 st.info("🔄 Executando sincronização incremental...")
                 sync_results = await run_incremental_sync(client, ['orders'], **filters)
-                
+
                 if sync_results.get('orders', 0) > 0:
                     st.success(f"📥 Sincronizados {sync_results['orders']:,} novos registros")
                 else:
                     st.info("✅ Dados já estão atualizados")
-            
+
             except Exception as e:
                 st.warning(f"⚠️ Erro na sincronização incremental: {e}")
                 # Continuar com dados locais existentes
-        
+
         # ========== BUSCAR DO SQLITE COM FILTROS OTIMIZADOS ==========
         st.info("💾 Carregando dados do SQLite local...")
-        
-        # Converter datas para formato ISO  
+
+        # Converter datas para formato ISO
         start_date_str = start_date.isoformat()
         end_date_str = end_date.isoformat()
-        
+
         # Usar nova função otimizada do repository
         df = get_orders_df(
             start_date=start_date_str,
@@ -225,14 +225,14 @@ async def fetch_service_orders_with_cache(
             estados=estado_ids,
             limit=10000  # Limite alto para não truncar
         )
-        
+
         if df.empty:
             st.warning("� Nenhuma ordem encontrada no período especificado")
             st.info("🔄 Tentando fallback para API...")
             return await fetch_service_orders(client, start_date, end_date, **filters)
-        
+
         st.success(f"✅ {len(df):,} registros carregados do SQLite local")
-        
+
         # ========== CONVERTER PARA FORMATO LEGACY ==========
         # Usar nova função otimizada para converter SQLite DataFrame
         try:
@@ -242,35 +242,35 @@ async def fetch_service_orders_with_cache(
             st.error(f"❌ Erro na conversão otimizada: {e}")
             # Fallback para conversão antiga
             return _convert_df_to_service_orders(df, start_date, end_date, filters)
-    
+
     except Exception as e:
         st.error(f"❌ Erro ao buscar dados do SQLite: {e}")
         st.info("🔄 Tentando fallback para API...")
-        
+
         # Fallback original para API
         orders_data = await fetch_service_orders(client, start_date, end_date, **filters)
-        
+
         # Tentar salvar dados para cache futuro
         try:
             all_orders = []
             for order_list in orders_data.values():
                 if isinstance(order_list, list):
                     all_orders.extend(order_list)
-            
+
             if all_orders:
-                from app.services.sync._upsert import upsert_records
                 from app.core.db import get_conn
-                
+                from app.services.sync._upsert import upsert_records
+
                 # Converter para formato de payload
                 orders_dict = [order.model_dump() for order in all_orders]
-                
+
                 with get_conn() as conn:
                     saved_count = upsert_records(conn, 'orders', orders_dict)
                     st.success(f"💾 Cache atualizado: {saved_count:,} ordens salvas")
-        
+
         except Exception as cache_error:
             st.warning(f"⚠️ Erro ao salvar cache: {cache_error}")
-        
+
         return orders_data
 
 
@@ -282,14 +282,14 @@ def _convert_df_to_service_orders(df, start_date: date, end_date: date, filters:
     """
     import json
     from datetime import datetime
-    
+
     # Convert DataFrame to Chamado objects
     orders = []
     for _, row in df.iterrows():
         try:
             # Parse ordem_servico JSON field
             os_data = json.loads(row['ordem_servico']) if isinstance(row['ordem_servico'], str) else row['ordem_servico']
-            
+
             # Create Chamado object
             chamado_data = {
                 'id': row['id'],
@@ -298,22 +298,22 @@ def _convert_df_to_service_orders(df, start_date: date, end_date: date, filters:
                 'ordem_servico': os_data,
                 'responsavel_id': row['responsavel_id']
             }
-            
+
             # Add optional fields if they exist
             if pd.notna(row.get('data_fechamento')):
                 chamado_data['data_fechamento'] = row['data_fechamento']
-            
+
             order = Chamado.model_validate(chamado_data)
             orders.append(order)
-        
-        except Exception as e:
+
+        except Exception:
             # Skip invalid records
             continue
-    
+
     # Filter orders by date range
     start_datetime = datetime.combine(start_date, datetime.min.time())
     end_datetime = datetime.combine(end_date, datetime.max.time())
-    
+
     date_filtered_orders = []
     for order in orders:
         try:
@@ -322,12 +322,12 @@ def _convert_df_to_service_orders(df, start_date: date, end_date: date, filters:
                     order_date = datetime.fromisoformat(order.data_criacao.replace('Z', '+00:00'))
                 else:
                     order_date = order.data_criacao
-                
+
                 if start_datetime <= order_date <= end_datetime:
                     date_filtered_orders.append(order)
         except:
             continue
-    
+
     # Categorize orders based on type and area
     categorized = {
         "corrective_building": [],
@@ -339,17 +339,17 @@ def _convert_df_to_service_orders(df, start_date: date, end_date: date, filters:
         "closed_orders": [],
         "closed_in_period": []
     }
-    
+
     for order in orders:  # Use all orders for backlog calculations
         try:
             os = order.ordem_servico
             if not os:
                 continue
-                
+
             tipo_servico = os.get('tipo_servico')
             area_id = os.get('area_id')  # Assuming area_id is in ordem_servico
             estado = os.get('estado')
-            
+
             # Categorize by type and area (for date-filtered orders)
             if order in date_filtered_orders:
                 if tipo_servico == TIPO_CORRETIVA:
@@ -364,21 +364,21 @@ def _convert_df_to_service_orders(df, start_date: date, end_date: date, filters:
                         categorized["preventive_infra"].append(order)
                 elif tipo_servico == TIPO_BUSCA_ATIVA:
                     categorized["active_search"].append(order)
-            
+
             # Categorize by status (all orders for backlog)
             if tipo_servico == TIPO_CORRETIVA:
                 if estado == OSEstado.ABERTA.value:
                     categorized["open_orders"].append(order)
                 elif estado == OSEstado.FECHADA.value:
                     categorized["closed_orders"].append(order)
-                    
+
                     # Check if closed in period
                     if order.data_fechamento and order in date_filtered_orders:
                         categorized["closed_in_period"].append(order)
-        
+
         except Exception:
             continue
-    
+
     return categorized
 
 
@@ -402,8 +402,9 @@ def _convert_sqlite_df_to_service_orders(df: pd.DataFrame, start_date: date, end
     """
     import json
     from datetime import datetime
+
     from app.arkmeds_client.models import Chamado
-    
+
     if df.empty:
         return {
             "corrective_building": [],
@@ -414,10 +415,10 @@ def _convert_sqlite_df_to_service_orders(df: pd.DataFrame, start_date: date, end
             "open_orders": [],
             "closed_orders": []
         }
-    
+
     # Converter para objetos Chamado otimizadamente
     orders = []
-    
+
     for _, row in df.iterrows():
         try:
             # Preparar dados do chamado
@@ -426,7 +427,7 @@ def _convert_sqlite_df_to_service_orders(df: pd.DataFrame, start_date: date, end
                 'data_criacao': row['data_criacao'],
                 'chamados': row['chamados'] or [],
             }
-            
+
             # Processar ordem_servico (pode estar como JSON string ou dict)
             os_data = row['ordem_servico']
             if isinstance(os_data, str):
@@ -434,30 +435,30 @@ def _convert_sqlite_df_to_service_orders(df: pd.DataFrame, start_date: date, end
                     os_data = json.loads(os_data)
                 except json.JSONDecodeError:
                     continue
-            
+
             chamado_data['ordem_servico'] = os_data
-            
+
             # Adicionar campos opcionais
             if pd.notna(row.get('data_fechamento')):
                 chamado_data['data_fechamento'] = row['data_fechamento']
-            
+
             if pd.notna(row.get('responsavel_id')):
                 chamado_data['responsavel_id'] = row['responsavel_id']
-            
+
             # Criar objeto Chamado
             order = Chamado.model_validate(chamado_data)
             orders.append(order)
-        
-        except Exception as e:
+
+        except Exception:
             # Pular registros inválidos silenciosamente
             continue
-    
+
     # ========== FILTROS E CATEGORIZAÇÃO OTIMIZADOS ==========
-    
+
     # Filtrar por data (usando datetime para comparação precisa)
     start_datetime = datetime.combine(start_date, datetime.min.time())
     end_datetime = datetime.combine(end_date, datetime.max.time())
-    
+
     date_filtered_orders = []
     for order in orders:
         try:
@@ -469,13 +470,13 @@ def _convert_sqlite_df_to_service_orders(df: pd.DataFrame, start_date: date, end
                     order_date = order.data_criacao
                 else:
                     continue
-                
+
                 # Aplicar filtro de data
                 if start_datetime <= order_date <= end_datetime:
                     date_filtered_orders.append(order)
         except Exception:
             continue
-    
+
     # Categorizar orders otimizadamente
     categorized = {
         "corrective_building": [],
@@ -486,42 +487,42 @@ def _convert_sqlite_df_to_service_orders(df: pd.DataFrame, start_date: date, end
         "open_orders": [],
         "closed_orders": []
     }
-    
+
     for order in date_filtered_orders:
         try:
             # Extrair tipo e área do order
             if not order.ordem_servico:
                 continue
-            
+
             tipo_servico = order.ordem_servico.get('tipo_servico')
             estado = order.ordem_servico.get('estado')
             area = order.ordem_servico.get('area')
-            
+
             # Categorizar por estado (aberto/fechado)
             if estado in [1, 2, 3, 4]:  # Estados abertos
                 categorized["open_orders"].append(order)
             elif estado in [5, 6]:  # Estados fechados
                 categorized["closed_orders"].append(order)
-            
+
             # Categorizar por tipo e área
             if tipo_servico == TIPO_CORRETIVA:
                 if area == AREA_PREDIAL:
                     categorized["corrective_building"].append(order)
                 elif area == AREA_ENG_CLIN:
                     categorized["corrective_engineering"].append(order)
-            
+
             elif tipo_servico == TIPO_PREVENTIVA:
                 if area == AREA_PREDIAL:
                     categorized["preventive_building"].append(order)
                 elif area == AREA_ENG_CLIN:
                     categorized["preventive_infra"].append(order)
-            
+
             elif tipo_servico == TIPO_BUSCA_ATIVA:
                 categorized["active_search"].append(order)
-        
+
         except Exception:
             continue
-    
+
     return categorized
 
 
@@ -619,9 +620,9 @@ async def fetch_service_orders(
         }
 
     except (httpx.TimeoutException, ArkmedsAuthError) as exc:
-        raise DataFetchError(f"Failed to fetch service orders data: {str(exc)}") from exc
+        raise DataFetchError(f"Failed to fetch service orders data: {exc!s}") from exc
     except Exception as exc:
-        raise OSMetricsError(f"Unexpected error while fetching service orders: {str(exc)}") from exc
+        raise OSMetricsError(f"Unexpected error while fetching service orders: {exc!s}") from exc
 
 
 async def calculate_sla_metrics(closed_orders: list[Chamado]) -> float:
@@ -656,7 +657,7 @@ async def calculate_sla_metrics(closed_orders: list[Chamado]) -> float:
     except (TypeError, AttributeError) as exc:
         raise ValidationError("Invalid order objects in closed_orders list") from exc
     except Exception as exc:
-        raise OSMetricsError(f"Error calculating SLA metrics: {str(exc)}") from exc
+        raise OSMetricsError(f"Error calculating SLA metrics: {exc!s}") from exc
 
 
 async def _cached_compute(
@@ -698,7 +699,7 @@ async def _cached_compute(
             "sla_percentage": metrics.sla_percentage,
         }
     except Exception as exc:
-        st.error(f"Erro ao calcular métricas: {str(exc)}")
+        st.error(f"Erro ao calcular métricas: {exc!s}")
         raise
 
 
@@ -737,7 +738,7 @@ async def _async_compute_metrics(
         try:
             sla_pct = await calculate_sla_metrics(data["closed_in_period"])
         except Exception as exc:
-            st.warning(f"Could not calculate SLA metrics: {str(exc)}")
+            st.warning(f"Could not calculate SLA metrics: {exc!s}")
             sla_pct = 0.0
 
         # Create and return the metrics object
@@ -752,7 +753,7 @@ async def _async_compute_metrics(
         )
 
     except Exception as exc:
-        raise OSMetricsError(f"Error computing service order metrics: {str(exc)}") from exc
+        raise OSMetricsError(f"Error computing service order metrics: {exc!s}") from exc
 
 
 async def compute_metrics(
@@ -802,7 +803,7 @@ async def compute_metrics(
             start_date = dt_ini
         if end_date is None:
             end_date = dt_fim
-            
+
         # Se ainda são None, usar período padrão (último mês)
         if start_date is None:
             from datetime import date
@@ -830,4 +831,4 @@ async def compute_metrics(
     except ValidationError:
         raise  # Re-raise validation errors as-is
     except Exception as exc:
-        raise OSMetricsError(f"Failed to compute service order metrics: {str(exc)}") from exc
+        raise OSMetricsError(f"Failed to compute service order metrics: {exc!s}") from exc

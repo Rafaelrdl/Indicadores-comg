@@ -1,10 +1,11 @@
 """Data models package for Pydantic schemas."""
 
-from .core import Metric, KPICard, ChartConfig, TableConfig
+from .core import ChartConfig, KPICard, Metric, TableConfig
+
 
 __all__ = [
-    "Metric",
-    "KPICard", 
     "ChartConfig",
+    "KPICard",
+    "Metric",
     "TableConfig"
 ]

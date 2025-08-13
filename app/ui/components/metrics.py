@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import pandas as pd
 import streamlit as st
 
-from ...core.constants import COLORS
-from ...data.models import Metric, KPICard
+from ...data.models import KPICard, Metric
 
 
 class MetricsDisplay:
     """Component for displaying metrics in various layouts."""
-    
+
     @staticmethod
-    def render_metric_cards(metrics: List[Metric], columns: int = 3) -> None:
+    def render_metric_cards(metrics: list[Metric], columns: int = 3) -> None:
         """
         Render metrics as cards in a grid layout.
         
@@ -26,15 +25,15 @@ class MetricsDisplay:
         if not metrics:
             st.info("Nenhuma métrica disponível.")
             return
-        
+
         cols = st.columns(columns)
-        
+
         for i, metric in enumerate(metrics):
             col_idx = i % columns
             with cols[col_idx]:
                 # Add icon if provided
                 label = f"{metric.icon} {metric.label}" if metric.icon else metric.label
-                
+
                 st.metric(
                     label=label,
                     value=metric.value,
@@ -42,9 +41,9 @@ class MetricsDisplay:
                     delta_color=metric.delta_color,
                     help=metric.help_text
                 )
-    
+
     @staticmethod
-    def render_kpi_dashboard(kpis: List[KPICard]) -> None:
+    def render_kpi_dashboard(kpis: list[KPICard]) -> None:
         """
         Render KPI dashboard with grouped metrics.
         
@@ -53,10 +52,10 @@ class MetricsDisplay:
         """
         for kpi in kpis:
             st.subheader(kpi.title)
-            
+
             # Use equal column widths for all metrics
             cols = st.columns(len(kpi.metrics))
-            
+
             for i, metric in enumerate(kpi.metrics):
                 with cols[i]:
                     label = f"{metric.icon} {metric.label}" if metric.icon else metric.label
@@ -67,13 +66,13 @@ class MetricsDisplay:
                         delta_color=metric.delta_color,
                         help=metric.help_text
                     )
-            
+
             st.divider()
-    
+
     @staticmethod
     def render_summary_metrics(
         title: str,
-        metrics_data: Dict[str, Any],
+        metrics_data: dict[str, Any],
         layout: str = "horizontal"
     ) -> None:
         """
@@ -85,7 +84,7 @@ class MetricsDisplay:
             layout: Layout type ('horizontal' or 'vertical')
         """
         st.header(title)
-        
+
         if layout == "horizontal":
             cols = st.columns(len(metrics_data))
             for i, (label, value) in enumerate(metrics_data.items()):
@@ -94,11 +93,11 @@ class MetricsDisplay:
         else:
             for label, value in metrics_data.items():
                 st.metric(label=label, value=value)
-    
+
     @staticmethod
     def render_comparison_metrics(
-        current_metrics: Dict[str, Any],
-        previous_metrics: Dict[str, Any],
+        current_metrics: dict[str, Any],
+        previous_metrics: dict[str, Any],
         title: str = "Comparação com Período Anterior"
     ) -> None:
         """
@@ -110,13 +109,13 @@ class MetricsDisplay:
             title: Section title
         """
         st.header(title)
-        
+
         cols = st.columns(len(current_metrics))
-        
+
         for i, (label, current_value) in enumerate(current_metrics.items()):
             with cols[i]:
                 previous_value = previous_metrics.get(label, 0)
-                
+
                 # Calculate delta
                 if isinstance(current_value, (int, float)) and isinstance(previous_value, (int, float)):
                     delta = current_value - previous_value
@@ -124,7 +123,7 @@ class MetricsDisplay:
                     delta_display = f"{delta:+.1f} ({delta_percent:+.1f}%)"
                 else:
                     delta_display = None
-                
+
                 st.metric(
                     label=label,
                     value=current_value,
@@ -134,14 +133,14 @@ class MetricsDisplay:
 
 class ProgressIndicators:
     """Component for progress and status indicators."""
-    
+
     @staticmethod
     def render_progress_bar(
         label: str,
         value: float,
         max_value: float = 100.0,
         format_string: str = "%.1f",
-        color: Optional[str] = None
+        color: str | None = None
     ) -> None:
         """
         Render a progress bar with label.
@@ -154,18 +153,18 @@ class ProgressIndicators:
             color: Custom color (not supported in Streamlit)
         """
         progress_percent = min(value / max_value, 1.0) if max_value > 0 else 0
-        
+
         col1, col2 = st.columns([3, 1])
         with col1:
             st.write(label)
             st.progress(progress_percent)
         with col2:
             st.metric("", f"{format_string % value}/{format_string % max_value}")
-    
+
     @staticmethod
     def render_status_indicators(
-        statuses: Dict[str, str],
-        colors: Optional[Dict[str, str]] = None
+        statuses: dict[str, str],
+        colors: dict[str, str] | None = None
     ) -> None:
         """
         Render status indicators with colored badges.
@@ -175,7 +174,7 @@ class ProgressIndicators:
             colors: Optional color mapping for statuses
         """
         cols = st.columns(len(statuses))
-        
+
         for i, (label, status) in enumerate(statuses.items()):
             with cols[i]:
                 # Use colors if provided
@@ -191,12 +190,12 @@ class ProgressIndicators:
 
 class DataCards:
     """Component for data cards and info boxes."""
-    
+
     @staticmethod
     def render_info_card(
         title: str,
         content: str,
-        icon: Optional[str] = None,
+        icon: str | None = None,
         color: str = "info"
     ) -> None:
         """
@@ -209,7 +208,7 @@ class DataCards:
             color: Card color theme
         """
         title_with_icon = f"{icon} {title}" if icon else title
-        
+
         if color == "success":
             st.success(f"**{title_with_icon}**\n\n{content}")
         elif color == "warning":
@@ -218,7 +217,7 @@ class DataCards:
             st.error(f"**{title_with_icon}**\n\n{content}")
         else:
             st.info(f"**{title_with_icon}**\n\n{content}")
-    
+
     @staticmethod
     def render_data_summary_card(
         data: pd.DataFrame,
@@ -234,18 +233,18 @@ class DataCards:
         if data.empty:
             st.warning(f"**{title}**: Nenhum dado disponível")
             return
-        
+
         with st.container():
             st.subheader(title)
-            
+
             col1, col2, col3 = st.columns(3)
-            
+
             with col1:
                 st.metric("Total de Registros", len(data))
-            
+
             with col2:
                 st.metric("Colunas", len(data.columns))
-            
+
             with col3:
                 # Calculate completeness
                 completeness = (1 - data.isnull().sum().sum() / (len(data) * len(data.columns))) * 100

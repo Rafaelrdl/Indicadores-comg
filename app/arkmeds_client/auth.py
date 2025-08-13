@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import streamlit as st
@@ -49,16 +48,16 @@ class ArkmedsAuth:
         self.base_url = base_url.rstrip("/")
         self.max_tries = max_tries
         if token:
-            exp = datetime.now(timezone.utc) + timedelta(hours=1)
+            exp = datetime.now(UTC) + timedelta(hours=1)
             self._token = TokenData(token=token, exp=exp)
             st.session_state["arkmeds_token"] = token
         else:
             self._token = None
-        self._client: Optional[httpx.AsyncClient] = None
-        self._login_url: Optional[str] = login_path or os.environ.get("ARKMEDS_LOGIN_PATH")
+        self._client: httpx.AsyncClient | None = None
+        self._login_url: str | None = login_path or os.environ.get("ARKMEDS_LOGIN_PATH")
 
     @classmethod
-    def from_secrets(cls) -> "ArkmedsAuth":
+    def from_secrets(cls) -> ArkmedsAuth:
         cfg = st.secrets.get("arkmeds", {})
         return cls(
             email=cfg.get("email", ""),
@@ -118,7 +117,7 @@ class ArkmedsAuth:
             await self._discover_login_url()
 
         endpoints = [self._login_url] if self._login_url else self.LOGIN_ENDPOINT_CANDIDATES
-        last_404: Optional[httpx.Response] = None
+        last_404: httpx.Response | None = None
 
         for endpoint in endpoints:
             for attempt in range(self.max_tries):
@@ -126,7 +125,7 @@ class ArkmedsAuth:
                     # Different endpoints may expect different payload formats
                     # Based on testing, /rest-auth/token-auth/ expects email/password
                     payload = {"email": self.email, "password": self.password}
-                    
+
                     resp = await client.post(
                         endpoint,
                         json=payload,
@@ -152,7 +151,7 @@ class ArkmedsAuth:
                     if token is None:
                         raise ArkmedsAuthError("Malformed login response")
 
-                    exp = datetime.now(timezone.utc) + timedelta(hours=1)
+                    exp = datetime.now(UTC) + timedelta(hours=1)
                     self._token = TokenData(token=token, exp=exp)
                     st.session_state["arkmeds_token"] = token
                     self._login_url = endpoint
@@ -174,7 +173,7 @@ class ArkmedsAuth:
         if not self._token:
             await self.login()
             return
-        remaining = self._token.exp - datetime.now(timezone.utc)
+        remaining = self._token.exp - datetime.now(UTC)
         if remaining < timedelta(seconds=300):
             await self.login()
 

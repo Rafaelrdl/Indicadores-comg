@@ -19,7 +19,7 @@ def inject_global_css() -> None:
         """,
         unsafe_allow_html=True,
     )
-    
+
     # Adicionar JavaScript mais robusto
     st.components.v1.html(
         """

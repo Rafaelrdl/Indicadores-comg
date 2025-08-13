@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union, Callable
-import streamlit as st
+from collections.abc import Callable
 from contextlib import contextmanager
+from typing import Any, Dict, List, Optional, Union
+
+import streamlit as st
 
 from ...core.constants import COLORS
 
 
 class PageLayout:
     """Main page layout component with consistent structure."""
-    
+
     def __init__(
         self,
         title: str,
-        description: Optional[str] = None,
-        icon: Optional[str] = None,
+        description: str | None = None,
+        icon: str | None = None,
         layout: str = "wide"
     ):
         """
@@ -32,7 +34,7 @@ class PageLayout:
         self.description = description
         self.icon = icon
         self.layout = layout
-    
+
     def render_header(self) -> None:
         """Render page header with title and description."""
         # Title with optional icon
@@ -40,26 +42,26 @@ class PageLayout:
             st.title(f"{self.icon} {self.title}")
         else:
             st.title(self.title)
-        
+
         # Description if provided
         if self.description:
             st.markdown(f"*{self.description}*")
-        
+
         st.divider()
-    
+
     @contextmanager
     def main_content(self):
         """Context manager for main content area."""
         st.container()
         yield
-    
+
     @contextmanager
     def sidebar_content(self):
         """Context manager for sidebar content."""
         with st.sidebar:
             yield
-    
-    def render_footer(self, additional_info: Optional[str] = None) -> None:
+
+    def render_footer(self, additional_info: str | None = None) -> None:
         """
         Render page footer.
         
@@ -67,25 +69,25 @@ class PageLayout:
             additional_info: Optional additional information to display
         """
         st.divider()
-        
+
         footer_cols = st.columns([2, 1])
-        
+
         with footer_cols[0]:
             if additional_info:
                 st.caption(additional_info)
-        
+
         with footer_cols[1]:
             st.caption("Indicadores COMG © 2024")
 
 
 class SectionLayout:
     """Component for creating consistent page sections."""
-    
+
     @staticmethod
     @contextmanager
     def section(
         title: str,
-        description: Optional[str] = None,
+        description: str | None = None,
         expanded: bool = True,
         border: bool = False
     ):
@@ -102,13 +104,13 @@ class SectionLayout:
             if description:
                 st.markdown(f"*{description}*")
                 st.markdown("---")
-            
+
             if border:
                 with st.container():
                     yield
             else:
                 yield
-    
+
     @staticmethod
     @contextmanager
     def metric_section(title: str, columns: int = 3):
@@ -123,7 +125,7 @@ class SectionLayout:
         cols = st.columns(columns)
         yield cols
         st.markdown("---")
-    
+
     @staticmethod
     @contextmanager
     def chart_section(title: str, full_width: bool = True):
@@ -135,7 +137,7 @@ class SectionLayout:
             full_width: Whether to use full width
         """
         st.subheader(title)
-        
+
         if full_width:
             with st.container():
                 yield
@@ -143,9 +145,9 @@ class SectionLayout:
             col1, col2, col3 = st.columns([1, 4, 1])
             with col2:
                 yield
-        
+
         st.markdown("---")
-    
+
     @staticmethod
     @contextmanager
     def data_section(title: str, show_summary: bool = True):
@@ -157,22 +159,22 @@ class SectionLayout:
             show_summary: Whether to show data summary
         """
         st.subheader(title)
-        
+
         container = st.container()
         yield container
-        
+
         if show_summary:
             st.markdown("---")
 
 
 class GridLayout:
     """Component for creating responsive grid layouts."""
-    
+
     @staticmethod
     def two_column_layout(
         left_content: Callable,
         right_content: Callable,
-        ratio: List[int] = [1, 1]
+        ratio: list[int] = [1, 1]
     ) -> None:
         """
         Create a two-column layout.
@@ -183,19 +185,19 @@ class GridLayout:
             ratio: Column width ratio
         """
         col1, col2 = st.columns(ratio)
-        
+
         with col1:
             left_content()
-        
+
         with col2:
             right_content()
-    
+
     @staticmethod
     def three_column_layout(
         left_content: Callable,
         center_content: Callable,
         right_content: Callable,
-        ratio: List[int] = [1, 1, 1]
+        ratio: list[int] = [1, 1, 1]
     ) -> None:
         """
         Create a three-column layout.
@@ -207,19 +209,19 @@ class GridLayout:
             ratio: Column width ratio
         """
         col1, col2, col3 = st.columns(ratio)
-        
+
         with col1:
             left_content()
-        
+
         with col2:
             center_content()
-        
+
         with col3:
             right_content()
-    
+
     @staticmethod
     def responsive_grid(
-        content_functions: List[Callable],
+        content_functions: list[Callable],
         max_columns: int = 3,
         equal_width: bool = True
     ) -> None:
@@ -233,12 +235,12 @@ class GridLayout:
         """
         num_items = len(content_functions)
         num_columns = min(num_items, max_columns)
-        
+
         if equal_width:
             cols = st.columns(num_columns)
         else:
             cols = st.columns([1] * num_columns)
-        
+
         for i, content_func in enumerate(content_functions):
             col_idx = i % num_columns
             with cols[col_idx]:
@@ -247,12 +249,12 @@ class GridLayout:
 
 class CardLayout:
     """Component for creating card-based layouts."""
-    
+
     @staticmethod
     @contextmanager
     def card(
-        title: Optional[str] = None,
-        subtitle: Optional[str] = None,
+        title: str | None = None,
+        subtitle: str | None = None,
         background_color: str = "rgba(255, 255, 255, 0.05)",
         border_radius: str = "10px",
         padding: str = "20px"
@@ -277,26 +279,26 @@ class CardLayout:
             border: 1px solid rgba(255, 255, 255, 0.1);
         ">
         """
-        
+
         st.markdown(card_style, unsafe_allow_html=True)
-        
+
         if title:
             st.subheader(title)
-        
+
         if subtitle:
             st.caption(subtitle)
-        
+
         yield
-        
+
         st.markdown("</div>", unsafe_allow_html=True)
-    
+
     @staticmethod
     def metric_card(
         title: str,
-        value: Union[int, float, str],
-        delta: Optional[Union[int, float, str]] = None,
-        delta_color: Optional[str] = None,
-        icon: Optional[str] = None,
+        value: int | float | str,
+        delta: int | float | str | None = None,
+        delta_color: str | None = None,
+        icon: str | None = None,
         color: str = COLORS['primary']
     ) -> None:
         """
@@ -315,19 +317,19 @@ class CardLayout:
                 st.markdown(f"### {icon} {title}")
             else:
                 st.markdown(f"### {title}")
-            
+
             st.metric(
                 label="",
                 value=value,
                 delta=delta,
                 delta_color=delta_color
             )
-    
+
     @staticmethod
     def info_card(
         title: str,
         content: str,
-        icon: Optional[str] = None,
+        icon: str | None = None,
         type: str = "info"
     ) -> None:
         """
@@ -340,7 +342,7 @@ class CardLayout:
             type: Card type ('info', 'success', 'warning', 'error')
         """
         title_with_icon = f"{icon} {title}" if icon else title
-        
+
         if type == "success":
             st.success(f"**{title_with_icon}**\n\n{content}")
         elif type == "warning":
@@ -353,7 +355,7 @@ class CardLayout:
 
 class ModalLayout:
     """Component for modal-like dialogs."""
-    
+
     @staticmethod
     @contextmanager
     def modal(
@@ -373,14 +375,14 @@ class ModalLayout:
         # Streamlit doesn't have native modals, so we use expanders
         with st.expander(f"🔍 {title}", expanded=False):
             yield
-    
+
     @staticmethod
     def confirmation_dialog(
         message: str,
         confirm_label: str = "Confirmar",
         cancel_label: str = "Cancelar",
         key: str = "confirm"
-    ) -> Optional[bool]:
+    ) -> bool | None:
         """
         Create a confirmation dialog.
         
@@ -394,23 +396,23 @@ class ModalLayout:
             True if confirmed, False if cancelled, None if no action
         """
         st.warning(message)
-        
+
         col1, col2, col3 = st.columns([1, 1, 2])
-        
+
         with col1:
             if st.button(confirm_label, key=f"{key}_confirm", type="primary"):
                 return True
-        
+
         with col2:
             if st.button(cancel_label, key=f"{key}_cancel"):
                 return False
-        
+
         return None
 
 
 class ProgressLayout:
     """Component for progress indicators and loading states."""
-    
+
     @staticmethod
     @contextmanager
     def loading_spinner(message: str = "Carregando..."):
@@ -422,7 +424,7 @@ class ProgressLayout:
         """
         with st.spinner(message):
             yield
-    
+
     @staticmethod
     def progress_bar(
         current: int,
@@ -439,10 +441,10 @@ class ProgressLayout:
         """
         progress_percent = current / total if total > 0 else 0
         st.progress(progress_percent, text=f"{message} ({current}/{total})")
-    
+
     @staticmethod
     @contextmanager
-    def step_progress(steps: List[str], current_step: int = 0):
+    def step_progress(steps: list[str], current_step: int = 0):
         """
         Show step-by-step progress.
         
@@ -451,7 +453,7 @@ class ProgressLayout:
             current_step: Current step index (0-based)
         """
         st.subheader("Progresso")
-        
+
         for i, step in enumerate(steps):
             if i < current_step:
                 st.success(f"✅ {step}")
@@ -459,6 +461,6 @@ class ProgressLayout:
                 st.info(f"🔄 {step}")
             else:
                 st.write(f"⏳ {step}")
-        
+
         st.divider()
         yield

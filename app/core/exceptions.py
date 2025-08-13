@@ -2,25 +2,24 @@
 
 from __future__ import annotations
 
-import functools
-import traceback
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union
+from typing import Any, TypeVar
 
 import streamlit as st
+
 
 T = TypeVar('T')
 
 
 class AppException(Exception):
     """Base application exception with enhanced context tracking."""
-    
+
     def __init__(
-        self, 
-        message: str, 
-        context: Optional[Dict[str, Any]] = None,
-        original_error: Optional[Exception] = None,
-        error_code: Optional[str] = None
+        self,
+        message: str,
+        context: dict[str, Any] | None = None,
+        original_error: Exception | None = None,
+        error_code: str | None = None
     ):
         self.message = message
         self.context = context or {}
@@ -28,8 +27,8 @@ class AppException(Exception):
         self.error_code = error_code
         self.timestamp = datetime.now()
         super().__init__(self.message)
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert exception to dictionary for logging."""
         return {
             'error_type': self.__class__.__name__,
@@ -52,7 +51,7 @@ class DataProcessingError(AppException):
 
 
 class AuthenticationError(AppException):
-    """Authentication and authorization errors.""" 
+    """Authentication and authorization errors."""
     pass
 
 
@@ -93,20 +92,20 @@ DataValidationError = ValidationError
 
 class ErrorHandler:
     """Manipulador centralizado de erros."""
-    
+
     @staticmethod
     def handle_error(
         error: Exception,
-        context: Dict[str, Any] = None,
+        context: dict[str, Any] = None,
         show_user_message: bool = True,
         user_message: str = None
     ) -> None:
         """Manipula erros de forma centralizada."""
         from app.core.logging import app_logger
-        
+
         # Log do erro
         app_logger.log_error(error, context)
-        
+
         # Mensagem para o usuário
         if show_user_message:
             if isinstance(error, DataFetchError):
@@ -121,7 +120,7 @@ class ErrorHandler:
                 st.error(user_message)
             else:
                 st.error("❌ Ocorreu um erro inesperado. Tente novamente.")
-    
+
     @staticmethod
     def safe_execute(
         func,
@@ -168,7 +167,7 @@ def safe_operation(
     return decorator
 
 
-def validate_data(data: Any, expected_type: Type, field_name: str = "data") -> None:
+def validate_data(data: Any, expected_type: type, field_name: str = "data") -> None:
     """Valida tipos de dados."""
     if not isinstance(data, expected_type):
         raise ValidationError(

@@ -4,18 +4,18 @@ Sistema de sincronização automática na inicialização do app.
 Este módulo garante que uma sincronização incremental seja executada
 automaticamente quando o app é iniciado, sem duplicações ou bloqueios.
 """
-import streamlit as st
-import threading
 import asyncio
+import threading
 from datetime import datetime, timedelta
-from typing import Optional
 
-from app.arkmeds_client.client import ArkmedsClient
+import streamlit as st
+
 from app.arkmeds_client.auth import ArkmedsAuth
+from app.arkmeds_client.client import ArkmedsClient
 from app.core.config import get_settings
 from app.core.logging import app_logger
-from app.services.sync_jobs import has_running_job, get_last_success_job
 from app.services.sync.delta import run_delta_sync_with_progress
+from app.services.sync_jobs import get_last_success_job, has_running_job
 
 
 @st.cache_resource
@@ -32,24 +32,24 @@ def ensure_startup_sync() -> bool:
     """
     try:
         app_logger.log_info("🚀 Verificando necessidade de sincronização de startup...")
-        
+
         # Verificar se há job rodando
         if has_running_job():
             app_logger.log_info("⏸️ Job já em execução, pulando startup sync")
             return False
-        
+
         # Verificar se há uma sync recente (últimos 30 minutos)
         last_success = get_last_success_job()
         if last_success and _is_recent_sync(last_success):
             app_logger.log_info("✅ Sincronização recente encontrada, pulando startup sync")
             return False
-            
+
         # Verificar credenciais
         settings = get_settings()
         if not settings.arkmeds_email or not settings.arkmeds_password:
             app_logger.log_info("⚠️ Credenciais não configuradas, pulando startup sync")
             return False
-        
+
         # Iniciar sincronização em thread separada
         app_logger.log_info("🎯 Iniciando sincronização de startup em background...")
         thread = threading.Thread(
@@ -58,9 +58,9 @@ def ensure_startup_sync() -> bool:
             name="StartupSync"
         )
         thread.start()
-        
+
         return True
-        
+
     except Exception as e:
         app_logger.log_error(e, {"context": "ensure_startup_sync"})
         return False
@@ -80,12 +80,12 @@ def _is_recent_sync(last_job: dict, max_minutes: int = 30) -> bool:
     try:
         if not last_job.get('finished_at'):
             return False
-            
+
         finished_at = datetime.fromisoformat(last_job['finished_at'])
         max_age = timedelta(minutes=max_minutes)
-        
+
         return datetime.now() - finished_at < max_age
-        
+
     except Exception as e:
         app_logger.log_error(e, {"context": "_is_recent_sync"})
         return False
@@ -99,11 +99,11 @@ def _run_startup_sync_thread() -> None:
     """
     try:
         app_logger.log_info("🔄 Thread de startup sync iniciada...")
-        
+
         # Criar novo event loop para esta thread
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
+
         try:
             # Criar cliente da API
             settings = get_settings()
@@ -114,17 +114,17 @@ def _run_startup_sync_thread() -> None:
                 token=settings.arkmeds_token
             )
             client = ArkmedsClient(auth)
-            
+
             # Executar sincronização
             total = loop.run_until_complete(
                 run_delta_sync_with_progress(client, ['orders'])
             )
-            
+
             app_logger.log_info(f"✅ Startup sync concluída: {total:,} registros")
-            
+
         finally:
             loop.close()
-            
+
     except Exception as e:
         app_logger.log_error(e, {"context": "_run_startup_sync_thread"})
 
@@ -141,10 +141,10 @@ def force_startup_sync() -> bool:
     try:
         # Limpar cache para forçar nova execução
         ensure_startup_sync.clear()
-        
+
         # Executar nova sincronização
         return ensure_startup_sync()
-        
+
     except Exception as e:
         app_logger.log_error(e, {"context": "force_startup_sync"})
         return False
@@ -166,7 +166,7 @@ def get_startup_sync_status() -> dict:
                 'job': running,
                 'message': 'Sincronização em andamento...'
             }
-        
+
         # Verificar último job bem-sucedido
         last_success = get_last_success_job()
         if last_success:
@@ -175,17 +175,17 @@ def get_startup_sync_status() -> dict:
                 'job': last_success,
                 'message': f"Última sincronização: {last_success.get('finished_at', 'N/A')}"
             }
-        
+
         return {
             'status': 'none',
             'job': None,
             'message': 'Nenhuma sincronização encontrada'
         }
-        
+
     except Exception as e:
         app_logger.log_error(e, {"context": "get_startup_sync_status"})
         return {
             'status': 'error',
             'job': None,
-            'message': f'Erro ao verificar status: {str(e)}'
+            'message': f'Erro ao verificar status: {e!s}'
         }

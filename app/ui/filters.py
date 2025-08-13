@@ -2,26 +2,27 @@ from __future__ import annotations
 
 import time
 from datetime import date
-from typing import List
 
 import streamlit as st
+
 from arkmeds_client.client import ArkmedsClient
 from arkmeds_client.models import ResponsavelTecnico
+
 from .utils import run_async_safe
 
 
 @st.cache_data(ttl=86400)
-def _get_tipos(_client: ArkmedsClient) -> List[dict]:
+def _get_tipos(_client: ArkmedsClient) -> list[dict]:
     return run_async_safe(_client.list_tipos())
 
 
 @st.cache_data(ttl=86400)
-def _get_estados(_client: ArkmedsClient) -> List[dict]:
+def _get_estados(_client: ArkmedsClient) -> list[dict]:
     return run_async_safe(_client.list_estados())
 
 
 @st.cache_data(ttl=86400)
-def _get_users(_client: ArkmedsClient) -> List[ResponsavelTecnico]:
+def _get_users(_client: ArkmedsClient) -> list[ResponsavelTecnico]:
     return run_async_safe(_client.list_users(perfil="responsavel_tecnico"))
 
 
