@@ -25,6 +25,24 @@ from app.services.tech_metrics import compute_metrics, calculate_technician_kpis
 def main():
     """Função principal da página de técnicos usando nova arquitetura."""
     
+    # ========== CONTROLES NA SIDEBAR ==========
+    with st.sidebar:
+        st.markdown("---")
+        
+        # Badge do scheduler automático
+        from app.ui.components.scheduler_status import render_scheduler_badge
+        render_scheduler_badge()
+        
+        st.markdown("---")
+        
+        st.markdown("**🔄 Sincronização**")
+        from app.ui.components.refresh_controls import render_compact_refresh_button, render_sync_status
+        render_compact_refresh_button(['technicians', 'orders'])
+        
+        # Status dos dados
+        with st.expander("📊 Status"):
+            render_sync_status(['technicians', 'orders'], compact_mode=True)
+    
     # Usar novo sistema de layout
     layout = PageLayout(
         title="Análise de Técnicos", 

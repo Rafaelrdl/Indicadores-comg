@@ -18,10 +18,20 @@ st.set_page_config(page_title="Tela Principal", page_icon="🏠", layout="wide")
 def initialize_app():
     """Inicializa componentes da aplicação uma única vez."""
     try:
+        # Inicializar banco de dados
         init_database()
+        
+        # Inicializar scheduler automático
+        from app.core.scheduler import initialize_scheduler
+        scheduler = initialize_scheduler()
+        
+        if scheduler:
+            from app.core.logging import app_logger
+            app_logger.log_info("🕐 Sistema de agendamento automático iniciado")
+        
         return True
     except Exception as e:
-        st.error(f"Erro ao inicializar banco de dados: {e}")
+        st.error(f"Erro ao inicializar aplicação: {e}")
         return False
 
 # Initialize app components
@@ -29,6 +39,11 @@ if initialize_app():
     db_info = get_database_info()
     if db_info.get('database_exists'):
         st.success("✅ Banco de dados inicializado com sucesso")
+    
+    # Mostrar status do scheduler na página principal
+    from app.ui.components.scheduler_status import render_scheduler_status
+    with st.expander("🕐 Sistema de Agendamento Automático"):
+        render_scheduler_status(show_controls=True)
 
 # Initialize pages and global settings
 register_pages()
@@ -51,8 +66,12 @@ Este dashboard apresenta indicadores consolidados da plataforma Arkmeds para an�
 2. **Configure** os filtros específicos em cada página
 3. **Visualize** os KPIs e gráficos interativos
 4. **Analise** os dados detalhados nas tabelas
+5. **Mantenha** dados atualizados com sincronização automática
 
 ### 📊 Páginas disponíveis
 
 Use o menu lateral para navegar entre as diferentes análises disponíveis.
+
+**💡 Dica:** O sistema sincroniza dados automaticamente em intervalos regulares. 
+Você também pode usar os controles manuais de atualização em cada página.
 """)

@@ -79,6 +79,24 @@ class Settings(BaseSettings):
         default=10,
         description="Maximum concurrent API requests"
     )
+    
+    # Scheduler Settings
+    sync_interval_minutes: int = Field(
+        default=15,
+        description="Automatic sync interval in minutes"
+    )
+    scheduler_timezone: str = Field(
+        default="America/Sao_Paulo",
+        description="Timezone for scheduler operations"
+    )
+    max_scheduler_instances: int = Field(
+        default=1,
+        description="Maximum concurrent scheduler instances"
+    )
+    scheduler_coalesce: bool = Field(
+        default=True,
+        description="Combine missed scheduler runs"
+    )
     request_timeout: int = Field(
         default=30,
         description="Request timeout in seconds"

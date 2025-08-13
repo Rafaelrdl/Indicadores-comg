@@ -430,6 +430,13 @@ def main():
     # ========== CONTROLES DE SINCRONIZAÇÃO NA SIDEBAR ==========
     with st.sidebar:
         st.markdown("---")
+        
+        # Badge do scheduler automático
+        from app.ui.components.scheduler_status import render_scheduler_badge
+        render_scheduler_badge()
+        
+        st.markdown("---")
+        
         render_compact_refresh_button(['orders'])
         
         # Status rápido
