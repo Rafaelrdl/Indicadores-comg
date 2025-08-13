@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import pandas as pd
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, cast
@@ -11,6 +12,8 @@ import streamlit as st
 from app.arkmeds_client.auth import ArkmedsAuthError
 from app.arkmeds_client.client import ArkmedsClient
 from app.arkmeds_client.models import Chamado, OSEstado
+from app.services.repository import Repository
+from app.services.sync.delta import should_run_incremental_sync, run_incremental_sync
 
 from app.config.os_types import (
     AREA_ENG_CLIN,
@@ -142,6 +145,198 @@ async def fetch_orders(
     # Nota: O parâmetro tipo_id não é suportado pela API atual
     # A filtragem por tipo deve ser feita após receber os dados
     return await client.list_chamados(params)
+
+
+async def fetch_service_orders_with_cache(
+    client: ArkmedsClient, start_date: date, end_date: date, **filters: Any
+) -> ServiceOrderData:
+    """Fetch service orders data, using local database cache when available.
+
+    This function first checks if we have fresh data in the local database,
+    and only makes API calls if necessary. Now with smart incremental sync.
+
+    Args:
+        client: The Arkmeds API client instance
+        start_date: Start date for the query (inclusive)
+        end_date: End date for the query (inclusive)
+        **filters: Additional filters to apply to all queries
+
+    Returns:
+        Dictionary containing categorized lists of service orders
+
+    Raises:
+        DataFetchError: If there's an error fetching data
+        ValidationError: If input parameters are invalid
+    """
+    _validate_dates(start_date, end_date)
+    
+    # Check if we should run incremental sync
+    if should_run_incremental_sync('orders', max_age_hours=2):
+        try:
+            st.info("🔄 Executando sincronização incremental...")
+            sync_results = await run_incremental_sync(client, ['orders'], **filters)
+            
+            if sync_results.get('orders', 0) > 0:
+                st.success(f"📥 Sincronizados {sync_results['orders']:,} novos registros")
+            else:
+                st.info("✅ Dados já estão atualizados")
+        
+        except Exception as e:
+            st.warning(f"⚠️ Erro na sincronização incremental: {e}")
+            # Continue with fallback to API
+    
+    # Try to get data from local cache first
+    try:
+        # Get filters for database query
+        estados = filters.get('estado_ids', [])
+        
+        # Get all orders from database
+        df = Repository.get_orders(estados=estados)
+        
+        if len(df) > 0:
+            st.success(f"📦 Usando dados locais: {len(df):,} ordens carregadas do cache")
+            
+            # Convert DataFrame back to Chamado objects for compatibility
+            orders_data = _convert_df_to_service_orders(df, start_date, end_date, filters)
+            return orders_data
+    
+    except Exception as e:
+        st.warning(f"⚠️ Erro ao carregar cache local: {e}")
+        # Continue to API fetch
+    
+    # Fresh data not available, fetch from API
+    st.info("🔄 Buscando dados atualizados da API...")
+    
+    # Use the original API fetch function
+    orders_data = await fetch_service_orders(client, start_date, end_date, **filters)
+    
+    # Save all orders to database for future use
+    try:
+        all_orders = []
+        for order_list in orders_data.values():
+            if isinstance(order_list, list):
+                all_orders.extend(order_list)
+        
+        if all_orders:
+            # Convert Chamado objects to dict format for database
+            orders_dict = [order.model_dump() for order in all_orders]
+            saved_count = Repository.save_orders(orders_dict)
+            Repository.update_sync_state('orders', total_records=saved_count)
+            st.success(f"💾 Cache atualizado: {saved_count:,} ordens salvas localmente")
+    
+    except Exception as e:
+        st.warning(f"⚠️ Erro ao salvar cache: {e}")
+        # Continue with API data even if caching failed
+    
+    return orders_data
+
+
+def _convert_df_to_service_orders(df, start_date: date, end_date: date, filters: dict) -> ServiceOrderData:
+    """Convert DataFrame from database back to ServiceOrderData format.
+    
+    This function filters and categorizes the database orders to match
+    the expected return format of fetch_service_orders.
+    """
+    import json
+    from datetime import datetime
+    
+    # Convert DataFrame to Chamado objects
+    orders = []
+    for _, row in df.iterrows():
+        try:
+            # Parse ordem_servico JSON field
+            os_data = json.loads(row['ordem_servico']) if isinstance(row['ordem_servico'], str) else row['ordem_servico']
+            
+            # Create Chamado object
+            chamado_data = {
+                'id': row['id'],
+                'chamados': row['chamados'],
+                'data_criacao': row['data_criacao'],
+                'ordem_servico': os_data,
+                'responsavel_id': row['responsavel_id']
+            }
+            
+            # Add optional fields if they exist
+            if pd.notna(row.get('data_fechamento')):
+                chamado_data['data_fechamento'] = row['data_fechamento']
+            
+            order = Chamado.model_validate(chamado_data)
+            orders.append(order)
+        
+        except Exception as e:
+            # Skip invalid records
+            continue
+    
+    # Filter orders by date range
+    start_datetime = datetime.combine(start_date, datetime.min.time())
+    end_datetime = datetime.combine(end_date, datetime.max.time())
+    
+    date_filtered_orders = []
+    for order in orders:
+        try:
+            if order.data_criacao:
+                if isinstance(order.data_criacao, str):
+                    order_date = datetime.fromisoformat(order.data_criacao.replace('Z', '+00:00'))
+                else:
+                    order_date = order.data_criacao
+                
+                if start_datetime <= order_date <= end_datetime:
+                    date_filtered_orders.append(order)
+        except:
+            continue
+    
+    # Categorize orders based on type and area
+    categorized = {
+        "corrective_building": [],
+        "corrective_engineering": [],
+        "preventive_building": [],
+        "preventive_infra": [],
+        "active_search": [],
+        "open_orders": [],
+        "closed_orders": [],
+        "closed_in_period": []
+    }
+    
+    for order in orders:  # Use all orders for backlog calculations
+        try:
+            os = order.ordem_servico
+            if not os:
+                continue
+                
+            tipo_servico = os.get('tipo_servico')
+            area_id = os.get('area_id')  # Assuming area_id is in ordem_servico
+            estado = os.get('estado')
+            
+            # Categorize by type and area (for date-filtered orders)
+            if order in date_filtered_orders:
+                if tipo_servico == TIPO_CORRETIVA:
+                    if area_id == AREA_PREDIAL:
+                        categorized["corrective_building"].append(order)
+                    elif area_id == AREA_ENG_CLIN:
+                        categorized["corrective_engineering"].append(order)
+                elif tipo_servico == TIPO_PREVENTIVA:
+                    if area_id == AREA_PREDIAL:
+                        categorized["preventive_building"].append(order)
+                    elif area_id == AREA_ENG_CLIN:
+                        categorized["preventive_infra"].append(order)
+                elif tipo_servico == TIPO_BUSCA_ATIVA:
+                    categorized["active_search"].append(order)
+            
+            # Categorize by status (all orders for backlog)
+            if tipo_servico == TIPO_CORRETIVA:
+                if estado == OSEstado.ABERTA.value:
+                    categorized["open_orders"].append(order)
+                elif estado == OSEstado.FECHADA.value:
+                    categorized["closed_orders"].append(order)
+                    
+                    # Check if closed in period
+                    if order.data_fechamento and order in date_filtered_orders:
+                        categorized["closed_in_period"].append(order)
+        
+        except Exception:
+            continue
+    
+    return categorized
 
 
 async def fetch_service_orders(
@@ -345,8 +540,8 @@ async def _async_compute_metrics(
         OSMetricsError: If there's an error computing metrics
     """
     try:
-        # Fetch all required data
-        data = await fetch_service_orders(client, start_date, end_date, **filters)
+        # Fetch all required data using cache-enabled function
+        data = await fetch_service_orders_with_cache(client, start_date, end_date, **filters)
 
         # Calculate backlog (open orders - closed orders)
         # Ensure we don't go below zero in case of data inconsistencies

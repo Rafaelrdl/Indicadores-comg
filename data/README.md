@@ -4,8 +4,24 @@ Esta pasta contém arquivos de dados, configurações e recursos de investigaç�
 
 ## 📁 Conteúdo
 
-### 🔍 Investigações e Análises
+### �️ Banco de Dados Local
+- **`app.db`** - Banco SQLite com cache local dos dados da API (criado automaticamente)
+
+### �🔍 Investigações e Análises
 - **[equipments_api_investigation.json](./equipments_api_investigation.json)** - Dados de investigação da API de equipamentos
+
+## 📋 Estrutura do Banco SQLite
+
+### Tabelas:
+- **orders**: Cache das ordens de serviço/chamados
+- **equipments**: Cache dos equipamentos  
+- **technicians**: Cache dos responsáveis técnicos
+- **sync_state**: Estado de sincronização com a API
+
+### Performance:
+- Modo WAL para melhor concorrência
+- Índices otimizados para consultas frequentes
+- Limpeza automática de dados antigos
 
 ## 📋 Tipos de Dados
 

@@ -8,9 +8,27 @@ if str(ROOT) not in sys.path:
 import streamlit as st
 from arkmeds_client.client import ArkmedsClient
 from app.ui import register_pages  # noqa: E402
+from app.core.db import init_database, get_database_info  # noqa: E402
 
 # Configure the main page
 st.set_page_config(page_title="Tela Principal", page_icon="🏠", layout="wide")
+
+# Initialize database on first run
+@st.cache_resource
+def initialize_app():
+    """Inicializa componentes da aplicação uma única vez."""
+    try:
+        init_database()
+        return True
+    except Exception as e:
+        st.error(f"Erro ao inicializar banco de dados: {e}")
+        return False
+
+# Initialize app components
+if initialize_app():
+    db_info = get_database_info()
+    if db_info.get('database_exists'):
+        st.success("✅ Banco de dados inicializado com sucesso")
 
 # Initialize pages and global settings
 register_pages()
