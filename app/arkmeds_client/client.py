@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -124,14 +125,28 @@ class ArkmedsClient:
 
     async def list_os(self, **filters: Any) -> List[Chamado]:
         """
-        Lista ordens de serviço (agora usando endpoint de chamados).
+        Lista ordens de serviço (agora usando endpoint de chamados com paginação completa).
         
-        MIGRAÇÃO: Este método agora retorna dados de Chamado que 
-        contêm informações mais ricas incluindo dados da OS associada.
+        CORREÇÃO IMPLEMENTADA: Este método agora usa list_chamados que busca 
+        TODAS as páginas de resultados, não apenas os primeiros 25 registros.
+        
+        Args:
+            **filters: Parâmetros de filtro para a API (ex: data_criacao__gte).
+            
+        Returns:
+            Lista completa de todos os chamados encontrados.
         """
+        print(f"📋 list_os chamado com filtros: {filters}")
+        
         # Converter filtros antigos para o novo formato
         filters_dict = dict(filters) if filters else {}
-        return await self.list_chamados(filters_dict)
+        
+        # Usar o método corrigido com paginação completa
+        chamados = await self.list_chamados(filters_dict)
+        
+        print(f"✅ list_os retornando {len(chamados)} chamados")
+        
+        return chamados
 
     async def list_equipment(self, **filters: Any) -> List[Equipment]:
         """Lista todos os equipamentos extraindo-os das empresas.
@@ -216,14 +231,14 @@ class ArkmedsClient:
     
     async def list_chamados(self, filters: Optional[Dict[str, Any]] = None) -> List[Chamado]:
         """
-        Lista chamados da API /api/v5/chamado/.
+        Lista chamados da API /api/v5/chamado/ com paginação completa.
         
-        ⚡ AUDITORIA REALIZADA: 24/07/2025
+        ⚡ CORREÇÃO IMPLEMENTADA: Agora busca TODAS as páginas de resultados
         📡 Fonte: API /api/v5/chamado/
-        📊 Retorna lista de objetos Chamado com dados estruturados
+        📊 Retorna lista completa de objetos Chamado com dados estruturados
         
-        IMPORTANTE: Use page_size e page para controlar a quantidade de dados,
-        pois existem mais de 5.000 registros no total.
+        IMPORTANTE: Esta função agora implementa paginação completa para resolver
+        o problema dos KPIs mostrando apenas 25 registros.
         """
         if filters is None:
             filters = {}
@@ -231,63 +246,140 @@ class ArkmedsClient:
         # Extrair filtros locais que não são suportados pela API
         local_filter_estados = filters.pop("_local_filter_estados", None)
         
-        # Por padrão, incluir chamados arquivados
+        # Configurações para paginação completa
         filters.setdefault("arquivadas", "true")
-        # Limitar a 25 por página se não especificado
-        filters.setdefault("page_size", 25)
-        filters.setdefault("page", 1)
+        filters.setdefault("page_size", 100)  # Máximo permitido pela API
+        
+        all_results = []
+        page = 1
+        total_pages = 0
+        total_time = 0
+        
+        # Log inicial
+        print(f"🔍 Iniciando busca de chamados com paginação completa...")
+        print(f"📋 Filtros aplicados: {filters}")
+        print("-" * 60)
         
         try:
-            # Para chamados, vamos fazer uma única requisição da página especificada
-            # ao invés de buscar todas as páginas (que seriam 5.000+ registros)
-            params = filters.copy()
-            
             client = await self._get_client()
-            resp = await client.get("/api/v5/chamado/", params=params)
-            resp.raise_for_status()
             
-            data = resp.json()
-            results = data.get("results", [])
+            while True:
+                params = filters.copy()
+                params["page"] = page
+                
+                start_time = time.time()
+                
+                print(f"\n🔍 Buscando página {page}...")
+                resp = await client.get("/api/v5/chamado/", params=params)
+                resp.raise_for_status()
+                
+                elapsed = time.time() - start_time
+                total_time += elapsed
+                
+                data = resp.json()
+                results = data.get("results", [])
+                total_count = data.get("count", 0)
+                has_next = data.get("next") is not None
+                
+                print(f"✅ Página {page} recebida em {elapsed:.2f}s")
+                print(f"   - Registros nesta página: {len(results)}")
+                print(f"   - Total de registros na API: {total_count}")
+                print(f"   - Tem próxima página: {has_next}")
+                
+                if not results:
+                    print("❌ Página vazia, finalizando busca")
+                    break
+                
+                all_results.extend(results)
+                total_pages = page
+                
+                # Mostrar progresso
+                progress = (len(all_results) / total_count * 100) if total_count > 0 else 0
+                print(f"📊 Progresso: {len(all_results)}/{total_count} ({progress:.1f}%)")
+                
+                # Verificar se há próxima página
+                if has_next:
+                    page += 1
+                else:
+                    print("✅ Não há mais páginas, finalizando busca")
+                    break
             
+            # Resumo da busca
+            print("\n" + "=" * 60)
+            print("BUSCA FINALIZADA - RESUMO:")
+            print(f"✅ Total de páginas processadas: {total_pages}")
+            print(f"✅ Total de registros brutos obtidos: {len(all_results)}")
+            print(f"✅ Tempo total: {total_time:.2f}s")
+            print(f"✅ Tempo médio por página: {total_time/total_pages:.2f}s" if total_pages > 0 else "N/A")
+            print("=" * 60)
+            
+            # Converter para objetos Chamado
+            print(f"\n🔄 Convertendo {len(all_results)} registros para objetos Chamado...")
             chamados = []
-            for item in results:
+            conversion_errors = 0
+            sem_os_count = 0
+            sem_responsavel_count = 0
+            
+            for item in all_results:
                 try:
+                    # Verificar se tem ordem_servico antes de tentar converter
+                    if "ordem_servico" not in item or item["ordem_servico"] is None:
+                        sem_os_count += 1
+                        # Para incluir chamados sem OS, descomente a linha abaixo
+                        # chamados.append(Chamado.model_validate(item))
+                        continue
+                    
+                    # Verificar se tem responsável técnico
+                    if (item.get("responsavel_id") is None and 
+                        item.get("get_resp_tecnico", {}).get("has_resp_tecnico") is False):
+                        sem_responsavel_count += 1
+                    
                     chamado = Chamado.model_validate(item)
                     
                     # Aplicar filtro local de estados se especificado
-                    if local_filter_estados:
-                        # Verificar se o chamado tem uma OS com estado especificado
-                        if chamado.ordens_servico:
-                            # Verificar se alguma OS tem um estado nos filtros especificados
-                            estado_match = False
-                            for os in chamado.ordens_servico:
-                                if hasattr(os, 'estado') and os.estado:
-                                    if hasattr(os.estado, 'id') and os.estado.id in local_filter_estados:
-                                        estado_match = True
-                                        break
-                                    elif isinstance(os.estado, int) and os.estado in local_filter_estados:
-                                        estado_match = True
-                                        break
-                            
-                            # Se não encontrou match, pular este chamado
-                            if not estado_match:
-                                continue
-                        else:
-                            # Se não tem OS, pular
+                    if local_filter_estados and chamado.ordem_servico:
+                        # Verificar se a OS tem um estado nos filtros especificados
+                        estado_id = None
+                        if hasattr(chamado.ordem_servico.get('estado'), 'id'):
+                            estado_id = chamado.ordem_servico.get('estado').id
+                        elif isinstance(chamado.ordem_servico.get('estado'), int):
+                            estado_id = chamado.ordem_servico.get('estado')
+                        
+                        if estado_id is not None and estado_id not in local_filter_estados:
                             continue
                     
                     chamados.append(chamado)
                 except Exception as e:
-                    # Log do erro mas continuar processamento
-                    print(f"Erro ao processar chamado {item.get('id', 'unknown')}: {e}")
+                    conversion_errors += 1
+                    if conversion_errors <= 5:  # Mostrar apenas os primeiros 5 erros
+                        print(f"⚠️ Erro ao processar chamado {item.get('id', 'unknown')}: {e}")
                     continue
             
+            if conversion_errors > 5:
+                print(f"⚠️ ... e mais {conversion_errors - 5} erros de conversão")
+            
+            # Aplicar filtros locais se necessário
+            original_count = len(chamados)
+            if local_filter_estados:
+                print(f"\n🔍 Aplicando filtro local de estados: {local_filter_estados}")
+                print(f"📊 Filtro de estados: {original_count} chamados processados")
+            
+            print(f"\n✅ RESULTADO FINAL: {len(chamados)} chamados válidos retornados")
+            print(f"   - Registros brutos da API: {len(all_results)}")
+            print(f"   - Chamados sem ordem de serviço: {sem_os_count}")
+            print(f"   - Chamados sem responsável técnico: {sem_responsavel_count}")
+            print(f"   - Erros de conversão: {conversion_errors}")
+            print(f"   - Chamados válidos finais: {len(chamados)}")
+            
             return chamados
+            
         except httpx.HTTPStatusError as e:
+            print(f"❌ Erro HTTP: {e.response.status_code} - {e.response.text[:200]}")
             if e.response.status_code == 404:
                 return []
             raise
-        except (httpx.RequestError, ConnectionError, RuntimeError):
+        except (httpx.RequestError, ConnectionError, RuntimeError) as e:
+            print(f"❌ Erro de conexão: {str(e)}")
             return []
     
     async def list_responsaveis_tecnicos(self, filters: Optional[Dict[str, Any]] = None) -> List[ResponsavelTecnico]:

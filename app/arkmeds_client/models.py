@@ -243,10 +243,12 @@ class ResponsavelTecnico(ArkBase):
     ⚡ AUDITORIA REALIZADA: 24/07/2025
     📡 Fonte: Consulta à API /api/v5/chamado/ campo 'get_resp_tecnico'
     🔍 Estrutura real descoberta nos dados de chamados
+    
+    CORREÇÃO: Campos tornados flexíveis para lidar com dados incompletos
     """
-    id: str  # Vem como string na API (ex: "1", "6", "7")
-    nome: str
-    email: str
+    id: str | None = None  # Vem como string na API (ex: "1", "6", "7"), pode ser None
+    nome: str | None = None  # Pode estar vazio em casos raros
+    email: str | None = None  # Pode estar vazio em casos raros
     has_avatar: bool = False
     has_resp_tecnico: bool = True
     avatar: str | None = None  # Pode ser URL ou iniciais (ex: "Uc", "HP")
@@ -255,7 +257,7 @@ class ResponsavelTecnico(ArkBase):
     def id_int(self) -> int:
         """Retorna ID como inteiro."""
         try:
-            return int(self.id)
+            return int(self.id) if self.id else 0
         except (ValueError, TypeError):
             return 0
     
@@ -272,7 +274,7 @@ class ResponsavelTecnico(ArkBase):
                 email_part = email_part[1:]  # Remove underscore inicial
             return email_part
         
-        return f"Técnico {self.id}"
+        return f"Técnico {self.id}" if self.id else "Técnico sem ID"
     
     @property
     def avatar_display(self) -> str:
@@ -289,7 +291,7 @@ class ResponsavelTecnico(ArkBase):
                     return f"{words[0][0]}{words[-1][0]}".upper()
                 elif len(words) == 1:
                     return words[0][:2].upper()
-            return f"T{self.id}"
+            return f"T{self.id}" if self.id else "??"
     
     def __str__(self) -> str:
         """Representação string do responsável."""
@@ -479,29 +481,43 @@ class Chamado(ArkBase):
     📡 Fonte: Consulta à API /api/v5/chamado/
     📊 Total de registros: 5,049 chamados
     🔍 Estrutura completa com tempo, responsável e ordem de serviço
+    
+    CORREÇÃO: Campos opcionais para lidar com dados incompletos:
+    - ordem_servico: ~2% dos registros não possuem OS
+    - responsavel_id: ~0.25% dos registros não possuem responsável
+    - get_resp_tecnico: Alguns chamados têm has_resp_tecnico=False
     """
     id: int
     chamados: int  # Número sequencial do chamado
     chamado_arquivado: bool = False
-    responsavel_id: int
+    responsavel_id: int | None = None  # Pode ser None em casos raros
     
     # Arrays de tempo [descrição, status, número, valor_adicional]
     tempo: list = Field(default_factory=list)  # Status de execução
     tempo_fechamento: list = Field(default_factory=list)  # Status de fechamento
     
-    # Dados do responsável técnico
-    get_resp_tecnico: ResponsavelTecnico
+    # Dados do responsável técnico (OPCIONAL)
+    get_resp_tecnico: ResponsavelTecnico | None = None
     
-    # Dados da ordem de serviço associada
-    ordem_servico: dict  # Estrutura complexa com equipamento, solicitante, etc.
+    # Dados da ordem de serviço associada (OPCIONAL)
+    ordem_servico: dict | None = None  # Estrutura complexa com equipamento, solicitante, etc.
     
     @field_validator("get_resp_tecnico", mode="before")
     @classmethod
     def _parse_responsavel(cls, v: dict | ResponsavelTecnico | None) -> ResponsavelTecnico | None:
-        if v is None or isinstance(v, ResponsavelTecnico):
+        if v is None:
+            return None
+        if isinstance(v, ResponsavelTecnico):
             return v
         if isinstance(v, dict):
-            return ResponsavelTecnico.model_validate(v)
+            # Se o dict indica que não tem responsável técnico, retornar None
+            if v.get("has_resp_tecnico") is False:
+                return None
+            # Se tem os campos necessários, criar o objeto
+            if all(key in v for key in ["id", "nome", "email"]):
+                return ResponsavelTecnico.model_validate(v)
+            # Se não tem campos suficientes, retornar None
+            return None
         return None
     
     @property
@@ -531,7 +547,11 @@ class Chamado(ArkBase):
     @property
     def responsavel_nome(self) -> str:
         """Retorna nome do responsável técnico."""
-        return self.get_resp_tecnico.display_name if self.get_resp_tecnico else f"Responsável {self.responsavel_id}"
+        if self.get_resp_tecnico:
+            return self.get_resp_tecnico.display_name
+        if self.responsavel_id:
+            return f"Responsável {self.responsavel_id}"
+        return "Sem responsável"
     
     @property
     def numero_os(self) -> str:

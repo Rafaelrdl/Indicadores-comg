@@ -277,6 +277,20 @@ def main():
     )
     layout.render_header()
     
+    # Adicionar botão para limpar cache (debug) no topo da página
+    st.markdown("---")
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    with col4:
+        if st.button("🔄 Limpar Cache & Atualizar", 
+                    help="Remove dados em cache e força busca completa da API"):
+            # Limpar cache do Streamlit
+            st.cache_data.clear()
+            # Limpar cache de sessão se houver
+            if "_arkmeds_client" in st.session_state:
+                del st.session_state["_arkmeds_client"]
+            st.success("✅ Cache limpo! Recarregando dados...")
+            st.rerun()
+    
     with layout.main_content():
         # Mostrar filtros ativos
         show_os_active_filters(client)

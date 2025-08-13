@@ -1,89 +1,131 @@
 """Sistema de logging centralizado para a aplicação."""
 
-from __future__ import annotations
-
+import logging
 import time
+from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, cast
+from typing import Any, Callable, Dict, Optional
 
 import streamlit as st
 
-# Import do novo sistema estruturado
-from .structlog_system import (
-    struct_logger,
-    LogContext,
-    setup_logging
-)
-
 
 class AppLogger:
-    """Logger centralizado da aplicação - Compatibilidade com structlog."""
+    """Logger centralizado da aplicação."""
     
-    _instance: Optional[AppLogger] = None
+    _instance: Optional['AppLogger'] = None
+    _logger: Optional[logging.Logger] = None
     
-    def __new__(cls) -> AppLogger:
+    def __new__(cls) -> 'AppLogger':
         if cls._instance is None:
-            cls._instance = cast(AppLogger, super().__new__(cls))
+            cls._instance = super().__new__(cls)
         return cls._instance
     
-    def __init__(self) -> None:
-        # Usar o logger estruturado
-        self._logger = struct_logger
+    def __init__(self):
+        if self._logger is None:
+            self._setup_logging()
     
-    def log_performance(self, func_name: str, duration: float, **kwargs: Any) -> None:
-        """Log de performance de função."""
-        self._logger.log_performance(func_name, duration, **kwargs)
+    def _setup_logging(self) -> None:
+        """Configura o sistema de logging."""
+        self._logger = logging.getLogger("indicadores_comg")
+        self._logger.setLevel(logging.INFO)
         
-        # Opcional: mostrar no Streamlit se duração for alta
-        if duration > 5.0:  # Mais de 5 segundos
-            st.warning(f"⚠️ Operação lenta detectada: {func_name} ({duration:.1f}s)")
+        # Evita logs duplicados
+        if not self._logger.handlers:
+            # Handler para console
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.INFO)
+            
+            # Formatter
+            formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            )
+            console_handler.setFormatter(formatter)
+            
+            self._logger.addHandler(console_handler)
     
-    def log_error(self, error: Exception, context: Optional[Dict[str, Any]] = None) -> None:
+    def log_performance(self, func_name: str, duration: float, **kwargs) -> None:
+        """Log de performance de função."""
+        context = {
+            "function": func_name,
+            "duration_seconds": round(duration, 3),
+            "timestamp": datetime.now().isoformat(),
+            **kwargs
+        }
+        
+        self._logger.info(f"PERFORMANCE: {func_name} executed in {duration:.3f}s - {context}")
+        
+        # Opcional: mostrar no Streamlit se duração for alta - mas só no thread principal
+        try:
+            import streamlit as st
+            from streamlit.runtime.scriptrunner import get_script_run_ctx
+            
+            # Só mostrar warning se estivermos no contexto do Streamlit
+            if get_script_run_ctx() is not None and duration > 5.0:
+                st.warning(f"⚠️ Operação lenta detectada: {func_name} ({duration:.1f}s)")
+        except Exception:
+            # Ignore context errors - we're likely in a thread
+            pass
+    
+    def log_error(self, error: Exception, context: Dict[str, Any] = None) -> None:
         """Log de erros com contexto."""
-        self._logger.log_error(error, context or {})
+        context = context or {}
+        error_context = {
+            "error_type": type(error).__name__,
+            "error_message": str(error),
+            "timestamp": datetime.now().isoformat(),
+            **context
+        }
+        
+        self._logger.error(f"ERROR: {error_context}")
     
-    def log_info(self, message: str, **kwargs: Any) -> None:
+    def log_info(self, message: str, **kwargs) -> None:
         """Log de informações gerais."""
-        self._logger.log_info(message, **kwargs)
+        context = {
+            "timestamp": datetime.now().isoformat(),
+            **kwargs
+        }
+        
+        self._logger.info(f"INFO: {message} - {context}")
     
-    def log_cache_hit(self, func_name: str, cache_key: Optional[str] = None) -> None:
+    def log_cache_hit(self, func_name: str, cache_key: str = None) -> None:
         """Log de cache hit."""
-        self._logger.log_cache_hit(func_name, cache_key or "")
+        self._logger.info(f"CACHE HIT: {func_name} - key: {cache_key}")
     
-    def log_cache_miss(self, func_name: str, cache_key: Optional[str] = None) -> None:
+    def log_cache_miss(self, func_name: str, cache_key: str = None) -> None:
         """Log de cache miss."""
-        self._logger.log_cache_miss(func_name, cache_key or "")
+        self._logger.info(f"CACHE MISS: {func_name} - key: {cache_key}")
 
 
 def performance_monitor(func: Callable) -> Callable:
-    """Decorator para monitorar performance de funções."""
+    """Decorator para monitorar performance de funções - thread safe."""
     @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args, **kwargs):
+        logger = AppLogger()
         start_time = time.time()
-        request_id = LogContext.generate_request_id()
         
         try:
             result = func(*args, **kwargs)
             duration = time.time() - start_time
             
-            app_logger.log_performance(
-                func.__name__, 
-                duration,
-                request_id=request_id,
+            # Log da performance
+            logger.log_performance(
+                func_name=func.__name__,
+                duration=duration,
                 args_count=len(args),
-                has_kwargs=bool(kwargs)
+                kwargs_keys=list(kwargs.keys())
             )
             
             return result
             
         except Exception as e:
             duration = time.time() - start_time
-            app_logger.log_error(
-                e, 
-                {
+            logger.log_error(
+                error=e,
+                context={
                     "function": func.__name__,
-                    "duration": duration,
-                    "request_id": request_id
+                    "duration_before_error": duration,
+                    "args_count": len(args),
+                    "kwargs_keys": list(kwargs.keys())
                 }
             )
             raise
@@ -92,30 +134,42 @@ def performance_monitor(func: Callable) -> Callable:
 
 
 def log_cache_performance(func: Callable) -> Callable:
-    """Decorator para monitorar performance de cache."""
+    """Decorator para monitorar performance de cache - thread safe."""
     @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args, **kwargs):
+        logger = AppLogger()
+        func_name = func.__name__
+        
+        # Simular verificação de cache (Streamlit cache não expõe isso diretamente)
         start_time = time.time()
-        result = func(*args, **kwargs)
-        duration = time.time() - start_time
         
-        # Se executou muito rápido, provavelmente foi cache hit
-        if duration < 0.1:  # Menos de 100ms
-            logger.log_cache_hit(func_name)
-        else:
-            logger.log_cache_miss(func_name)
-            logger.log_performance(func_name, duration)
-        
-        return result
+        try:
+            result = func(*args, **kwargs)
+            duration = time.time() - start_time
+            
+            # Se executou muito rápido, provavelmente foi cache hit
+            if duration < 0.1:  # Menos de 100ms
+                logger.log_cache_hit(func_name)
+            else:
+                logger.log_cache_miss(func_name)
+                logger.log_performance(func_name, duration)
+            
+            return result
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.log_error(
+                error=e,
+                context={
+                    "function": func_name,
+                    "duration_before_error": duration,
+                    "cache_operation": True
+                }
+            )
+            raise
     
     return wrapper
 
 
-# Instância global do logger - compatibilidade
+# Instância global do logger
 app_logger = AppLogger()
-
-# Funções de inicialização
-def initialize_logging() -> None:
-    """Inicializa o sistema de logging estruturado."""
-    setup_logging()
-    app_logger.log_info("Logging system initialized", event="system_startup")
