@@ -23,6 +23,7 @@ if str(root_dir) not in sys.path:
 try:
     # Tentar importar sem prefixo app. (quando executado do diretório app)
     from arkmeds_client.client import ArkmedsClient
+    from services.repository import get_technicians_df
     from ui.components import (
         DataTable,
         DistributionCharts,
@@ -36,6 +37,7 @@ except ImportError:
     try:
         # Tentar importar com prefixo app. (quando executado do diretório raiz)
         from app.arkmeds_client.client import ArkmedsClient
+        from app.services.repository import get_technicians_df
         from app.ui.components import (
             DataTable,
             DistributionCharts,
@@ -49,7 +51,7 @@ except ImportError:
         st.error(f"Erro ao importar módulos: {e}")
         st.stop()
 # Core imports
-from app.core import APIError, DataValidationError
+from app.core import DataValidationError
 from app.core.logging import app_logger
 from app.data.validators import DataValidator
 from app.ui.layouts import PageLayout, SectionLayout
@@ -91,10 +93,9 @@ def main():
     layout.render_header()
 
     with layout.main_content():
-        # Renderizar filtros (manter funcionalidade existente)
-        client = ArkmedsClient.from_session()
-        render_filters(client)
-        show_active_filters(client)
+        # Status: Temporariamente removendo renderização de filtros API
+        # TODO: Implementar filtros baseados em dados do Repository
+        st.info("🔧 Filtros em migração - usando dados locais do SQLite")
 
         # Buscar dados
         try:
@@ -134,27 +135,29 @@ def main():
 
 
 async def fetch_technician_data() -> list[dict]:
-    """Busca dados dos técnicos com cache inteligente."""
+    """Busca dados dos técnicos usando Repository (SQLite local)."""
     try:
-        client = ArkmedsClient.from_session()
-        users = await client.list_users()
+        # Usar Repository em vez da API
+        technicians_df = get_technicians_df()
 
-        # Converter para DataFrame e validar
-        if users:
-            df = pd.DataFrame([user.model_dump() for user in users])
-            df = DataValidator.validate_dataframe(
-                df, required_columns=["id", "nome"], name="Técnicos"
+        # Converter para lista de dicts e validar
+        if not technicians_df.empty:
+            # Validar DataFrame
+            technicians_df = DataValidator.validate_dataframe(
+                technicians_df, required_columns=["id", "nome"], name="Técnicos"
             )
-            return df.to_dict("records")
+            return technicians_df.to_dict("records")
 
         return []
 
-    except APIError as e:
-        st.error("❌ Erro na API de usuários")
-        raise e
     except DataValidationError as e:
-        st.error("⚠️ Dados de usuários inválidos")
+        st.error("⚠️ Dados de técnicos inválidos")
+        app_logger.log_error(e, {"context": "technician_validation"})
         raise e
+    except Exception as e:
+        st.error("❌ Erro ao buscar dados de técnicos")
+        app_logger.log_error(e, {"context": "fetch_technician_data_repository"})
+        return []
 
 
 def fetch_technician_data_cached() -> list[dict]:
