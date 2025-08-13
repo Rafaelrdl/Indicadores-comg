@@ -107,8 +107,14 @@ class SyncScheduler:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                 
+                # Criar cliente da API
+                from app.arkmeds_client.client import ArkmedsClient
+                from app.arkmeds_client.auth import ArkmedsAuth
+                auth = ArkmedsAuth()
+                client = ArkmedsClient(auth)
+                
                 # Executar sincronização
-                result = loop.run_until_complete(run_incremental_sync())
+                result = loop.run_until_complete(run_incremental_sync(client, ['orders']))
                 
                 self.last_run = datetime.now()
                 self.last_result = "sucesso" if result else "falha"

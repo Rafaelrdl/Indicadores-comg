@@ -238,9 +238,15 @@ def trigger_incremental_sync(status_info: Dict) -> None:
             if details['status'] == 'warning'
         ]
         
+        # Criar cliente da API
+        from app.arkmeds_client.client import ArkmedsClient
+        from app.arkmeds_client.auth import ArkmedsAuth
+        auth = ArkmedsAuth()
+        client = ArkmedsClient(auth)
+        
         # Executar sync incremental
-        for resource in warning_resources:
-            asyncio.run(run_incremental_sync(resource))
+        if warning_resources:
+            asyncio.run(run_incremental_sync(client, warning_resources))
         
         st.success("✅ Sincronização incremental concluída!")
         st.cache_data.clear()

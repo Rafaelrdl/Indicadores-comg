@@ -161,7 +161,7 @@ async def fetch_os_data_async(filters_dict: dict = None) -> Tuple:
         if orders_count == 0:
             st.warning("📭 Banco local vazio. Executando sincronização inicial...")
             from app.services.sync.ingest import BackfillSync
-            backfill = BackfillSync()
+            backfill = BackfillSync(client)
             await backfill.run_backfill(['orders'], batch_size=100)
             st.success("✅ Sincronização inicial concluída")
         
@@ -170,7 +170,7 @@ async def fetch_os_data_async(filters_dict: dict = None) -> Tuple:
         
         if should_run_incremental_sync('orders', max_age_hours=2):
             st.info("🔄 Executando sincronização incremental...")
-            await run_incremental_sync('orders')
+            await run_incremental_sync(client, ['orders'])
             st.success("✅ Dados sincronizados")
         
         # Buscar dados otimizados do SQLite

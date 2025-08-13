@@ -165,12 +165,18 @@ def _render_scheduler_controls(status: dict) -> None:
                     # Importar e executar sync
                     import asyncio
                     from app.services.sync.delta import run_incremental_sync
+                    from app.arkmeds_client.client import ArkmedsClient
+                    from app.arkmeds_client.auth import ArkmedsAuth
+                    
+                    # Criar autenticação e cliente da API
+                    auth = ArkmedsAuth()
+                    client = ArkmedsClient(auth)
                     
                     # Executar de forma assíncrona
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     
-                    result = loop.run_until_complete(run_incremental_sync())
+                    result = loop.run_until_complete(run_incremental_sync(client, ['orders']))
                     
                     if result:
                         st.success("✅ Sincronização executada com sucesso!")

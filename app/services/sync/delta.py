@@ -35,7 +35,7 @@ class IncrementalSync:
         Returns:
             int: Número de registros sincronizados
         """
-        logger.info("🔄 Iniciando sincronização incremental de ordens...")
+        logger.log_info("🔄 Iniciando sincronização incremental de ordens...")
         
         try:
             conn = get_conn()
@@ -49,28 +49,28 @@ class IncrementalSync:
             if last_sync and last_sync.get('last_updated_at'):
                 # Usar timestamp se disponível
                 delta_filters['updated_at__gt'] = last_sync['last_updated_at']
-                logger.info(f"📅 Buscando ordens atualizadas após {last_sync['last_updated_at']}")
+                logger.log_info(f"📅 Buscando ordens atualizadas após {last_sync['last_updated_at']}")
             
             elif last_sync and last_sync.get('last_id'):
                 # Fallback para ID se não há timestamp
                 delta_filters['id__gt'] = last_sync['last_id']
-                logger.info(f"🔢 Buscando ordens com ID > {last_sync['last_id']}")
+                logger.log_info(f"🔢 Buscando ordens com ID > {last_sync['last_id']}")
             
             else:
                 # Primeira sincronização - buscar apenas últimas 24h para não sobrecarregar
                 from datetime import timedelta
                 yesterday = datetime.now() - timedelta(days=1)
                 delta_filters['data_criacao__gte'] = yesterday.date()
-                logger.info("🆕 Primeira sincronização - buscando últimas 24h")
+                logger.log_info("🆕 Primeira sincronização - buscando últimas 24h")
             
             # Buscar dados incrementais
             new_orders = await self._fetch_incremental_data('chamados', delta_filters)
             
             if not new_orders:
-                logger.info("📋 Nenhuma ordem nova para sincronizar")
+                logger.log_info("📋 Nenhuma ordem nova para sincronizar")
                 return 0
             
-            logger.info(f"📋 Encontradas {len(new_orders):,} ordens para sincronizar")
+            logger.log_info(f"📋 Encontradas {len(new_orders):,} ordens para sincronizar")
             
             # Preparar progresso
             progress = ProgressTracker(len(new_orders), "Sincronizando ordens")
@@ -132,7 +132,7 @@ class IncrementalSync:
         Returns:
             int: Número de registros sincronizados
         """
-        logger.info("🔄 Iniciando sincronização incremental de equipamentos...")
+        logger.log_info("🔄 Iniciando sincronização incremental de equipamentos...")
         
         try:
             conn = get_conn()
@@ -143,23 +143,23 @@ class IncrementalSync:
             
             if last_sync and last_sync.get('last_updated_at'):
                 delta_filters['updated_at__gt'] = last_sync['last_updated_at']
-                logger.info(f"📅 Buscando equipamentos atualizados após {last_sync['last_updated_at']}")
+                logger.log_info(f"📅 Buscando equipamentos atualizados após {last_sync['last_updated_at']}")
             
             elif last_sync and last_sync.get('last_id'):
                 delta_filters['id__gt'] = last_sync['last_id']
-                logger.info(f"🔢 Buscando equipamentos com ID > {last_sync['last_id']}")
+                logger.log_info(f"🔢 Buscando equipamentos com ID > {last_sync['last_id']}")
             
             else:
-                logger.info("🆕 Primeira sincronização de equipamentos")
+                logger.log_info("🆕 Primeira sincronização de equipamentos")
             
             # Buscar dados incrementais
             new_equipments = await self._fetch_incremental_data('equipments', delta_filters)
             
             if not new_equipments:
-                logger.info("🔧 Nenhum equipamento novo para sincronizar")
+                logger.log_info("🔧 Nenhum equipamento novo para sincronizar")
                 return 0
             
-            logger.info(f"🔧 Encontrados {len(new_equipments):,} equipamentos para sincronizar")
+            logger.log_info(f"🔧 Encontrados {len(new_equipments):,} equipamentos para sincronizar")
             
             # Processar sincronização
             progress = ProgressTracker(len(new_equipments), "Sincronizando equipamentos")
@@ -217,7 +217,7 @@ class IncrementalSync:
         Returns:
             int: Número de registros sincronizados
         """
-        logger.info("🔄 Iniciando sincronização incremental de técnicos...")
+        logger.log_info("🔄 Iniciando sincronização incremental de técnicos...")
         
         try:
             conn = get_conn()
@@ -228,23 +228,23 @@ class IncrementalSync:
             
             if last_sync and last_sync.get('last_updated_at'):
                 delta_filters['updated_at__gt'] = last_sync['last_updated_at']
-                logger.info(f"📅 Buscando técnicos atualizados após {last_sync['last_updated_at']}")
+                logger.log_info(f"📅 Buscando técnicos atualizados após {last_sync['last_updated_at']}")
             
             elif last_sync and last_sync.get('last_id'):
                 delta_filters['id__gt'] = last_sync['last_id']
-                logger.info(f"🔢 Buscando técnicos com ID > {last_sync['last_id']}")
+                logger.log_info(f"🔢 Buscando técnicos com ID > {last_sync['last_id']}")
             
             else:
-                logger.info("🆕 Primeira sincronização de técnicos")
+                logger.log_info("🆕 Primeira sincronização de técnicos")
             
             # Buscar dados incrementais
             new_technicians = await self._fetch_incremental_data('technicians', delta_filters)
             
             if not new_technicians:
-                logger.info("👥 Nenhum técnico novo para sincronizar")
+                logger.log_info("👥 Nenhum técnico novo para sincronizar")
                 return 0
             
-            logger.info(f"👥 Encontrados {len(new_technicians):,} técnicos para sincronizar")
+            logger.log_info(f"👥 Encontrados {len(new_technicians):,} técnicos para sincronizar")
             
             # Processar sincronização
             progress = ProgressTracker(len(new_technicians), "Sincronizando técnicos")
@@ -302,7 +302,7 @@ class IncrementalSync:
         Returns:
             Dict com contadores por recurso
         """
-        logger.info("🚀 Iniciando sincronização incremental completa...")
+        logger.log_info("🚀 Iniciando sincronização incremental completa...")
         
         results = {}
         
@@ -317,7 +317,7 @@ class IncrementalSync:
             results['technicians'] = await self.sync_technicians_incremental(**filters)
             
             total = sum(results.values())
-            logger.info(f"🎉 Sincronização incremental completa! Total: {total:,} novos registros")
+            logger.log_info(f"🎉 Sincronização incremental completa! Total: {total:,} novos registros")
             
             return results
         
@@ -354,7 +354,7 @@ class IncrementalSync:
             
             fetch_method = method_map.get(resource_type)
             if not fetch_method:
-                logger.warning(f"⚠️ Método não encontrado para {resource_type}")
+                logger.log_warning(f"⚠️ Método não encontrado para {resource_type}")
                 return []
             
             # Buscar dados
@@ -402,7 +402,7 @@ async def run_incremental_sync(
             elif resource == 'technicians':
                 results[resource] = await sync.sync_technicians_incremental(**filters)
             else:
-                logger.warning(f"⚠️ Recurso desconhecido: {resource}")
+                logger.log_warning(f"⚠️ Recurso desconhecido: {resource}")
                 results[resource] = 0
             
             # Pausa entre recursos
@@ -435,7 +435,13 @@ def should_run_incremental_sync(resource: str, max_age_hours: int = 2) -> bool:
         
         # Verificar idade do último sync
         from datetime import datetime, timedelta
-        last_sync_time = datetime.fromisoformat(last_sync['synced_at'])
+        
+        # Garantir que synced_at é uma string válida
+        synced_at = last_sync.get('synced_at')
+        if not synced_at or not isinstance(synced_at, str):
+            return True  # Se não há timestamp válido, sincronizar
+            
+        last_sync_time = datetime.fromisoformat(synced_at)
         max_age = timedelta(hours=max_age_hours)
         
         return datetime.now() - last_sync_time > max_age

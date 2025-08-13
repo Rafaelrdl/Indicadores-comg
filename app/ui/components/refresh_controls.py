@@ -317,8 +317,14 @@ def run_incremental_sync_with_progress(
         
         # Executar sync do recurso
         try:
+            # Criar cliente da API
+            from app.arkmeds_client.client import ArkmedsClient
+            from app.arkmeds_client.auth import ArkmedsAuth
+            auth = ArkmedsAuth()
+            client = ArkmedsClient(auth)
+            
             # Como run_incremental_sync é async, precisamos executar de forma síncrona
-            result = asyncio.run(run_incremental_sync(resource))
+            result = asyncio.run(run_incremental_sync(client, [resource]))
             
             status_text.text(f"✅ {resource}: {result.get(resource, 0)} registros sincronizados")
             
@@ -443,8 +449,14 @@ def render_compact_refresh_button(resources: List[str] = None) -> None:
     if st.button("🔄 Atualizar", help="Sincronização rápida", use_container_width=True):
         with st.spinner("Sincronizando..."):
             try:
-                for resource in resources:
-                    asyncio.run(run_incremental_sync(resource))
+                # Criar cliente da API
+                from app.arkmeds_client.client import ArkmedsClient
+                from app.arkmeds_client.auth import ArkmedsAuth
+                auth = ArkmedsAuth()
+                client = ArkmedsClient(auth)
+                
+                # Executar sincronização para todos os recursos
+                asyncio.run(run_incremental_sync(client, resources))
                 st.success("✅ Atualizado!")
                 st.cache_data.clear()
             except Exception as e:

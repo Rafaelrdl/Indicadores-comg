@@ -38,7 +38,7 @@ class RateLimiter:
             self.current_delay * self.backoff_factor,
             self.max_delay
         )
-        app_logger.warning(f"Rate limit hit, increasing delay to {self.current_delay:.2f}s")
+        app_logger.log_warning(f"Rate limit hit, increasing delay to {self.current_delay:.2f}s")
 
 
 def upsert_records(

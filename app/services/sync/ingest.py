@@ -36,7 +36,7 @@ class BackfillSync:
         Returns:
             int: Número total de registros sincronizados
         """
-        logger.info("🔄 Iniciando backfill de ordens de serviço...")
+        logger.log_info("🔄 Iniciando backfill de ordens de serviço...")
         
         try:
             # Preparar filtros
@@ -50,7 +50,7 @@ class BackfillSync:
             all_orders = await self._fetch_all_paginated('chamados', api_filters)
             
             if not all_orders:
-                logger.info("📋 Nenhuma ordem encontrada para sincronizar")
+                logger.log_info("📋 Nenhuma ordem encontrada para sincronizar")
                 return 0
             
             # Preparar para upsert
@@ -104,14 +104,14 @@ class BackfillSync:
         Returns:
             int: Número total de registros sincronizados
         """
-        logger.info("🔄 Iniciando backfill de equipamentos...")
+        logger.log_info("🔄 Iniciando backfill de equipamentos...")
         
         try:
             # Buscar todos os equipamentos
             all_equipments = await self._fetch_all_paginated('equipments', filters)
             
             if not all_equipments:
-                logger.info("🔧 Nenhum equipamento encontrado para sincronizar")
+                logger.log_info("🔧 Nenhum equipamento encontrado para sincronizar")
                 return 0
             
             # Preparar para upsert
@@ -164,14 +164,14 @@ class BackfillSync:
         Returns:
             int: Número total de registros sincronizados
         """
-        logger.info("🔄 Iniciando backfill de técnicos...")
+        logger.log_info("🔄 Iniciando backfill de técnicos...")
         
         try:
             # Buscar todos os técnicos
             all_technicians = await self._fetch_all_paginated('technicians', filters)
             
             if not all_technicians:
-                logger.info("👥 Nenhum técnico encontrado para sincronizar")
+                logger.log_info("👥 Nenhum técnico encontrado para sincronizar")
                 return 0
             
             # Preparar para upsert
@@ -231,7 +231,7 @@ class BackfillSync:
         Returns:
             Dict com contadores por recurso
         """
-        logger.info("🚀 Iniciando backfill completo de todos os recursos...")
+        logger.log_info("🚀 Iniciando backfill completo de todos os recursos...")
         
         results = {}
         
@@ -246,7 +246,7 @@ class BackfillSync:
             results['technicians'] = await self.sync_technicians(**filters)
             
             total = sum(results.values())
-            logger.info(f"🎉 Backfill completo! Total: {total:,} registros sincronizados")
+            logger.log_info(f"🎉 Backfill completo! Total: {total:,} registros sincronizados")
             
             return results
         
@@ -282,7 +282,7 @@ class BackfillSync:
             
             fetch_method = method_map.get(resource_type)
             if not fetch_method:
-                logger.warning(f"⚠️ Método não encontrado para {resource_type}")
+                logger.log_warning(f"⚠️ Método não encontrado para {resource_type}")
                 return []
             
             # Para ordens, usar o método existente que já tem paginação
@@ -343,7 +343,7 @@ async def run_backfill(
             elif resource == 'technicians':
                 results[resource] = await sync.sync_technicians(**filters)
             else:
-                logger.warning(f"⚠️ Recurso desconhecido: {resource}")
+                logger.log_warning(f"⚠️ Recurso desconhecido: {resource}")
             
             # Pausa entre recursos
             await asyncio.sleep(1)
