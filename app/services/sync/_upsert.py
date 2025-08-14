@@ -2,12 +2,14 @@
 Módulo para operações de upsert idempotente e controle de rate limiting.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import sqlite3
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
 import streamlit as st
 
@@ -47,7 +49,7 @@ def upsert_records(
     conn: sqlite3.Connection,
     table: str,
     records: list[dict[str, Any]],
-    progress_callback: callable | None = None,
+    progress_callback: Callable | None = None,
 ) -> int:
     """
     Executa upsert idempotente de registros no banco.

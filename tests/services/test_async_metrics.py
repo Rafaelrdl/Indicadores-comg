@@ -122,7 +122,7 @@ class TestTechnicianMetrics:
         # Resultado deve ser um objeto TechnicianKPI
         assert hasattr(result, "technician_id")
         assert result.technician_id == 1
-        assert result.technician_name == "João"
+        assert result.name == "João"
 
 
 @pytest.mark.integration

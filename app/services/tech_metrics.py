@@ -166,24 +166,42 @@ async def calculate_technician_kpis(
 
     # Filter relevant orders
     def _estado_id(o: Any) -> int | None:
-        if o.estado:
-            if isinstance(o.estado, dict):
-                return o.estado.get("id")
-            return o.estado.id
+        # Handle both dict and object formats
+        if isinstance(o, dict):
+            estado = o.get("estado")
+        else:
+            estado = getattr(o, "estado", None)
+            
+        if estado:
+            if isinstance(estado, dict):
+                return estado.get("id")
+            return getattr(estado, "id", None)
         return None
+
+    def _get_date_field(o: Any, field: str) -> Any:
+        """Helper to get date fields from dict or object format."""
+        if isinstance(o, dict):
+            value = o.get(field)
+        else:
+            value = getattr(o, field, None)
+        
+        # Convert to date if it's datetime
+        if value and hasattr(value, 'date'):
+            return value.date()
+        return value
 
     open_orders = [
         o
         for o in orders
-        if _estado_id(o) != OSEstado.FECHADA.value and o.data_criacao.date() >= start_date
+        if _estado_id(o) != OSEstado.FECHADA.value and _get_date_field(o, "data_criacao") >= start_date
     ]
 
     completed_orders_list = [
         o
         for o in orders
         if _estado_id(o) == OSEstado.FECHADA.value
-        and o.data_fechamento
-        and start_date <= o.data_fechamento.date() <= end_date
+        and _get_date_field(o, "data_fechamento")
+        and start_date <= _get_date_field(o, "data_fechamento") <= end_date
     ]
 
     total_pending = len([o for o in orders if _estado_id(o) != OSEstado.FECHADA.value])
@@ -275,7 +293,7 @@ async def _async_compute_metrics(
         tech_name = responsavel.get("display_name") if isinstance(responsavel, dict) else getattr(responsavel, "display_name", f"Técnico {tech_id}")
         if not isinstance(tech_name, str):
             tech_name = f"Técnico {tech_id}"
-        kpi = calculate_technician_kpis(tech_id, tech_name, tech_orders, start_date, end_date)
+        kpi = await calculate_technician_kpis(tech_id, tech_name, tech_orders, start_date, end_date)
         results.append(kpi)
 
     # Sort by total pending orders (descending)
