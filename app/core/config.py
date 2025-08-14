@@ -81,23 +81,32 @@ class Settings(BaseSettings):
             # Extract from secrets if available
             secrets = getattr(st, "secrets", {})
             arkmeds_config = secrets.get("arkmeds", {})
-
-            return cls(
-                arkmeds_base_url=arkmeds_config.get("base_url", "https://comg.arkmeds.com"),
-                arkmeds_email=arkmeds_config.get("email"),
-                arkmeds_password=arkmeds_config.get("password"),
-                arkmeds_token=arkmeds_config.get("token"),
-                arkmeds_login_path=arkmeds_config.get("login_path", "/rest-auth/token-auth/"),
-            )
+            
+            # Se há configuração no secrets e tem valores não-nulos, use ela
+            if arkmeds_config and any(v for v in arkmeds_config.values() if v):
+                return cls(
+                    arkmeds_base_url=arkmeds_config.get("base_url", "https://comg.arkmeds.com"),
+                    arkmeds_email=arkmeds_config.get("email"),
+                    arkmeds_password=arkmeds_config.get("password"),
+                    arkmeds_token=arkmeds_config.get("token"),
+                    arkmeds_login_path=arkmeds_config.get("login_path", "/rest-auth/token-auth/"),
+                )
+            else:
+                # Se não há configuração no secrets, use instância normal que carregará .env
+                return cls()
+                
         except ImportError:
             # Fallback to environment variables
             return cls()
 
 
-# Global settings instance
-settings = Settings.from_streamlit_secrets()
+# Global settings instance - Lazy initialization
+_settings: Settings | None = None
 
 
 def get_settings() -> Settings:
     """Get the global settings instance."""
-    return settings
+    global _settings
+    if _settings is None:
+        _settings = Settings.from_streamlit_secrets()
+    return _settings

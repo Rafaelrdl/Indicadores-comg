@@ -12,12 +12,13 @@ from app.core.db import get_conn
 from app.core.logging import app_logger
 
 
-def create_job(kind: str) -> str:
+def create_job(kind: str, start_page: int = 1) -> str:
     """
     Cria um novo job de sincronização.
 
     Args:
         kind: Tipo do job ('delta' ou 'backfill')
+        start_page: Página inicial da sincronização
 
     Returns:
         str: ID único do job criado
@@ -30,14 +31,15 @@ def create_job(kind: str) -> str:
                 """
                 INSERT INTO sync_jobs(
                     job_id, kind, status, processed, total, percent,
+                    last_page_synced, current_page, total_pages,
                     started_at, updated_at
                 )
-                VALUES (?, ?, 'running', 0, NULL, NULL, datetime('now'), datetime('now'))
+                VALUES (?, ?, 'running', 0, NULL, NULL, 0, ?, NULL, datetime('now'), datetime('now'))
             """,
-                (job_id, kind),
+                (job_id, kind, start_page),
             )
 
-        app_logger.log_info(f"🆕 Job de sincronização criado: {job_id}")
+        app_logger.log_info(f"🆕 Job de sincronização criado: {job_id} (página inicial: {start_page})")
         return job_id
 
     except Exception as e:

@@ -2,7 +2,7 @@ import pathlib
 import sys
 
 
-ROOT = pathlib.Path(__file__).parent
+ROOT = pathlib.Path(__file__).parent.parent  # Diretório raiz do projeto
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 

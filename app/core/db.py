@@ -62,6 +62,9 @@ def _initialize_sync_jobs_schema(conn: sqlite3.Connection) -> None:
                 total INTEGER NULL,
                 processed INTEGER DEFAULT 0,
                 percent INTEGER DEFAULT 0,
+                last_page_synced INTEGER DEFAULT 0,
+                current_page INTEGER DEFAULT 1,
+                total_pages INTEGER NULL,
                 started_at TEXT NOT NULL,
                 finished_at TEXT NULL,
                 updated_at TEXT NOT NULL
@@ -72,6 +75,9 @@ def _initialize_sync_jobs_schema(conn: sqlite3.Connection) -> None:
             
             -- Índice para consultas por tipo e status
             CREATE INDEX IF NOT EXISTS idx_sync_jobs_kind_status ON sync_jobs(kind, status);
+            
+            -- Índice para consultas por última página sincronizada
+            CREATE INDEX IF NOT EXISTS idx_sync_jobs_last_page ON sync_jobs(kind, last_page_synced);
             
             -- Trigger para calcular porcentagem automaticamente
             CREATE TRIGGER IF NOT EXISTS trg_sync_jobs_percent
@@ -88,11 +94,45 @@ def _initialize_sync_jobs_schema(conn: sqlite3.Connection) -> None:
         """
         )
         conn.commit()
+        
+        # Aplicar migração para adicionar novos campos se necessário
+        _migrate_sync_jobs_schema(conn)
+        
     except Exception as e:
         print(f"Erro ao inicializar schema sync_jobs: {e}")
 
     # Configurar row factory para acessar colunas por nome
     conn.row_factory = sqlite3.Row
+
+
+def _migrate_sync_jobs_schema(conn: sqlite3.Connection) -> None:
+    """Migra o schema da tabela sync_jobs para incluir campos de página."""
+    try:
+        # Verificar se os novos campos existem
+        cursor = conn.execute("PRAGMA table_info(sync_jobs)")
+        columns = {row[1] for row in cursor.fetchall()}
+        
+        # Adicionar campos de página se não existirem
+        if "last_page_synced" not in columns:
+            conn.execute("ALTER TABLE sync_jobs ADD COLUMN last_page_synced INTEGER DEFAULT 0")
+            print("✅ Campo last_page_synced adicionado à tabela sync_jobs")
+            
+        if "current_page" not in columns:
+            conn.execute("ALTER TABLE sync_jobs ADD COLUMN current_page INTEGER DEFAULT 1")
+            print("✅ Campo current_page adicionado à tabela sync_jobs")
+            
+        if "total_pages" not in columns:
+            conn.execute("ALTER TABLE sync_jobs ADD COLUMN total_pages INTEGER NULL")
+            print("✅ Campo total_pages adicionado à tabela sync_jobs")
+            
+        # Recriar índice para última página se necessário
+        conn.execute("DROP INDEX IF EXISTS idx_sync_jobs_last_page")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sync_jobs_last_page ON sync_jobs(kind, last_page_synced)")
+        
+        conn.commit()
+        
+    except Exception as e:
+        print(f"Aviso: Erro durante migração do schema sync_jobs: {e}")
 
     return conn
 

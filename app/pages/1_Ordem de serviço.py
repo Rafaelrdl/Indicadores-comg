@@ -11,7 +11,6 @@ from app.core.logging import app_logger, performance_monitor
 from app.ui.components import DataTable, DistributionCharts, KPICard, Metric, MetricsDisplay
 from app.ui.components.refresh_controls import (
     render_compact_refresh_button,
-    render_refresh_controls,
 )
 from app.ui.layouts import PageLayout, SectionLayout
 from app.ui.os_filters import render_os_filters, show_os_active_filters
@@ -48,18 +47,24 @@ def compute_metrics_from_sqlite_data(service_orders: dict, dt_ini, dt_fim) -> di
         sla_pct = 0.0
         if fechadas:
             # Para SLA, usar função síncrona se disponível
-            sla_pct = calculate_sla_sync(fechadas)
+            try:
+                sla_pct = calculate_sla_sync(fechadas)
+            except Exception as sla_error:
+                st.warning(f"Erro ao calcular SLA: {sla_error}")
+                sla_pct = 0.0
 
-        # Criar objeto de métricas
+        # Calcular backlog (abertas - fechadas)
+        backlog = len(abertas) - len(fechadas)
+
+        # Criar objeto de métricas com os parâmetros corretos
         metrics = OSMetrics(
-            corretivas_predial=len(corretivas_predial),
-            corretivas_eng_clin=len(corretivas_eng),
-            preventivas_predial=len(preventivas_predial),
-            preventivas_infra=len(preventivas_infra),
-            busca_ativa=len(busca_ativa),
-            abertas=len(abertas),
-            fechadas=len(fechadas),
-            sla_pct=sla_pct,
+            corrective_building=len(corretivas_predial),
+            corrective_engineering=len(corretivas_eng),
+            preventive_building=len(preventivas_predial),
+            preventive_infra=len(preventivas_infra),
+            active_search=len(busca_ativa),
+            backlog=backlog,
+            sla_percentage=sla_pct,
         )
 
         # Retornar dados completos
@@ -71,8 +76,23 @@ def compute_metrics_from_sqlite_data(service_orders: dict, dt_ini, dt_fim) -> di
         }
 
     except Exception as e:
+        app_logger.log_error(e, {"context": "compute_metrics_from_sqlite_data"})
         st.error(f"❌ Erro ao calcular métricas: {e}")
-        return {}
+        # Retornar métricas vazias em caso de erro
+        return {
+            "metrics": OSMetrics(
+                corrective_building=0,
+                corrective_engineering=0,
+                preventive_building=0,
+                preventive_infra=0,
+                active_search=0,
+                backlog=0,
+                sla_percentage=0.0,
+            ),
+            "service_orders": {},
+            "dt_ini": dt_ini,
+            "dt_fim": dt_fim,
+        }
 
 
 def calculate_sla_sync(closed_orders: list) -> float:
@@ -157,20 +177,46 @@ async def fetch_os_data_async(filters_dict: dict = None) -> tuple:
         orders_count = stats.get("orders_count", 0)
 
         if orders_count == 0:
-            st.warning("📭 Banco local vazio. Executando sincronização inicial...")
-            from app.services.sync.ingest import BackfillSync
+            # Verificar se há credenciais antes de tentar sincronização inicial
+            try:
+                settings = get_settings()
+                has_credentials = (
+                    settings.arkmeds.username 
+                    and settings.arkmeds.password 
+                    and settings.arkmeds.base_url.strip() not in ["", "https://api.exemplo.com"]
+                )
+            except Exception:
+                has_credentials = False
+                
+            if has_credentials:
+                st.warning("📭 Banco local vazio. Executando sincronização inicial...")
+                from app.services.sync.ingest import BackfillSync
+                backfill = BackfillSync(client)
+                await backfill.run_backfill(["orders"], batch_size=100)
+                st.success("✅ Sincronização inicial concluída")
+            else:
+                st.warning("📭 Banco local vazio e sem credenciais configuradas. Configure as credenciais na página de Configurações para sincronizar dados.")
 
-            backfill = BackfillSync(client)
-            await backfill.run_backfill(["orders"], batch_size=100)
-            st.success("✅ Sincronização inicial concluída")
-
-        # Verificar frescor e sincronizar se necessário
+        # Verificar frescor e sincronizar se necessário - APENAS se tiver credenciais
         from app.services.sync.delta import run_incremental_sync, should_run_incremental_sync
 
-        if should_run_incremental_sync("orders", max_age_hours=2):
+        # Verificar se há credenciais antes de tentar sincronizar
+        try:
+            settings = get_settings()
+            has_credentials = (
+                settings.arkmeds.username 
+                and settings.arkmeds.password 
+                and settings.arkmeds.base_url.strip() not in ["", "https://api.exemplo.com"]
+            )
+        except Exception:
+            has_credentials = False
+
+        if has_credentials and should_run_incremental_sync("orders", max_age_hours=2):
             st.info("🔄 Executando sincronização incremental...")
             await run_incremental_sync(client, ["orders"])
             st.success("✅ Dados sincronizados")
+        elif not has_credentials:
+            st.info("⚠️ Credenciais não configuradas - usando apenas dados locais")
 
         # Buscar dados otimizados do SQLite
         df = get_orders_df(
@@ -195,9 +241,21 @@ async def fetch_os_data_async(filters_dict: dict = None) -> tuple:
         except Exception as e:
             # Fallback para conversão antiga se nova falhar
             st.warning(f"⚠️ Usando conversão fallback: {e}")
-            from app.services.os_metrics import _convert_df_to_service_orders
-
-            service_orders = _convert_df_to_service_orders(df, dt_ini, dt_fim, filters)
+            try:
+                from app.services.os_metrics import _convert_df_to_service_orders
+                service_orders = _convert_df_to_service_orders(df, dt_ini, dt_fim, filters)
+            except Exception as fallback_error:
+                st.error(f"❌ Erro também na conversão fallback: {fallback_error}")
+                # Retornar dados vazios mas válidos
+                service_orders = {
+                    "corrective_building": [],
+                    "corrective_engineering": [],
+                    "preventive_building": [],
+                    "preventive_infra": [],
+                    "active_search": [],
+                    "open_orders": [],
+                    "closed_orders": [],
+                }
 
         # Calcular métricas localmente (sem async necessário)
         metrics_data = compute_metrics_from_sqlite_data(service_orders, dt_ini, dt_fim)
@@ -205,12 +263,28 @@ async def fetch_os_data_async(filters_dict: dict = None) -> tuple:
         # Retornar dados no formato esperado
         # Extrair métricas e dados brutos do resultado
         metrics = metrics_data.get("metrics")
+        
+        # Verificar se as métricas foram calculadas corretamente
+        if metrics is None:
+            st.error("❌ Falha ao calcular métricas. Usando métricas vazias.")
+            from app.services.os_metrics import OSMetrics
+            metrics = OSMetrics(
+                corrective_building=0,
+                corrective_engineering=0,
+                preventive_building=0,
+                preventive_infra=0,
+                active_search=0,
+                backlog=0,
+                sla_percentage=0.0,
+            )
+        
         os_raw = []
 
         # Converter service_orders de volta para lista de objetos para compatibilidade
-        for category_orders in service_orders.values():
-            if isinstance(category_orders, list):
-                os_raw.extend(category_orders)
+        if isinstance(service_orders, dict):
+            for category_orders in service_orders.values():
+                if isinstance(category_orders, list):
+                    os_raw.extend(category_orders)
 
         return metrics, os_raw
 
@@ -427,25 +501,14 @@ def main():
     )
     layout.render_header()
 
-    # ========== CONTROLES PRINCIPAIS DE SINCRONIZAÇÃO ==========
-    st.markdown("### 🔄 Gerenciamento de Dados")
-
-    # Abas para organizar melhor
-    tab_dados, tab_filtros = st.tabs(["� Dados & Sincronização", "🎛️ Filtros Avançados"])
-
-    with tab_dados:
-        # Controles de refresh completos
-        render_refresh_controls(resources=["orders"], show_advanced=True, compact_mode=False)
-
-    with tab_filtros:
-        # Mostrar filtros ativos para transparência
-        show_os_active_filters(filters)
+    # ========== SEÇÃO DE FILTROS ==========
+    st.markdown("### 🎛️ Filtros de Ordem de Serviço")
+    
+    # Mostrar filtros ativos para transparência
+    show_os_active_filters(filters)
 
     st.markdown("---")
     with layout.main_content():
-        # Mostrar filtros ativos
-        show_os_active_filters(client)
-
         # Buscar dados com os filtros de OS
         try:
             result = fetch_os_data(filters)
