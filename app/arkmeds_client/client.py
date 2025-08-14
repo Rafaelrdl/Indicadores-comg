@@ -238,6 +238,25 @@ class ArkmedsClient:
         IMPORTANTE: Esta função agora implementa paginação completa para resolver
         o problema dos KPIs mostrando apenas 25 registros.
         """
+        return await self.list_chamados_from_page(filters, start_page=1)
+
+    async def list_chamados_from_page(
+        self, 
+        filters: dict[str, Any] | None = None, 
+        start_page: int = 1,
+        job_id: str | None = None
+    ) -> list[Chamado]:
+        """
+        Lista chamados da API /api/v5/chamado/ a partir de uma página específica.
+        
+        Args:
+            filters: Filtros para aplicar na busca
+            start_page: Página para iniciar a busca (padrão: 1)
+            job_id: ID do job para rastreamento de progresso (opcional)
+            
+        Returns:
+            Lista de objetos Chamado a partir da página especificada
+        """
         if filters is None:
             filters = {}
 
@@ -246,16 +265,18 @@ class ArkmedsClient:
 
         # Configurações para paginação completa
         filters.setdefault("arquivadas", "true")
-        filters.setdefault("page_size", 100)  # Máximo permitido pela API
+        filters.setdefault("page_size", 25)  # Usar 25 como API padrão
 
         all_results = []
-        page = 1
+        page = start_page
         total_pages = 0
         total_time = 0
 
         # Log inicial
-        print("🔍 Iniciando busca de chamados com paginação completa...")
+        print(f"🔍 Iniciando busca de chamados a partir da página {start_page}...")
         print(f"📋 Filtros aplicados: {filters}")
+        if job_id:
+            print(f"📝 Job ID: {job_id}")
         print("-" * 60)
 
         try:
@@ -295,12 +316,100 @@ class ArkmedsClient:
                 progress = (len(all_results) / total_count * 100) if total_count > 0 else 0
                 print(f"📊 Progresso: {len(all_results)}/{total_count} ({progress:.1f}%)")
 
+                # Atualizar progresso do job se fornecido
+                if job_id:
+                    from app.services.sync_jobs import update_job_page, update_job
+                    update_job_page(job_id, page, page - 1)  # Última página completa é page - 1
+                    update_job(job_id, len(all_results), total_count)
+
                 # Verificar se há próxima página
                 if has_next:
                     page += 1
                 else:
                     print("✅ Não há mais páginas, finalizando busca")
-                    break
+            # Resumo da busca
+            print("\n" + "=" * 60)
+            print("BUSCA FINALIZADA - RESUMO:")
+            print(f"✅ Total de páginas processadas: {total_pages}")
+            print(f"✅ Total de registros brutos obtidos: {len(all_results)}")
+            print(f"✅ Tempo total: {total_time:.2f}s")
+            print(
+                f"✅ Tempo médio por página: {total_time/total_pages:.2f}s"
+                if total_pages > 0
+                else "N/A"
+            )
+            print("=" * 60)
+
+            # Converter para objetos Chamado
+            print(f"\n🔄 Convertendo {len(all_results)} registros para objetos Chamado...")
+            chamados = []
+            conversion_errors = 0
+            sem_os_count = 0
+            sem_responsavel_count = 0
+
+            for item in all_results:
+                try:
+                    # Verificar se tem ordem_servico antes de tentar converter
+                    if "ordem_servico" not in item or item["ordem_servico"] is None:
+                        sem_os_count += 1
+                        # Para incluir chamados sem OS, descomente a linha abaixo
+                        # chamados.append(Chamado.model_validate(item))
+                        continue
+
+                    # Verificar se tem responsável técnico
+                    if (
+                        item.get("responsavel_id") is None
+                        and item.get("get_resp_tecnico", {}).get("has_resp_tecnico") is False
+                    ):
+                        sem_responsavel_count += 1
+
+                    chamado = Chamado.model_validate(item)
+
+                    # Aplicar filtro local de estados se especificado
+                    if local_filter_estados and chamado.ordem_servico:
+                        # Verificar se a OS tem um estado nos filtros especificados
+                        estado_id = None
+                        if hasattr(chamado.ordem_servico.get("estado"), "id"):
+                            estado_id = chamado.ordem_servico.get("estado").id
+                        elif isinstance(chamado.ordem_servico.get("estado"), int):
+                            estado_id = chamado.ordem_servico.get("estado")
+
+                        if estado_id is not None and estado_id not in local_filter_estados:
+                            continue
+
+                    chamados.append(chamado)
+                except Exception as e:
+                    conversion_errors += 1
+                    if conversion_errors <= 5:  # Mostrar apenas os primeiros 5 erros
+                        print(f"⚠️ Erro ao processar chamado {item.get('id', 'unknown')}: {e}")
+                    continue
+
+            if conversion_errors > 5:
+                print(f"⚠️ ... e mais {conversion_errors - 5} erros de conversão")
+
+            # Aplicar filtros locais se necessário
+            original_count = len(chamados)
+            if local_filter_estados:
+                print(f"\n🔍 Aplicando filtro local de estados: {local_filter_estados}")
+                print(f"📊 Filtro de estados: {original_count} chamados processados")
+
+            print(f"\n✅ RESULTADO FINAL: {len(chamados)} chamados válidos retornados")
+            print(f"   - Registros brutos da API: {len(all_results)}")
+            print(f"   - Chamados sem ordem de serviço: {sem_os_count}")
+            print(f"   - Chamados sem responsável técnico: {sem_responsavel_count}")
+            print(f"   - Erros de conversão: {conversion_errors}")
+            print(f"   - Chamados válidos finais: {len(chamados)}")
+
+            return chamados
+
+        except httpx.HTTPStatusError as e:
+            print(f"❌ Erro HTTP: {e.response.status_code} - {e.response.text[:200]}")
+            if e.response.status_code == 404:
+                return []
+            raise
+        except (httpx.RequestError, ConnectionError, RuntimeError) as e:
+            print(f"❌ Erro de conexão: {e!s}")
+            return []
 
             # Resumo da busca
             print("\n" + "=" * 60)

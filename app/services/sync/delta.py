@@ -462,10 +462,10 @@ async def run_delta_sync_with_progress(
     client: ArkmedsClient, resources: list[str] | None = None
 ) -> int:
     """
-    Executa sincronização incremental com rastreamento de progresso.
+    Executa sincronização incremental com rastreamento de progresso e páginas.
 
     Wrapper que cria job de progresso e instrumenta o processo de sync
-    para fornecer feedback visual em tempo real.
+    para fornecer feedback visual em tempo real, continuando de onde parou.
 
     Args:
         client: Cliente da API
@@ -474,12 +474,23 @@ async def run_delta_sync_with_progress(
     Returns:
         int: Número total de registros sincronizados
     """
+    from app.services.sync_jobs import get_last_synced_page
+    
     # Evitar jobs concorrentes
     if has_running_job("delta"):
         logger.log_info("🔄 Job delta já em execução, pulando...")
         return 0
 
-    job_id = create_job("delta")
+    # Determinar página inicial baseada na última sincronização
+    last_page = get_last_synced_page("delta")
+    start_page = max(1, last_page)  # Começar da última página para verificar se está completa
+    
+    if last_page > 0:
+        logger.log_info(f"� Continuando sincronização a partir da página {start_page}")
+    else:
+        logger.log_info("🆕 Iniciando primeira sincronização completa")
+
+    job_id = create_job("delta", start_page)
     total_synced = 0
 
     try:
@@ -488,19 +499,14 @@ async def run_delta_sync_with_progress(
 
         logger.log_info(f"🚀 Iniciando sincronização delta com progresso - Job: {job_id}")
 
-        # Estimativa inicial (será refinada durante o processo)
-        estimated_total = len(resources) * 100  # Estimativa conservadora
-        update_job(job_id, 0, estimated_total)
-
-        sync_manager = IncrementalSync(client)
-        processed_items = 0
+        sync_manager = IncrementalSyncWithPages(client)
 
         for i, resource in enumerate(resources):
             logger.log_info(f"📋 Sincronizando recurso {i+1}/{len(resources)}: {resource}")
 
             try:
                 if resource == "orders":
-                    count = await sync_manager.sync_orders_incremental()
+                    count = await sync_manager.sync_orders_from_page(start_page, job_id)
                 elif resource == "equipments":
                     count = await sync_manager.sync_equipments_incremental()
                 elif resource == "technicians":
@@ -510,15 +516,6 @@ async def run_delta_sync_with_progress(
                     count = 0
 
                 total_synced += count
-                processed_items += count
-
-                # Atualizar progresso (ajustar total se necessário)
-                if count > estimated_total // len(resources):
-                    # Se recebemos mais dados que esperado, ajustar total
-                    estimated_total = processed_items + ((len(resources) - i - 1) * count)
-
-                update_job(job_id, processed_items, estimated_total)
-
                 logger.log_info(f"✅ {resource}: {count:,} registros sincronizados")
 
             except Exception as e:
@@ -538,3 +535,89 @@ async def run_delta_sync_with_progress(
         finish_job(job_id, "error")
         logger.log_error(e, {"context": "run_delta_sync_with_progress", "job_id": job_id})
         raise
+
+
+class IncrementalSyncWithPages:
+    """Gerencia sincronização incremental baseada em páginas."""
+
+    def __init__(self, client: ArkmedsClient):
+        self.client = client
+        self.rate_limiter = RateLimiter()
+
+    async def sync_orders_from_page(self, start_page: int, job_id: str) -> int:
+        """
+        Sincroniza ordens a partir de uma página específica.
+
+        Args:
+            start_page: Página para iniciar sincronização
+            job_id: ID do job para rastreamento
+
+        Returns:
+            int: Número de registros sincronizados
+        """
+        logger.log_info(f"🔄 Iniciando sincronização de ordens a partir da página {start_page}...")
+
+        try:
+            conn = get_conn()
+
+            # Buscar dados a partir da página especificada
+            chamados = await self.client.list_chamados_from_page({}, start_page, job_id)
+
+            if not chamados:
+                logger.log_info("📋 Nenhuma ordem nova para sincronizar")
+                return 0
+
+            logger.log_info(f"📋 Encontradas {len(chamados):,} ordens para sincronizar")
+
+            # Preparar progresso
+            progress = ProgressTracker(len(chamados), "Sincronizando ordens")
+
+            def progress_callback(current, total):
+                progress.update(current, total)
+
+            # Converter para formato do banco
+            records = []
+            for order in chamados:
+                record = order.model_dump() if hasattr(order, "model_dump") else order
+                records.append(record)
+
+            # Fazer upsert
+            processed = upsert_records(conn, "orders", records, progress_callback)
+
+            # Atualizar estado de sync
+            if records:
+                # Encontrar último registro por timestamp ou ID
+                if any(r.get("updated_at") for r in records):
+                    last_record = max(
+                        (r for r in records if r.get("updated_at")), key=lambda r: r["updated_at"]
+                    )
+                    last_updated = last_record.get("updated_at")
+                    last_id = last_record.get("id")
+                else:
+                    last_record = max(records, key=lambda r: r.get("id", 0))
+                    last_updated = None
+                    last_id = last_record.get("id")
+
+                # Atualizar informações de sincronização
+                last_sync = get_last_sync_info(conn, "orders")
+                
+                # Somar com total anterior se houver
+                total_records = processed
+                if last_sync and last_sync.get("total_records"):
+                    total_records += last_sync["total_records"]
+
+                update_sync_state(
+                    conn,
+                    "orders",
+                    last_updated_at=last_updated,
+                    last_id=last_id,
+                    total_records=total_records,
+                    sync_type="incremental_pages",
+                )
+
+            progress.complete()
+            return processed
+
+        except Exception as e:
+            logger.log_error(f"❌ Erro durante sync incremental de ordens: {e}")
+            raise

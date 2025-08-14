@@ -12,6 +12,43 @@ from app.core.db import get_conn
 from app.core.logging import app_logger
 
 
+def get_last_synced_page(kind: str = "delta") -> int:
+    """
+    Obtém a última página sincronizada com sucesso.
+
+    Args:
+        kind: Tipo do job ('delta' ou 'backfill')
+
+    Returns:
+        int: Número da última página sincronizada (0 se nenhuma)
+    """
+    try:
+        with get_conn() as conn:
+            cursor = conn.execute(
+                """
+                SELECT last_page_synced
+                FROM sync_jobs
+                WHERE kind = ? AND status = 'success' AND last_page_synced IS NOT NULL
+                ORDER BY finished_at DESC, updated_at DESC, last_page_synced DESC
+                LIMIT 1
+            """,
+                (kind,),
+            )
+
+            row = cursor.fetchone()
+            if row and row[0] is not None:
+                last_page = row[0]
+                app_logger.log_info(f"📄 Última página sincronizada ({kind}): {last_page}")
+                return last_page
+            
+            app_logger.log_info(f"📄 Nenhuma página sincronizada anteriormente ({kind}), iniciando do zero")
+            return 0
+
+    except Exception as e:
+        app_logger.log_error(e, {"context": "get_last_synced_page", "kind": kind})
+        return 0
+
+
 def create_job(kind: str, start_page: int = 1) -> str:
     """
     Cria um novo job de sincronização.
@@ -83,6 +120,54 @@ def update_job(job_id: str, processed: int, total: int | None = None) -> None:
         app_logger.log_error(
             e, {"context": "update_job", "job_id": job_id, "processed": processed, "total": total}
         )
+
+
+def update_job_page(job_id: str, current_page: int, last_page_synced: int | None = None, total_pages: int | None = None) -> None:
+    """
+    Atualiza informações de página de um job.
+
+    Args:
+        job_id: ID do job
+        current_page: Página atual sendo processada
+        last_page_synced: Última página completamente sincronizada (opcional)
+        total_pages: Total de páginas estimado (opcional)
+    """
+    try:
+        with get_conn() as conn:
+            if last_page_synced is not None and total_pages is not None:
+                conn.execute(
+                    """
+                    UPDATE sync_jobs
+                    SET current_page = ?, last_page_synced = ?, total_pages = ?, updated_at = datetime('now')
+                    WHERE job_id = ? AND status = 'running'
+                """,
+                    (current_page, last_page_synced, total_pages, job_id),
+                )
+            elif last_page_synced is not None:
+                conn.execute(
+                    """
+                    UPDATE sync_jobs
+                    SET current_page = ?, last_page_synced = ?, updated_at = datetime('now')
+                    WHERE job_id = ? AND status = 'running'
+                """,
+                    (current_page, last_page_synced, job_id),
+                )
+            else:
+                conn.execute(
+                    """
+                    UPDATE sync_jobs
+                    SET current_page = ?, updated_at = datetime('now')
+                    WHERE job_id = ? AND status = 'running'
+                """,
+                    (current_page, job_id),
+                )
+
+        app_logger.log_info(f"📄 Job {job_id}: página atual = {current_page}" + 
+                          (f", última sincronizada = {last_page_synced}" if last_page_synced is not None else ""))
+
+    except Exception as e:
+        app_logger.log_error(e, {"context": "update_job_page", "job_id": job_id})
+        raise
 
 
 def finish_job(job_id: str, status: str) -> None:
@@ -309,3 +394,50 @@ def get_job_history(limit: int = 10) -> list[dict[str, Any]]:
     except Exception as e:
         app_logger.log_error(e, {"context": "get_job_history", "limit": limit})
         return []
+
+
+def get_job_status(job_id: str) -> dict:
+    """
+    Obtém o status detalhado de um job.
+
+    Args:
+        job_id: ID do job
+
+    Returns:
+        dict: Status do job com informações de progresso e páginas
+    """
+    try:
+        with get_conn() as conn:
+            cursor = conn.execute(
+                """
+                SELECT job_id, kind, status, processed, total, percent,
+                       last_page_synced, current_page, total_pages,
+                       started_at, updated_at, finished_at
+                FROM sync_jobs
+                WHERE job_id = ?
+                """,
+                (job_id,),
+            )
+            
+            row = cursor.fetchone()
+            if not row:
+                return None
+            
+            return {
+                "job_id": row[0],
+                "kind": row[1],
+                "status": row[2],
+                "processed": row[3],
+                "total": row[4],
+                "percent": row[5],
+                "last_page_synced": row[6],
+                "current_page": row[7],
+                "total_pages": row[8],
+                "started_at": row[9],
+                "updated_at": row[10],
+                "finished_at": row[11],
+            }
+
+    except Exception as e:
+        app_logger.log_error(e, {"context": "get_job_status", "job_id": job_id})
+        return None
