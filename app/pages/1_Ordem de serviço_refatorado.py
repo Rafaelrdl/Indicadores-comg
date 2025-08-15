@@ -28,28 +28,27 @@ def get_orders_with_correct_structure() -> pd.DataFrame:
     """
     Busca ordens do SQLite com estrutura corrigida.
     
-    CORREÇÃO CRÍTICA: data_criacao está em ordem_servico.data_criacao (formato brasileiro)
+    NOVA IMPLEMENTAÇÃO: Query SQL otimizada para extrair dados JSON corretamente
     """
     sql = """
         SELECT
             json_extract(payload, '$.id') as id,
             json_extract(payload, '$.chamados') as chamados,
-            json_extract(payload, '$.ordem_servico.data_criacao') as data_criacao,
-            json_extract(payload, '$.ordem_servico.data_fechamento') as data_fechamento,
+            json_extract(payload, '$.data_criacao') as data_criacao,
+            json_extract(payload, '$.data_fechamento') as data_fechamento,
             json_extract(payload, '$.ordem_servico.estado') as estado,
             json_extract(payload, '$.ordem_servico.numero') as numero,
-            json_extract(payload, '$.ordem_servico.tipo_servico') as tipo_id,
-            json_extract(payload, '$.ordem_servico.problema') as problema_id,
+            json_extract(payload, '$.ordem_servico.tipo_servico.id') as tipo_id,
+            json_extract(payload, '$.ordem_servico.tipo_servico.nome') as tipo_nome,
             json_extract(payload, '$.responsavel_id') as responsavel_id,
-            created_at,
             CASE 
-                WHEN json_extract(payload, '$.ordem_servico.data_fechamento') IS NOT NULL 
+                WHEN json_extract(payload, '$.data_fechamento') IS NOT NULL 
                 THEN 'FECHADA' 
                 ELSE 'ABERTA' 
             END as status
         FROM orders
         WHERE json_extract(payload, '$.id') IS NOT NULL
-        ORDER BY json_extract(payload, '$.ordem_servico.data_criacao') DESC
+        ORDER BY json_extract(payload, '$.data_criacao') DESC
     """
     
     try:
@@ -124,41 +123,20 @@ def calculate_kpis_from_dataframe(df: pd.DataFrame) -> dict:
 def apply_date_filters(df: pd.DataFrame, start_date: date, end_date: date) -> pd.DataFrame:
     """
     Aplica filtros de data no DataFrame.
-    
-    CORREÇÃO: data_criacao está no formato brasileiro "19/04/23 - 15:58"
     """
     if df.empty:
         return df
         
     try:
+        # Converter data_criacao para datetime para filtrar
         df_filtered = df.copy()
-        
-        # Converter data_criacao do formato brasileiro para datetime
-        def parse_brazilian_date(date_str):
-            """Converte data do formato '19/04/23 - 15:58' para datetime."""
-            if pd.isna(date_str) or date_str is None:
-                return None
-            try:
-                # Formato: "19/04/23 - 15:58"
-                date_part = str(date_str).split(' - ')[0]  # "19/04/23"
-                return pd.to_datetime(date_part, format='%d/%m/%y')
-            except:
-                try:
-                    # Tentar outros formatos possíveis
-                    return pd.to_datetime(date_str, errors='coerce')
-                except:
-                    return None
-        
-        # Aplicar conversão
-        df_filtered['data_criacao_dt'] = df_filtered['data_criacao'].apply(parse_brazilian_date)
+        df_filtered['data_criacao_dt'] = pd.to_datetime(df_filtered['data_criacao'], errors='coerce')
         
         # Aplicar filtros de data
         start_dt = pd.Timestamp(start_date)
         end_dt = pd.Timestamp(end_date) + pd.Timedelta(days=1)  # Incluir dia final
         
-        # Filtrar apenas registros com datas válidas no período
         df_filtered = df_filtered[
-            df_filtered['data_criacao_dt'].notna() &
             (df_filtered['data_criacao_dt'] >= start_dt) &
             (df_filtered['data_criacao_dt'] < end_dt)
         ]
@@ -166,13 +144,10 @@ def apply_date_filters(df: pd.DataFrame, start_date: date, end_date: date) -> pd
         # Remover coluna temporária
         df_filtered = df_filtered.drop('data_criacao_dt', axis=1)
         
-        app_logger.log_info(f"📅 Filtro de data aplicado: {len(df_filtered)} registros de {len(df)} no período {start_date} a {end_date}")
-        
         return df_filtered
         
     except Exception as e:
         st.warning(f"Erro ao aplicar filtros de data: {e}")
-        app_logger.log_error(e, {"context": "apply_date_filters"})
         return df
 
 
@@ -200,20 +175,20 @@ def render_filters() -> dict:
     """Renderiza filtros simplificados na sidebar."""
     st.sidebar.markdown("### 🎛️ Filtros")
     
-    # Filtros de data - período adequado para capturar dados de 2024
+    # Filtros de data
     today = date.today()
-    start_of_year = date(2024, 1, 1)  # Começar de 2024 baseado nos dados reais
+    start_of_month = today.replace(day=1)
     
     start_date = st.sidebar.date_input(
         "📅 Data inicial",
-        value=start_of_year,
-        help="Data inicial para filtrar ordens (baseado na data de criação da OS)"
+        value=start_of_month,
+        help="Data inicial para filtrar ordens"
     )
     
     end_date = st.sidebar.date_input(
         "📅 Data final", 
         value=today,
-        help="Data final para filtrar ordens (baseado na data de criação da OS)"
+        help="Data final para filtrar ordens"
     )
     
     return {
@@ -269,10 +244,9 @@ def render_orders_table(df: pd.DataFrame):
     # Preparar dados para tabela
     display_df = df.copy()
     
-    # Formatação da data brasileira (já vem formatada da API: "19/04/23 - 15:58")
+    # Formatação básica
     if 'data_criacao' in display_df.columns:
-        # Manter formato brasileiro original que já é legível
-        display_df['data_criacao'] = display_df['data_criacao'].fillna('Não informado')
+        display_df['data_criacao'] = pd.to_datetime(display_df['data_criacao']).dt.strftime('%d/%m/%Y %H:%M')
     
     if 'data_fechamento' in display_df.columns:
         display_df['data_fechamento'] = display_df['data_fechamento'].fillna('Em aberto')
@@ -287,7 +261,7 @@ def render_orders_table(df: pd.DataFrame):
     if len(display_df) > 10:
         table = table.add_filters(
             filterable_columns=["status", "estado"] if "status" in display_df.columns else [],
-            searchable_columns=["numero", "problema_id"] if "numero" in display_df.columns else []
+            searchable_columns=["numero", "tipo_nome"] if "numero" in display_df.columns else []
         )
     
     table.add_pagination(page_size=20).render()
