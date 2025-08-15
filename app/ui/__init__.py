@@ -6,8 +6,7 @@ from .css import inject_global_css
 
 
 def register_pages() -> None:
-    """Configure Streamlit and initialize session state."""
-    st.set_page_config(page_title="Dashboard Arkmeds", page_icon="🩺", layout="wide")
+    """Initialize session state and global CSS."""
     inject_global_css()
 
     if "filters" not in st.session_state:

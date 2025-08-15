@@ -1,12 +1,14 @@
 import pathlib
 import sys
+import streamlit as st
 
+# Configure the main page FIRST
+st.set_page_config(page_title="Dashboard Arkmeds", page_icon="🩺", layout="wide")
 
 ROOT = pathlib.Path(__file__).parent.parent  # Diretório raiz do projeto
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
 from app.core.db import get_database_info, init_database  # noqa: E402
@@ -14,9 +16,6 @@ from app.core.startup import ensure_startup_sync  # noqa: E402
 from app.services.sync_jobs import get_last_success_job, get_running_job  # noqa: E402
 from app.ui import register_pages  # noqa: E402
 
-
-# Configure the main page
-st.set_page_config(page_title="Tela Principal", page_icon="🏠", layout="wide")
 
 
 # Initialize database and startup sync
@@ -69,7 +68,7 @@ if initialize_app():
 
         # Atalho direto (se disponível)
         if st.button("🔧 Acessar Configurações", use_container_width=True):
-            st.switch_page("pages/Configuracoes.py")
+            st.switch_page("pages/10_Configuracoes.py")
 
 
 def _render_sync_status():

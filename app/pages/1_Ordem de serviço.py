@@ -1,7 +1,11 @@
 """Página de análise de ordens de serviço e KPIs de manutenção."""
 
-import pandas as pd
 import streamlit as st
+
+# Configure page
+st.set_page_config(page_title="Ordem de Serviço - Indicadores", page_icon="📋", layout="wide")
+
+import pandas as pd
 
 # New infrastructure imports
 from app.core import APIError, get_settings
@@ -462,8 +466,6 @@ def render_os_table(os_raw: list) -> None:
 
 def main():
     """Função principal da página de Ordem de Serviço."""
-    st.set_page_config(page_title="Ordem de Serviço - Indicadores", page_icon="📋", layout="wide")
-
     # Inicializar cliente
     try:
         client = ArkmedsClient.from_session()
