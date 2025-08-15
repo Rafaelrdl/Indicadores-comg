@@ -441,3 +441,32 @@ def get_job_status(job_id: str) -> dict:
     except Exception as e:
         app_logger.log_error(e, {"context": "get_job_status", "job_id": job_id})
         return None
+
+
+def clean_running_jobs() -> int:
+    """
+    Limpa jobs órfãos que ficaram em status 'running'.
+    
+    Returns:
+        int: Número de jobs limpos
+    """
+    try:
+        with get_conn() as conn:
+            # Marcar jobs órfãos como erro
+            cursor = conn.execute(
+                """
+                UPDATE sync_jobs 
+                SET status = 'error', finished_at = datetime('now')
+                WHERE status = 'running' AND updated_at < datetime('now', '-5 minutes')
+            """
+            )
+            
+            count = cursor.rowcount
+            if count > 0:
+                app_logger.log_info(f"🧹 Limpou {count} jobs órfãos")
+            
+            return count
+            
+    except Exception as e:
+        app_logger.log_error(e, {"context": "clean_running_jobs"})
+        return 0

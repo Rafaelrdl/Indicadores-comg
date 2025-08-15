@@ -319,7 +319,7 @@ class ArkmedsClient:
                 # Atualizar progresso do job se fornecido
                 if job_id:
                     from app.services.sync_jobs import update_job_page, update_job
-                    update_job_page(job_id, page, page - 1)  # Última página completa é page - 1
+                    # Atualiza apenas o progresso, não a página sincronizada (isso será feito após o processamento)
                     update_job(job_id, len(all_results), total_count)
 
                 # Verificar se há próxima página

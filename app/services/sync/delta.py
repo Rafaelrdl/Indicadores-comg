@@ -614,6 +614,12 @@ class IncrementalSyncWithPages:
                     total_records=total_records,
                     sync_type="incremental_pages",
                 )
+                
+                # Atualizar última página sincronizada no job
+                if job_id:
+                    from app.services.sync_jobs import update_job_page
+                    # A página atual foi processada com sucesso, então ela é a última página sincronizada
+                    update_job_page(job_id, start_page, start_page)
 
             progress.complete()
             return processed
